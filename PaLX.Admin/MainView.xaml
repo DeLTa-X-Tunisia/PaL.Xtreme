@@ -77,7 +77,7 @@
                         <TextBlock x:Name="UsernameText" Text="Username" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextBrush}"/>
                     </StackPanel>
                     
-                    <ComboBox x:Name="StatusCombo" SelectedIndex="0" BorderThickness="0" Background="White" Width="150" HorizontalAlignment="Left">
+                    <ComboBox x:Name="StatusCombo" SelectedIndex="0" BorderThickness="0" Background="White" BorderBrush="White" Width="150" HorizontalAlignment="Left">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
@@ -127,8 +127,22 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Settings -->
-                <Button Grid.Column="0" Style="{StaticResource IconButtonStyle}" ToolTip="Paramètres">
+                <Button Grid.Column="0" x:Name="SettingsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Paramètres" Click="SettingsButton_Click">
                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
+                    <Button.ContextMenu>
+                        <ContextMenu Placement="Top">
+                            <MenuItem Header="Mon Profil" Click="Profile_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                            <MenuItem Header="Paramètres" Click="Settings_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </Button.ContextMenu>
                 </Button>
 
                 <!-- Add Friend -->

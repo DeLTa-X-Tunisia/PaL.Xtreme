@@ -51,6 +51,25 @@ namespace PaLX.Admin
             loginWindow.Show();
             this.Close();
         }
+
+        private void SettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (SettingsButton.ContextMenu != null)
+            {
+                SettingsButton.ContextMenu.PlacementTarget = SettingsButton;
+                SettingsButton.ContextMenu.IsOpen = true;
+            }
+        }
+
+        private void Profile_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Mon Profil - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Settings_Click(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("Paramètres - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
     }
 
     public class UserStatus

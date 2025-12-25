@@ -84,6 +84,90 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build_client_menu",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Client/PaLX.Client.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_admin_menu",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Admin/PaLX.Admin.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_client_adjust",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Client/PaLX.Client.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_admin_adjust",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Admin/PaLX.Admin.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_client_combo",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Client/PaLX.Client.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_admin_combo",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Admin/PaLX.Admin.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }
