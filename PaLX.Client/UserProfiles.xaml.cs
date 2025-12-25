@@ -2,13 +2,22 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using Microsoft.Win32;
+using System.Windows.Media.Imaging;
+using System.Windows.Media;
+using System.IO;
+using System;
 
 namespace PaLX.Client
 {
     public partial class UserProfiles : Window
     {
+        public event Action? ProfileSaved;
+
         private string _username;
         private string _roleName;
+        private string? _avatarPath;
+        private bool _isEditMode;
         
         private List<string> _countries = new List<string>
         {
@@ -38,20 +47,114 @@ namespace PaLX.Client
             "Zambie", "Zimbabwe"
         };
 
-        public UserProfiles(string username, string roleName)
+        public UserProfiles(string username, string roleName, bool isEditMode = false)
         {
             InitializeComponent();
             _username = username;
             _roleName = roleName;
+            _isEditMode = isEditMode;
             CountryCombo.ItemsSource = _countries;
+            LoadUserData();
+        }
+
+        private void LoadUserData()
+        {
+            var dbService = new DatabaseService();
+            var profile = dbService.GetUserProfile(_username);
+            
+            if (profile != null)
+            {
+                FirstNameBox.Text = profile.FirstName;
+                LastNameBox.Text = profile.LastName;
+                EmailBox.Text = profile.Email;
+                PhoneBox.Text = profile.PhoneNumber;
+                CountryCombo.Text = profile.Country;
+                
+                // Set Gender
+                foreach (ComboBoxItem item in GenderCombo.Items)
+                {
+                    if (item.Content.ToString() == profile.Gender)
+                    {
+                        GenderCombo.SelectedItem = item;
+                        break;
+                    }
+                }
+
+                // Load Avatar
+                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                {
+                    _avatarPath = profile.AvatarPath;
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(_avatarPath);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                }
+            }
+        }
+
+        private void UploadAvatar_Click(object sender, RoutedEventArgs e)
+        {
+            TriggerAvatarUpload();
+        }
+
+        private void Avatar_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            TriggerAvatarUpload();
+        }
+
+        private void TriggerAvatarUpload()
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "Image files (*.jpg, *.jpeg, *.png)|*.jpg;*.jpeg;*.png";
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string sourcePath = openFileDialog.FileName;
+                    string appDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Avatars");
+                    if (!Directory.Exists(appDataPath))
+                    {
+                        Directory.CreateDirectory(appDataPath);
+                    }
+
+                    string fileName = $"{_username}_{DateTime.Now.Ticks}{Path.GetExtension(sourcePath)}";
+                    string destPath = Path.Combine(appDataPath, fileName);
+
+                    File.Copy(sourcePath, destPath, true);
+                    _avatarPath = destPath;
+
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(destPath);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+
+                    AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur lors du chargement de l'image : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)
         {
-            // Return to Login
-            var loginWindow = new MainWindow();
-            loginWindow.Show();
-            this.Close();
+            if (_isEditMode)
+            {
+                this.Close();
+            }
+            else
+            {
+                // Return to Login
+                var loginWindow = new MainWindow();
+                loginWindow.Show();
+                this.Close();
+            }
         }
 
         private void Done_Click(object sender, RoutedEventArgs e)
@@ -60,10 +163,18 @@ namespace PaLX.Client
             {
                 SaveProfile();
                 
-                // Proceed to MainView
-                var mainView = new MainView(_username, _roleName);
-                mainView.Show();
-                this.Close();
+                if (_isEditMode)
+                {
+                    ProfileSaved?.Invoke();
+                    this.Close();
+                }
+                else
+                {
+                    // Proceed to MainView
+                    var mainView = new MainView(_username, _roleName);
+                    mainView.Show();
+                    this.Close();
+                }
             }
         }
 
@@ -157,7 +268,7 @@ namespace PaLX.Client
                     gender,
                     country,
                     PhoneBox.Text,
-                    null // Avatar path placeholder
+                    _avatarPath
                 );
             }
             catch (System.Exception ex)

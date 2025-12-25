@@ -1,15 +1,23 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.IO;
+using System;
 
 namespace PaLX.Client
 {
     public partial class MainView : Window
     {
+        private string _username;
+        private string _role;
+
         public MainView(string username, string role)
         {
             InitializeComponent();
-            UsernameText.Text = username;
+            _username = username;
+            _role = role;
+            LoadUserProfile(username);
             
             // Initialize Statuses
             var statuses = new List<StatusItem>
@@ -36,6 +44,34 @@ namespace PaLX.Client
             FriendsList.ItemsSource = friends;
         }
 
+        private void LoadUserProfile(string username)
+        {
+            var dbService = new DatabaseService();
+            var profile = dbService.GetUserProfile(username);
+
+            if (profile != null)
+            {
+                // Display Name: LastName + FirstName
+                UsernameText.Text = $"{profile.LastName} {profile.FirstName}";
+
+                // Load Avatar
+                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(profile.AvatarPath);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                UsernameText.Text = username;
+            }
+        }
+
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
             var mainWindow = new MainWindow();
@@ -54,7 +90,9 @@ namespace PaLX.Client
 
         private void Profile_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Mon Profil - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            var userProfiles = new UserProfiles(_username, _role, true);
+            userProfiles.ProfileSaved += () => LoadUserProfile(_username);
+            userProfiles.Show();
         }
 
         private void Settings_Click(object sender, RoutedEventArgs e)

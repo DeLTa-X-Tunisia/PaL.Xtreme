@@ -6,6 +6,17 @@ using BCrypt.Net;
 
 namespace PaLX.Admin
 {
+    public class UserProfileData
+    {
+        public string FirstName { get; set; } = "";
+        public string LastName { get; set; } = "";
+        public string Email { get; set; } = "";
+        public string Gender { get; set; } = "";
+        public string Country { get; set; } = "";
+        public string? PhoneNumber { get; set; }
+        public string? AvatarPath { get; set; }
+    }
+
     public class DatabaseService
     {
         private const string Host = "localhost";
@@ -371,6 +382,81 @@ namespace PaLX.Admin
             catch (Exception ex)
             {
                 throw new Exception($"Erreur lors de la sauvegarde du profil : {ex.Message}");
+            }
+        }
+
+        public UserProfileData? GetUserProfile(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT p.""FirstName"", p.""LastName"", p.""Email"", p.""Gender"", p.""Country"", p.""PhoneNumber"", p.""AvatarPath""
+                        FROM ""UserProfiles"" p
+                        JOIN ""Users"" u ON p.""UserId"" = u.""Id""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                return new UserProfileData
+                                {
+                                    FirstName = reader.GetString(0),
+                                    LastName = reader.GetString(1),
+                                    Email = reader.GetString(2),
+                                    Gender = reader.GetString(3),
+                                    Country = reader.GetString(4),
+                                    PhoneNumber = reader.IsDBNull(5) ? null : reader.GetString(5),
+                                    AvatarPath = reader.IsDBNull(6) ? null : reader.GetString(6)
+                                };
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting profile: {ex.Message}");
+                return null;
+            }
+        }
+
+        public string? GetAvatarPath(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT p.""AvatarPath""
+                        FROM ""UserProfiles"" p
+                        JOIN ""Users"" u ON p.""UserId"" = u.""Id""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            return result.ToString();
+                        }
+                    }
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting avatar: {ex.Message}");
+                return null;
             }
         }
     }

@@ -25,11 +25,12 @@
 
             <!-- Header -->
             <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,20">
-                <Grid Width="80" Height="80">
-                    <Ellipse Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2" Fill="#ecf0f1"/>
-                    <TextBlock Text="🛡️" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Grid Width="80" Height="80" Cursor="Hand" MouseLeftButtonDown="Avatar_MouseLeftButtonDown" Background="Transparent">
+                    <Ellipse x:Name="AvatarEllipse" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2" Fill="#ecf0f1"/>
+                    <TextBlock x:Name="AvatarPlaceholder" Text="🛡️" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     <Button Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,0" 
-                            Background="{StaticResource PrimaryBrush}" BorderThickness="0" Cursor="Hand" ToolTip="Changer l'avatar">
+                            Background="{StaticResource PrimaryBrush}" BorderThickness="0" Cursor="Hand" ToolTip="Changer l'avatar"
+                            Click="UploadAvatar_Click">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border Background="{TemplateBinding Background}" CornerRadius="12">

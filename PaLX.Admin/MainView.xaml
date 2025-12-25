@@ -60,7 +60,7 @@
                 </Grid.ColumnDefinitions>
                 
                 <!-- Avatar -->
-                <Ellipse Width="60" Height="60" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2">
+                <Ellipse x:Name="UserAvatar" Width="60" Height="60" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2">
                     <Ellipse.Fill>
                         <SolidColorBrush Color="#ecf0f1"/>
                     </Ellipse.Fill>
@@ -68,7 +68,7 @@
                         <ToolTip Content="Votre Avatar"/>
                     </Ellipse.ToolTip>
                 </Ellipse>
-                <TextBlock Text="🛡️" FontSize="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" IsHitTestVisible="False"/>
+                <TextBlock x:Name="AvatarPlaceholder" Text="🛡️" FontSize="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" IsHitTestVisible="False"/>
 
                 <!-- Info -->
                 <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">

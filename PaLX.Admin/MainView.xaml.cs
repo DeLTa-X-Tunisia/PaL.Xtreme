@@ -1,6 +1,9 @@
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.IO;
+using System;
 
 namespace PaLX.Admin
 {
@@ -14,9 +17,37 @@ namespace PaLX.Admin
             InitializeComponent();
             CurrentUsername = username;
             CurrentRole = role;
-            UsernameText.Text = username;
 
             LoadDummyData();
+            LoadUserProfile(username);
+        }
+
+        private void LoadUserProfile(string username)
+        {
+            var dbService = new DatabaseService();
+            var profile = dbService.GetUserProfile(username);
+
+            if (profile != null)
+            {
+                // Display Name: LastName + FirstName
+                UsernameText.Text = $"{profile.LastName} {profile.FirstName}";
+
+                // Load Avatar
+                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(profile.AvatarPath);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                UsernameText.Text = username;
+            }
         }
 
         private void LoadDummyData()
@@ -63,7 +94,9 @@ namespace PaLX.Admin
 
         private void Profile_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Mon Profil - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            var userProfiles = new UserProfiles(CurrentUsername, CurrentRole, true);
+            userProfiles.ProfileSaved += () => LoadUserProfile(CurrentUsername);
+            userProfiles.Show();
         }
 
         private void Settings_Click(object sender, RoutedEventArgs e)
