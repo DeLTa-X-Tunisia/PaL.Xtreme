@@ -35,9 +35,19 @@ namespace PaLX.Client
             
             if (isValid)
             {
-                // Client App: Allows all roles (1-7)
-                var mainView = new MainView(UsernameBox.Text, roleName ?? "User");
-                mainView.Show();
+                // Check if profile is complete
+                if (dbService.IsProfileComplete(UsernameBox.Text))
+                {
+                    // Client App: Allows all roles (1-7)
+                    var mainView = new MainView(UsernameBox.Text, roleName ?? "User");
+                    mainView.Show();
+                }
+                else
+                {
+                    // Redirect to UserProfiles
+                    var userProfiles = new UserProfiles(UsernameBox.Text, roleName ?? "User");
+                    userProfiles.Show();
+                }
                 Window.GetWindow(this)?.Close();
             }
             else

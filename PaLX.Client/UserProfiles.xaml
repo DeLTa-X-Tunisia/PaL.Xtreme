@@ -1,0 +1,129 @@
+<Window x:Class="PaLX.Client.UserProfiles"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Compléter votre profil" Height="700" Width="400"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BackgroundBrush}"
+        ResizeMode="NoResize"
+        WindowStyle="None"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+    
+    <Border Background="White" CornerRadius="10" Margin="20" Padding="20" MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        <Border.Effect>
+            <DropShadowEffect Color="#bdc3c7" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header/Avatar -->
+                <RowDefinition Height="*"/>    <!-- Form -->
+                <RowDefinition Height="Auto"/> <!-- Footer/Buttons -->
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,20">
+                <Grid Width="80" Height="80">
+                    <Ellipse Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2" Fill="#ecf0f1"/>
+                    <TextBlock Text="👤" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Button Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,0" 
+                            Background="{StaticResource PrimaryBrush}" BorderThickness="0" Cursor="Hand" ToolTip="Changer l'avatar">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                                    <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets" Foreground="White" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+                <TextBlock Text="Complétez votre profil" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,10,0,0" HorizontalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- Form -->
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20">
+                <StackPanel>
+                    <!-- Nom -->
+                    <TextBlock Text="Nom *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBox x:Name="LastNameBox" Margin="0,0,0,15" Foreground="#007bff"/>
+
+                    <!-- Prénom -->
+                    <TextBlock Text="Prénom *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBox x:Name="FirstNameBox" Margin="0,0,0,15" Foreground="#007bff"/>
+
+                    <!-- Email -->
+                    <TextBlock Text="Email *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBox x:Name="EmailBox" Margin="0,0,0,15" Foreground="#007bff"/>
+
+                    <!-- Genre -->
+                    <TextBlock Text="Genre" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="GenderCombo" Margin="0,0,0,15" SelectedIndex="0" Foreground="#007bff">
+                        <ComboBoxItem Content="Homme"/>
+                        <ComboBoxItem Content="Femme"/>
+                        <ComboBoxItem Content="Autre"/>
+                    </ComboBox>
+
+                    <!-- Pays -->
+                    <TextBlock Text="Pays *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <ComboBox x:Name="CountryCombo" Margin="0,0,0,15" IsEditable="True" Foreground="#007bff"/>
+
+                    <!-- Téléphone -->
+                    <TextBlock Text="Téléphone" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <TextBox x:Name="PhoneBox" Tag="+216 27 77 40 75" Margin="0,0,0,5" Foreground="#007bff"/>
+                    <TextBlock Text="Format suggéré: +216 XX XX XX XX" FontSize="10" Foreground="#95a5a6"/>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- Footer -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Cancel Button -->
+                <Button Grid.Column="0" Click="Cancel_Click" Cursor="Hand" Background="Transparent" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Annuler" Margin="5,0,0,0" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Done Button -->
+                <Button Grid.Column="2" Click="Done_Click" Cursor="Hand" Background="Transparent" BorderThickness="0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="Terminé" Margin="0,0,5,0" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Validation Popup Overlay -->
+            <Grid x:Name="ValidationPopup" Grid.RowSpan="3" Visibility="Collapsed" Background="#7F000000">
+                <Border Background="White" CornerRadius="12" HorizontalAlignment="Center" VerticalAlignment="Center" Width="300" Padding="20">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.4"/>
+                    </Border.Effect>
+                    <StackPanel>
+                        <Grid Width="50" Height="50" Margin="0,0,0,15">
+                            <Ellipse Fill="#FFF8E1"/>
+                            <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#F39C12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <TextBlock Text="Profil Incomplet" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,10" Foreground="{StaticResource TextBrush}"/>
+                        <TextBlock x:Name="ValidationMessage" Text="Message here..." TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource LightTextBrush}" Margin="0,0,0,20"/>
+                        <Button Content="OK, je complète" Click="ClosePopup_Click" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" Padding="10,8" Cursor="Hand">
+                            <Button.Resources>
+                                <Style TargetType="Border">
+                                    <Setter Property="CornerRadius" Value="6"/>
+                                </Style>
+                            </Button.Resources>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

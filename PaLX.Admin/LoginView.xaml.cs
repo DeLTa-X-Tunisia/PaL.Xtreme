@@ -38,9 +38,17 @@ namespace PaLX.Admin
                 // Admin App: Allows roles 1-6
                 if (roleLevel >= 1 && roleLevel <= 6)
                 {
-                    // Close the parent window (MainWindow) and open MainView
-                    var mainView = new MainView(UsernameBox.Text, roleName ?? "Admin");
-                    mainView.Show();
+                    // Check if profile is complete
+                    if (dbService.IsProfileComplete(UsernameBox.Text))
+                    {
+                        var mainView = new MainView(UsernameBox.Text, roleName ?? "Admin");
+                        mainView.Show();
+                    }
+                    else
+                    {
+                        var userProfiles = new UserProfiles(UsernameBox.Text, roleName ?? "Admin");
+                        userProfiles.Show();
+                    }
                     Window.GetWindow(this)?.Close();
                 }
                 else

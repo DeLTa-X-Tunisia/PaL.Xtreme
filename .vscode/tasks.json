@@ -168,6 +168,62 @@
 				"$msCompile"
 			],
 			"group": "build"
+		},
+		{
+			"label": "build_client_profiles",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Client/PaLX.Client.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_admin_profiles",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Admin/PaLX.Admin.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_client_resize",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Client/PaLX.Client.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
+			"label": "build_admin_resize",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaLX.Admin/PaLX.Admin.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
 		}
 	]
 }

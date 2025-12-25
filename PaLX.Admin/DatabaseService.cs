@@ -99,6 +99,23 @@ namespace PaLX.Admin
                         );";
                     using (var cmd = new NpgsqlCommand(createUserRolesSql, conn)) cmd.ExecuteNonQuery();
 
+                    // Create UserProfiles Table
+                    var createUserProfilesSql = @"
+                        CREATE TABLE IF NOT EXISTS ""UserProfiles"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""UserId"" INT UNIQUE NOT NULL,
+                            ""FirstName"" TEXT,
+                            ""LastName"" TEXT,
+                            ""Email"" TEXT,
+                            ""Gender"" TEXT,
+                            ""Country"" TEXT,
+                            ""PhoneNumber"" TEXT,
+                            ""AvatarPath"" TEXT,
+                            ""IsComplete"" BOOLEAN DEFAULT FALSE,
+                            FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE
+                        );";
+                    using (var cmd = new NpgsqlCommand(createUserProfilesSql, conn)) cmd.ExecuteNonQuery();
+
                     SeedUsers(conn);
                 }
             }
@@ -273,6 +290,87 @@ namespace PaLX.Admin
             {
                 System.Windows.MessageBox.Show($"Erreur de connexion : {ex.Message}", "Erreur", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
                 return (false, 0, null);
+            }
+        }
+
+        public bool IsProfileComplete(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT p.""IsComplete""
+                        FROM ""UserProfiles"" p
+                        JOIN ""Users"" u ON p.""UserId"" = u.""Id""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            return (bool)result;
+                        }
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error checking profile: {ex.Message}");
+                return false;
+            }
+        }
+
+        public void SaveProfile(string username, string firstName, string lastName, string email, string gender, string country, string? phoneNumber, string? avatarPath)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    
+                    // Get UserId
+                    int userId;
+                    using (var cmd = new NpgsqlCommand("SELECT \"Id\" FROM \"Users\" WHERE \"Username\" = @u", conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        userId = (int)(cmd.ExecuteScalar() ?? throw new Exception("User not found"));
+                    }
+
+                    var sql = @"
+                        INSERT INTO ""UserProfiles"" (""UserId"", ""FirstName"", ""LastName"", ""Email"", ""Gender"", ""Country"", ""PhoneNumber"", ""AvatarPath"", ""IsComplete"")
+                        VALUES (@uid, @fn, @ln, @em, @gn, @co, @ph, @av, TRUE)
+                        ON CONFLICT (""UserId"") DO UPDATE SET
+                            ""FirstName"" = EXCLUDED.""FirstName"",
+                            ""LastName"" = EXCLUDED.""LastName"",
+                            ""Email"" = EXCLUDED.""Email"",
+                            ""Gender"" = EXCLUDED.""Gender"",
+                            ""Country"" = EXCLUDED.""Country"",
+                            ""PhoneNumber"" = EXCLUDED.""PhoneNumber"",
+                            ""AvatarPath"" = EXCLUDED.""AvatarPath"",
+                            ""IsComplete"" = TRUE;";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("uid", userId);
+                        cmd.Parameters.AddWithValue("fn", firstName);
+                        cmd.Parameters.AddWithValue("ln", lastName);
+                        cmd.Parameters.AddWithValue("em", email);
+                        cmd.Parameters.AddWithValue("gn", gender);
+                        cmd.Parameters.AddWithValue("co", country);
+                        cmd.Parameters.AddWithValue("ph", phoneNumber ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("av", avatarPath ?? (object)DBNull.Value);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Erreur lors de la sauvegarde du profil : {ex.Message}");
             }
         }
     }
