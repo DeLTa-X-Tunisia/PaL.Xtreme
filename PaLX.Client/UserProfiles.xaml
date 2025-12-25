@@ -40,7 +40,7 @@
                         </Button.Template>
                     </Button>
                 </Grid>
-                <TextBlock Text="Complétez votre profil" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,10,0,0" HorizontalAlignment="Center"/>
+                <TextBlock Text="Mon Profil" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,10,0,0" HorizontalAlignment="Center"/>
             </StackPanel>
 
             <!-- Form -->

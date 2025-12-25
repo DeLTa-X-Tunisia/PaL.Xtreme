@@ -73,7 +73,6 @@
                 <!-- Info -->
                 <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <Ellipse Width="12" Height="12" Fill="{Binding SelectedItem.ColorBrush, ElementName=StatusCombo}" Margin="0,0,8,0"/>
                         <TextBlock x:Name="UsernameText" Text="Username" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextBrush}"/>
                     </StackPanel>
                     
