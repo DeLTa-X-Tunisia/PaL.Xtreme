@@ -18,6 +18,7 @@ namespace PaLX.Admin
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
         private SoundPlayer? _onlineSound;
         private SoundPlayer? _offlineSound;
+        private SoundPlayer? _messageSound;
         private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
 
         public MainView(string username, string role)
@@ -34,9 +35,11 @@ namespace PaLX.Admin
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 _onlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "online.wav"));
                 _offlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "offline.wav"));
+                _messageSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "message.wav"));
                 // Preload
                 _onlineSound.LoadAsync();
                 _offlineSound.LoadAsync();
+                _messageSound.LoadAsync();
             }
             catch { /* Ignore sound errors */ }
 
@@ -65,6 +68,7 @@ namespace PaLX.Admin
                 if (!_openChatWindows.ContainsKey(sender))
                 {
                     OpenChatWindow(sender);
+                    _messageSound?.Play(); // Sound for new chat window
                 }
                 else
                 {
@@ -253,6 +257,18 @@ namespace PaLX.Admin
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
+            _dbService.EndSession(CurrentUsername);
+            
+            // Close all other windows (Chat, Profile, etc.)
+            var windows = new List<Window>(Application.Current.Windows.Cast<Window>());
+            foreach (var window in windows)
+            {
+                if (window != this)
+                {
+                    window.Close();
+                }
+            }
+
             var loginWindow = new MainWindow();
             loginWindow.Show();
             this.Close();

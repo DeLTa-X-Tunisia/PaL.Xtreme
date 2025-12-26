@@ -21,6 +21,7 @@ namespace PaLX.Client
         private DispatcherTimer _pollTimer;
         private int _lastMessageId = 0;
         private DateTime _lastTypingSent = DateTime.MinValue;
+        private System.Media.SoundPlayer? _messageSound;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
@@ -28,6 +29,15 @@ namespace PaLX.Client
             _currentUser = currentUser;
             _partnerUser = partnerUser;
             _dbService = new DatabaseService();
+
+            // Load Sound
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                _messageSound = new System.Media.SoundPlayer(System.IO.Path.Combine(baseDir, "Assets", "Sounds", "message.wav"));
+                _messageSound.LoadAsync();
+            }
+            catch { }
 
             // Load partner full name
             string fullName = _dbService.GetUserFullName(partnerUser);
@@ -202,9 +212,13 @@ namespace PaLX.Client
                 AppendMessageToUi(msg);
                 if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
             }
-            
+
             if (newMessages.Any())
             {
+                if (!this.IsActive)
+                {
+                    _messageSound?.Play(); // Sound for background message
+                }
                 _dbService.MarkMessagesAsRead(_partnerUser, _currentUser);
             }
 

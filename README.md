@@ -39,10 +39,14 @@ La solution se compose de deux projets principaux :
         *   Sélecteur de couleurs ergonomique (Popup s'ouvrant vers le haut) avec une palette moderne.
         *   Affichage des noms au format "Nom Prénom".
         *   **Message de Statut** : Affichage centralisé du statut du partenaire (ex: "L'utilisateur est En ligne") positionné après l'historique des messages.
+    *   **Notifications Sonores** :
+        *   Son de notification ("Tink") discret et moderne lors de la réception d'un message.
+        *   **Gestion Intelligente** : Le son se joue à l'ouverture automatique d'une fenêtre ou si la fenêtre est en arrière-plan, mais reste silencieux si l'utilisateur est actif sur la conversation.
 *   **Gestion des Sessions et Statuts** :
     *   **Suivi en Temps Réel** : Système de sessions (`UserSessions`) traquant l'IP, le nom de la machine et le statut de connexion.
     *   **Synchronisation** : Mise à jour automatique des statuts (En ligne, Absent, Occupé, etc.) dans la liste d'amis toutes les 5 secondes.
     *   **Gestion des Doublons** : Logique robuste pour éviter les doublons dans la liste d'amis lors des changements de statut.
+    *   **Déconnexion Sécurisée** : Fermeture automatique de toutes les fenêtres actives (Chat, Profils, etc.) lors de la déconnexion pour garantir une fin de session propre.
 *   **Gestion des Blocages** :
     *   **Blocage Hiérarchique** : Système de sécurité basé sur les rôles (Niveau 1 à 7). Un utilisateur ne peut pas bloquer un supérieur hiérarchique.
     *   **Types de Blocage** : Permanent, 7 jours, ou durée personnalisée.
