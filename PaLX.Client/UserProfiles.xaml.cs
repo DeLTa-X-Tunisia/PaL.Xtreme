@@ -69,6 +69,7 @@ namespace PaLX.Client
                 EmailBox.Text = profile.Email;
                 PhoneBox.Text = profile.PhoneNumber;
                 CountryCombo.Text = profile.Country;
+                DobPicker.SelectedDate = profile.DateOfBirth;
                 
                 // Set Gender
                 foreach (ComboBoxItem item in GenderCombo.Items)
@@ -226,6 +227,13 @@ namespace PaLX.Client
                 errorMessage += "- Pays\n";
             }
 
+            // Date of Birth Validation
+            if (DobPicker.SelectedDate == null)
+            {
+                isValid = false;
+                errorMessage += "- Date de naissance\n";
+            }
+
             if (!isValid)
             {
                 ValidationMessage.Text = errorMessage;
@@ -268,7 +276,8 @@ namespace PaLX.Client
                     gender,
                     country,
                     PhoneBox.Text,
-                    _avatarPath
+                    _avatarPath,
+                    DobPicker.SelectedDate
                 );
             }
             catch (System.Exception ex)

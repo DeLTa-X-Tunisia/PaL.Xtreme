@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.IO;
 using System;
+using System.Linq;
 
 namespace PaLX.Client
 {
@@ -11,13 +12,18 @@ namespace PaLX.Client
     {
         private string _username;
         private string _role;
+        private DatabaseService _dbService;
+        private AddFriendWindow? _addFriendWindow;
 
         public MainView(string username, string role)
         {
             InitializeComponent();
             _username = username;
             _role = role;
+            _dbService = new DatabaseService();
+
             LoadUserProfile(username);
+            LoadFriends();
             
             // Initialize Statuses
             var statuses = new List<StatusItem>
@@ -31,23 +37,25 @@ namespace PaLX.Client
             };
             StatusCombo.ItemsSource = statuses;
             StatusCombo.SelectedIndex = 0;
+        }
 
-            // Initialize Dummy Friends
-            var friends = new List<Friend>
+        private void LoadFriends()
+        {
+            var friends = _dbService.GetFriends(_username);
+            var friendViewModels = friends.Select(f => new Friend
             {
-                new Friend { Name = "Alice", StatusText = "En ligne", StatusColor = Brushes.Green },
-                new Friend { Name = "Bob", StatusText = "Occupé", StatusColor = Brushes.Red },
-                new Friend { Name = "Charlie", StatusText = "Absent", StatusColor = Brushes.Orange },
-                new Friend { Name = "David", StatusText = "Hors ligne", StatusColor = Brushes.Gray },
-                new Friend { Name = "Eve", StatusText = "En ligne", StatusColor = Brushes.Green }
-            };
-            FriendsList.ItemsSource = friends;
+                Name = f.DisplayName,
+                StatusText = "Hors ligne", // Default for now, real status needs real-time logic
+                StatusColor = Brushes.Gray,
+                AvatarPath = (!string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath)) ? f.AvatarPath : null
+            }).ToList();
+
+            FriendsList.ItemsSource = friendViewModels;
         }
 
         private void LoadUserProfile(string username)
         {
-            var dbService = new DatabaseService();
-            var profile = dbService.GetUserProfile(username);
+            var profile = _dbService.GetUserProfile(username);
 
             if (profile != null)
             {
@@ -74,6 +82,15 @@ namespace PaLX.Client
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
+            // Close all other windows
+            foreach (Window window in Application.Current.Windows)
+            {
+                if (window != this)
+                {
+                    window.Close();
+                }
+            }
+
             var mainWindow = new MainWindow();
             mainWindow.Show();
             this.Close();
@@ -99,6 +116,30 @@ namespace PaLX.Client
         {
             MessageBox.Show("Paramètres - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+        private void BlockedUsers_Click(object sender, RoutedEventArgs e)
+        {
+            var blockedWindow = new BlockedUsersWindow(_username);
+            blockedWindow.Show();
+        }
+
+        private void AddFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (_addFriendWindow == null || !_addFriendWindow.IsLoaded)
+            {
+                _addFriendWindow = new AddFriendWindow(_username);
+                _addFriendWindow.Closed += (s, args) => _addFriendWindow = null;
+                _addFriendWindow.Show();
+            }
+            else
+            {
+                if (_addFriendWindow.WindowState == WindowState.Minimized)
+                {
+                    _addFriendWindow.WindowState = WindowState.Normal;
+                }
+                _addFriendWindow.Activate();
+            }
+        }
     }
 
     public class StatusItem
@@ -112,5 +153,6 @@ namespace PaLX.Client
         public string Name { get; set; } = "";
         public string StatusText { get; set; } = "";
         public SolidColorBrush StatusColor { get; set; } = Brushes.Gray;
+        public string? AvatarPath { get; set; }
     }
 }

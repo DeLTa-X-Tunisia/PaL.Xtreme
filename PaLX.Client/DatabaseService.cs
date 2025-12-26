@@ -15,6 +15,42 @@ namespace PaLX.Client
         public string Country { get; set; } = "";
         public string? PhoneNumber { get; set; }
         public string? AvatarPath { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+    }
+
+    public class FriendInfo
+    {
+        public string Username { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string? AvatarPath { get; set; }
+        public string Gender { get; set; } = "";
+        public string Country { get; set; } = "";
+        public int Age { get; set; }
+        public string Status { get; set; } = "Hors ligne"; // For UI
+        public int FriendshipStatus { get; set; } // 0: Pending, 1: Accepted, 2: None (Search result)
+        public bool IsIncomingRequest { get; set; }
+    }
+
+    public class BlockedUserInfo
+    {
+        public string Username { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string? AvatarPath { get; set; }
+        public int Age { get; set; }
+        public int BlockType { get; set; } // 0: Permanent, 1: 7Days, 2: DateRange
+        public DateTime? EndDate { get; set; }
+        public string Reason { get; set; } = "";
+        
+        public string BlockPeriodDisplay
+        {
+            get
+            {
+                if (BlockType == 0) return "Permanent";
+                if (BlockType == 1) return "7 Jours";
+                if (BlockType == 2 && EndDate.HasValue) return $"Jusqu'au {EndDate.Value:dd/MM/yyyy}";
+                return "Inconnu";
+            }
+        }
     }
 
     public class DatabaseService
@@ -110,6 +146,20 @@ namespace PaLX.Client
                         );";
                     using (var cmd = new NpgsqlCommand(createUserRolesSql, conn)) cmd.ExecuteNonQuery();
 
+                    // Create Friendships Table
+                    var createFriendshipsSql = @"
+                        CREATE TABLE IF NOT EXISTS ""Friendships"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""RequesterId"" INT NOT NULL,
+                            ""ReceiverId"" INT NOT NULL,
+                            ""Status"" INT NOT NULL DEFAULT 0, -- 0: Pending, 1: Accepted, 2: Declined
+                            ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT NOW(),
+                            FOREIGN KEY (""RequesterId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            FOREIGN KEY (""ReceiverId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            UNIQUE(""RequesterId"", ""ReceiverId"")
+                        );";
+                    using (var cmd = new NpgsqlCommand(createFriendshipsSql, conn)) cmd.ExecuteNonQuery();
+
                     // Create UserProfiles Table
                     var createUserProfilesSql = @"
                         CREATE TABLE IF NOT EXISTS ""UserProfiles"" (
@@ -122,10 +172,37 @@ namespace PaLX.Client
                             ""Country"" TEXT,
                             ""PhoneNumber"" TEXT,
                             ""AvatarPath"" TEXT,
+                            ""DateOfBirth"" TIMESTAMP,
                             ""IsComplete"" BOOLEAN DEFAULT FALSE,
                             FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE
                         );";
                     using (var cmd = new NpgsqlCommand(createUserProfilesSql, conn)) cmd.ExecuteNonQuery();
+
+                    // Create BlockedUsers Table
+                    var createBlockedUsersSql = @"
+                        CREATE TABLE IF NOT EXISTS ""BlockedUsers"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""BlockerId"" INT NOT NULL,
+                            ""BlockedId"" INT NOT NULL,
+                            ""BlockType"" INT NOT NULL, -- 0: Permanent, 1: 7Days, 2: DateRange
+                            ""StartDate"" TIMESTAMP NOT NULL DEFAULT NOW(),
+                            ""EndDate"" TIMESTAMP,
+                            ""Reason"" TEXT,
+                            FOREIGN KEY (""BlockerId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            FOREIGN KEY (""BlockedId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            UNIQUE(""BlockerId"", ""BlockedId"")
+                        );";
+                    using (var cmd = new NpgsqlCommand(createBlockedUsersSql, conn)) cmd.ExecuteNonQuery();
+
+                    // Add DateOfBirth column if it doesn't exist (migration)
+                    var addDobSql = @"
+                        DO $$ 
+                        BEGIN 
+                            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'UserProfiles' AND column_name = 'DateOfBirth') THEN
+                                ALTER TABLE ""UserProfiles"" ADD COLUMN ""DateOfBirth"" TIMESTAMP;
+                            END IF;
+                        END $$;";
+                    using (var cmd = new NpgsqlCommand(addDobSql, conn)) cmd.ExecuteNonQuery();
 
                     SeedUsers(conn);
                 }
@@ -336,7 +413,7 @@ namespace PaLX.Client
             }
         }
 
-        public void SaveProfile(string username, string firstName, string lastName, string email, string gender, string country, string? phoneNumber, string? avatarPath)
+        public void SaveProfile(string username, string firstName, string lastName, string email, string gender, string country, string? phoneNumber, string? avatarPath, DateTime? dateOfBirth)
         {
             try
             {
@@ -353,8 +430,8 @@ namespace PaLX.Client
                     }
 
                     var sql = @"
-                        INSERT INTO ""UserProfiles"" (""UserId"", ""FirstName"", ""LastName"", ""Email"", ""Gender"", ""Country"", ""PhoneNumber"", ""AvatarPath"", ""IsComplete"")
-                        VALUES (@uid, @fn, @ln, @em, @gn, @co, @ph, @av, TRUE)
+                        INSERT INTO ""UserProfiles"" (""UserId"", ""FirstName"", ""LastName"", ""Email"", ""Gender"", ""Country"", ""PhoneNumber"", ""AvatarPath"", ""DateOfBirth"", ""IsComplete"")
+                        VALUES (@uid, @fn, @ln, @em, @gn, @co, @ph, @av, @dob, TRUE)
                         ON CONFLICT (""UserId"") DO UPDATE SET
                             ""FirstName"" = EXCLUDED.""FirstName"",
                             ""LastName"" = EXCLUDED.""LastName"",
@@ -363,6 +440,7 @@ namespace PaLX.Client
                             ""Country"" = EXCLUDED.""Country"",
                             ""PhoneNumber"" = EXCLUDED.""PhoneNumber"",
                             ""AvatarPath"" = EXCLUDED.""AvatarPath"",
+                            ""DateOfBirth"" = EXCLUDED.""DateOfBirth"",
                             ""IsComplete"" = TRUE;";
 
                     using (var cmd = new NpgsqlCommand(sql, conn))
@@ -375,6 +453,7 @@ namespace PaLX.Client
                         cmd.Parameters.AddWithValue("co", country);
                         cmd.Parameters.AddWithValue("ph", phoneNumber ?? (object)DBNull.Value);
                         cmd.Parameters.AddWithValue("av", avatarPath ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("dob", dateOfBirth ?? (object)DBNull.Value);
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -393,7 +472,7 @@ namespace PaLX.Client
                 {
                     conn.Open();
                     var sql = @"
-                        SELECT p.""FirstName"", p.""LastName"", p.""Email"", p.""Gender"", p.""Country"", p.""PhoneNumber"", p.""AvatarPath""
+                        SELECT p.""FirstName"", p.""LastName"", p.""Email"", p.""Gender"", p.""Country"", p.""PhoneNumber"", p.""AvatarPath"", p.""DateOfBirth""
                         FROM ""UserProfiles"" p
                         JOIN ""Users"" u ON p.""UserId"" = u.""Id""
                         WHERE u.""Username"" = @u";
@@ -413,7 +492,8 @@ namespace PaLX.Client
                                     Gender = reader.GetString(3),
                                     Country = reader.GetString(4),
                                     PhoneNumber = reader.IsDBNull(5) ? null : reader.GetString(5),
-                                    AvatarPath = reader.IsDBNull(6) ? null : reader.GetString(6)
+                                    AvatarPath = reader.IsDBNull(6) ? null : reader.GetString(6),
+                                    DateOfBirth = reader.IsDBNull(7) ? (DateTime?)null : reader.GetDateTime(7)
                                 };
                             }
                         }
@@ -458,6 +538,390 @@ namespace PaLX.Client
                 System.Diagnostics.Debug.WriteLine($"Error getting avatar: {ex.Message}");
                 return null;
             }
+        }
+
+        public List<FriendInfo> SearchUsers(string query, string currentUsername)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"",
+                               p.""Gender"", p.""Country"", p.""DateOfBirth"",
+                               f.""Status"", f.""RequesterId""
+                        FROM ""Users"" u
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        LEFT JOIN ""Friendships"" f ON 
+                            (f.""RequesterId"" = u.""Id"" AND f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu)) OR
+                            (f.""ReceiverId"" = u.""Id"" AND f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu))
+                        WHERE u.""Username"" != @cu
+                        AND (@q = '' OR LOWER(u.""Username"") LIKE LOWER(@q) OR LOWER(p.""Email"") LIKE LOWER(@q) OR LOWER(p.""FirstName"") LIKE LOWER(@q) OR LOWER(p.""LastName"") LIKE LOWER(@q))";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("cu", currentUsername);
+                        cmd.Parameters.AddWithValue("q", string.IsNullOrEmpty(query) ? "" : $"%{query}%");
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var username = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+                                var gender = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                                var country = reader.IsDBNull(5) ? "" : reader.GetString(5);
+                                var dob = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6);
+                                
+                                int age = 0;
+                                if (dob.HasValue)
+                                {
+                                    var today = DateTime.Today;
+                                    age = today.Year - dob.Value.Year;
+                                    if (dob.Value.Date > today.AddYears(-age)) age--;
+                                }
+
+                                int status = 2; // None
+                                if (!reader.IsDBNull(7))
+                                {
+                                    status = reader.GetInt32(7);
+                                }
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = username,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? username : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    Gender = gender,
+                                    Country = country,
+                                    Age = age,
+                                    FriendshipStatus = status
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
+        }
+
+        public void SendFriendRequest(string fromUsername, string toUsername)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""Friendships"" (""RequesterId"", ""ReceiverId"", ""Status"")
+                        VALUES (
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @fu),
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @tu),
+                            0
+                        ) ON CONFLICT DO NOTHING";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("fu", fromUsername);
+                        cmd.Parameters.AddWithValue("tu", toUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public List<FriendInfo> GetPendingRequests(string username)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", p.""Gender"", p.""DateOfBirth""
+                        FROM ""Friendships"" f
+                        JOIN ""Users"" u ON f.""RequesterId"" = u.""Id""
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND f.""Status"" = 0";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var uname = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+                                var gender = reader.IsDBNull(4) ? "" : reader.GetString(4);
+                                var dob = reader.IsDBNull(5) ? (DateTime?)null : reader.GetDateTime(5);
+
+                                int age = 0;
+                                if (dob.HasValue)
+                                {
+                                    var today = DateTime.Today;
+                                    age = today.Year - dob.Value.Year;
+                                    if (dob.Value.Date > today.AddYears(-age)) age--;
+                                }
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = uname,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    Gender = gender,
+                                    Age = age,
+                                    FriendshipStatus = 0,
+                                    IsIncomingRequest = true
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
+        }
+
+        public void RespondToFriendRequest(string currentUsername, string requesterUsername, int action)
+        {
+            // action: 1=Accept (One-way), 2=AcceptAndAdd (Two-way), 3=Decline
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    
+                    if (action == 3) // Decline
+                    {
+                        var sql = @"
+                            UPDATE ""Friendships""
+                            SET ""Status"" = 2
+                            WHERE ""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu)
+                            AND ""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @ru)";
+                        using (var cmd = new NpgsqlCommand(sql, conn))
+                        {
+                            cmd.Parameters.AddWithValue("cu", currentUsername);
+                            cmd.Parameters.AddWithValue("ru", requesterUsername);
+                            cmd.ExecuteNonQuery();
+                        }
+                    }
+                    else // Accept (1) or AcceptAndAdd (2)
+                    {
+                        // 1. Update the incoming request to Accepted (1)
+                        var sqlUpdate = @"
+                            UPDATE ""Friendships""
+                            SET ""Status"" = 1
+                            WHERE ""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu)
+                            AND ""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @ru)";
+                        using (var cmd = new NpgsqlCommand(sqlUpdate, conn))
+                        {
+                            cmd.Parameters.AddWithValue("cu", currentUsername);
+                            cmd.Parameters.AddWithValue("ru", requesterUsername);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        // 2. If AcceptAndAdd, insert reverse relationship
+                        if (action == 2)
+                        {
+                            var sqlInsert = @"
+                                INSERT INTO ""Friendships"" (""RequesterId"", ""ReceiverId"", ""Status"")
+                                VALUES (
+                                    (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu),
+                                    (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @ru),
+                                    1
+                                ) ON CONFLICT (""RequesterId"", ""ReceiverId"") DO UPDATE SET ""Status"" = 1";
+                            using (var cmd = new NpgsqlCommand(sqlInsert, conn))
+                            {
+                                cmd.Parameters.AddWithValue("cu", currentUsername);
+                                cmd.Parameters.AddWithValue("ru", requesterUsername);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public List<FriendInfo> GetFriends(string username)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    // Only get people I have added (Requester = Me, Status = 1)
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        FROM ""Friendships"" f
+                        JOIN ""Users"" u ON f.""ReceiverId"" = u.""Id""
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND f.""Status"" = 1";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var uname = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = uname,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    FriendshipStatus = 1,
+                                    Status = "En ligne"
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
+        }
+
+        public void BlockUser(string blockerUsername, string blockedUsername, int blockType, DateTime? endDate, string reason)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""BlockedUsers"" (""BlockerId"", ""BlockedId"", ""BlockType"", ""EndDate"", ""Reason"")
+                        VALUES (
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bu),
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bdu),
+                            @bt, @ed, @r
+                        ) ON CONFLICT (""BlockerId"", ""BlockedId"") DO UPDATE SET
+                            ""BlockType"" = EXCLUDED.""BlockType"",
+                            ""EndDate"" = EXCLUDED.""EndDate"",
+                            ""Reason"" = EXCLUDED.""Reason""";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("bu", blockerUsername);
+                        cmd.Parameters.AddWithValue("bdu", blockedUsername);
+                        cmd.Parameters.AddWithValue("bt", blockType);
+                        cmd.Parameters.AddWithValue("ed", endDate ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("r", reason ?? "");
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    // Also remove friendship if exists
+                    var sqlDelete = @"
+                        DELETE FROM ""Friendships""
+                        WHERE (""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bu) AND ""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bdu))
+                        OR (""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bu) AND ""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bdu))";
+                    using (var cmd = new NpgsqlCommand(sqlDelete, conn))
+                    {
+                        cmd.Parameters.AddWithValue("bu", blockerUsername);
+                        cmd.Parameters.AddWithValue("bdu", blockedUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public void UnblockUser(string blockerUsername, string blockedUsername)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        DELETE FROM ""BlockedUsers""
+                        WHERE ""BlockerId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bu)
+                        AND ""BlockedId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bdu)";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("bu", blockerUsername);
+                        cmd.Parameters.AddWithValue("bdu", blockedUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public List<BlockedUserInfo> GetBlockedUsers(string username)
+        {
+            var results = new List<BlockedUserInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", p.""DateOfBirth"",
+                               b.""BlockType"", b.""EndDate"", b.""Reason""
+                        FROM ""BlockedUsers"" b
+                        JOIN ""Users"" u ON b.""BlockedId"" = u.""Id""
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE b.""BlockerId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var uname = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+                                var dob = reader.IsDBNull(4) ? (DateTime?)null : reader.GetDateTime(4);
+                                var blockType = reader.GetInt32(5);
+                                var endDate = reader.IsDBNull(6) ? (DateTime?)null : reader.GetDateTime(6);
+                                var reason = reader.IsDBNull(7) ? "" : reader.GetString(7);
+
+                                int age = 0;
+                                if (dob.HasValue)
+                                {
+                                    var today = DateTime.Today;
+                                    age = today.Year - dob.Value.Year;
+                                    if (dob.Value.Date > today.AddYears(-age)) age--;
+                                }
+
+                                results.Add(new BlockedUserInfo
+                                {
+                                    Username = uname,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    Age = age,
+                                    BlockType = blockType,
+                                    EndDate = endDate,
+                                    Reason = reason
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
         }
     }
 }

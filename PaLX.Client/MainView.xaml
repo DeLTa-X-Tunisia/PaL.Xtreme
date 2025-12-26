@@ -100,7 +100,11 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            <Ellipse Width="40" Height="40" Margin="0,0,15,0" Fill="#ecf0f1"/>
+                            <Ellipse Width="40" Height="40" Margin="0,0,15,0" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1">
+                                <Ellipse.Fill>
+                                    <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
+                                </Ellipse.Fill>
+                            </Ellipse>
                             <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False"/>
                             
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -140,12 +144,17 @@
                                     <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
                                 </MenuItem.Icon>
                             </MenuItem>
+                            <MenuItem Header="Utilisateurs bloqués" Click="BlockedUsers_Click">
+                                <MenuItem.Icon>
+                                    <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                                </MenuItem.Icon>
+                            </MenuItem>
                         </ContextMenu>
                     </Button.ContextMenu>
                 </Button>
 
                 <!-- Add Friend -->
-                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami">
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
                     <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
                 </Button>
 

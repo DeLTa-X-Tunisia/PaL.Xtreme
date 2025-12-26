@@ -7,7 +7,7 @@
         Title="Compléter votre profil" Height="700" Width="400"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         WindowStyle="None"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
     
@@ -57,6 +57,10 @@
                     <!-- Email -->
                     <TextBlock Text="Email *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
                     <TextBox x:Name="EmailBox" Margin="0,0,0,15" Foreground="#007bff"/>
+
+                    <!-- Date de naissance -->
+                    <TextBlock Text="Date de naissance *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
+                    <DatePicker x:Name="DobPicker" Margin="0,0,0,15" Foreground="#007bff"/>
 
                     <!-- Genre -->
                     <TextBlock Text="Genre" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>

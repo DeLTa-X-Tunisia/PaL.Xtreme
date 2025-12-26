@@ -17,6 +17,16 @@ namespace PaLX.Admin
         public string? AvatarPath { get; set; }
     }
 
+    public class FriendInfo
+    {
+        public string Username { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string? AvatarPath { get; set; }
+        public string Status { get; set; } = "Hors ligne"; // For UI
+        public int FriendshipStatus { get; set; } // 0: Pending, 1: Accepted, 2: None (Search result)
+        public bool IsIncomingRequest { get; set; }
+    }
+
     public class DatabaseService
     {
         private const string Host = "localhost";
@@ -109,6 +119,20 @@ namespace PaLX.Admin
                             FOREIGN KEY (""RoleId"") REFERENCES ""Roles""(""Id"") ON DELETE CASCADE
                         );";
                     using (var cmd = new NpgsqlCommand(createUserRolesSql, conn)) cmd.ExecuteNonQuery();
+
+                    // Create Friendships Table
+                    var createFriendshipsSql = @"
+                        CREATE TABLE IF NOT EXISTS ""Friendships"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""RequesterId"" INT NOT NULL,
+                            ""ReceiverId"" INT NOT NULL,
+                            ""Status"" INT NOT NULL DEFAULT 0, -- 0: Pending, 1: Accepted, 2: Declined
+                            ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT NOW(),
+                            FOREIGN KEY (""RequesterId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            FOREIGN KEY (""ReceiverId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+                            UNIQUE(""RequesterId"", ""ReceiverId"")
+                        );";
+                    using (var cmd = new NpgsqlCommand(createFriendshipsSql, conn)) cmd.ExecuteNonQuery();
 
                     // Create UserProfiles Table
                     var createUserProfilesSql = @"
@@ -458,6 +482,202 @@ namespace PaLX.Admin
                 System.Diagnostics.Debug.WriteLine($"Error getting avatar: {ex.Message}");
                 return null;
             }
+        }
+
+        public List<FriendInfo> SearchUsers(string query, string currentUsername)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"",
+                               f.""Status"", f.""RequesterId""
+                        FROM ""Users"" u
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        LEFT JOIN ""Friendships"" f ON 
+                            (f.""RequesterId"" = u.""Id"" AND f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu)) OR
+                            (f.""ReceiverId"" = u.""Id"" AND f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu))
+                        WHERE u.""Username"" != @cu
+                        AND (LOWER(u.""Username"") LIKE LOWER(@q) OR LOWER(p.""Email"") LIKE LOWER(@q))";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("cu", currentUsername);
+                        cmd.Parameters.AddWithValue("q", $"%{query}%");
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var username = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+                                
+                                int status = 2; // None
+                                if (!reader.IsDBNull(4))
+                                {
+                                    status = reader.GetInt32(4);
+                                }
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = username,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? username : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    FriendshipStatus = status
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
+        }
+
+        public void SendFriendRequest(string fromUsername, string toUsername)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""Friendships"" (""RequesterId"", ""ReceiverId"", ""Status"")
+                        VALUES (
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @fu),
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @tu),
+                            0
+                        ) ON CONFLICT DO NOTHING";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("fu", fromUsername);
+                        cmd.Parameters.AddWithValue("tu", toUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public List<FriendInfo> GetPendingRequests(string username)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        FROM ""Friendships"" f
+                        JOIN ""Users"" u ON f.""RequesterId"" = u.""Id""
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND f.""Status"" = 0";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var uname = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = uname,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    FriendshipStatus = 0,
+                                    IsIncomingRequest = true
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
+        }
+
+        public void RespondToFriendRequest(string currentUsername, string requesterUsername, bool accept)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var status = accept ? 1 : 2; 
+                    var sql = @"
+                        UPDATE ""Friendships""
+                        SET ""Status"" = @s
+                        WHERE ""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @cu)
+                        AND ""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @ru)";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", status);
+                        cmd.Parameters.AddWithValue("cu", currentUsername);
+                        cmd.Parameters.AddWithValue("ru", requesterUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public List<FriendInfo> GetFriends(string username)
+        {
+            var results = new List<FriendInfo>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        FROM ""Friendships"" f
+                        JOIN ""Users"" u ON (f.""RequesterId"" = u.""Id"" OR f.""ReceiverId"" = u.""Id"")
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE (f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u) OR f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u))
+                        AND u.""Username"" != @u
+                        AND f.""Status"" = 1";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var uname = reader.GetString(0);
+                                var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
+                                var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+
+                                results.Add(new FriendInfo
+                                {
+                                    Username = uname,
+                                    DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
+                                    AvatarPath = avatarPath,
+                                    FriendshipStatus = 1,
+                                    Status = "En ligne"
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return results;
         }
     }
 }
