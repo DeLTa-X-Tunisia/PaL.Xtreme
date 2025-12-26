@@ -622,7 +622,7 @@ namespace PaLX.Admin
                             (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @fu),
                             (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @tu),
                             0
-                        ) ON CONFLICT DO NOTHING";
+                        ) ON CONFLICT (""RequesterId"", ""ReceiverId"") DO UPDATE SET ""Status"" = 0";
                     using (var cmd = new NpgsqlCommand(sql, conn))
                     {
                         cmd.Parameters.AddWithValue("fu", fromUsername);
@@ -760,13 +760,20 @@ namespace PaLX.Admin
                 using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
                 {
                     conn.Open();
-                    // Only get people I have added (Requester = Me, Status = 1)
+                    // Get all friends (both directions)
                     var sql = @"
                         SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
                         FROM ""Friendships"" f
                         JOIN ""Users"" u ON f.""ReceiverId"" = u.""Id""
                         LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                         WHERE f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND f.""Status"" = 1
+                        UNION
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        FROM ""Friendships"" f
+                        JOIN ""Users"" u ON f.""RequesterId"" = u.""Id""
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
                         AND f.""Status"" = 1";
 
                     using (var cmd = new NpgsqlCommand(sql, conn))
