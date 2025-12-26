@@ -33,10 +33,12 @@ La solution se compose de deux projets principaux :
     *   **Indicateurs Temps Réel** :
         *   Statut "En train d'écrire..." visible par le destinataire.
         *   Mise à jour instantanée du statut du partenaire (En ligne, Occupé, etc.) dans l'en-tête.
+        *   **Ouverture Automatique** : Les fenêtres de chat s'ouvrent automatiquement à la réception d'un message, aussi bien pour les Clients que pour les Admins.
     *   **Expérience Visuelle** :
         *   Bulles de messages aux couleurs modernes (Bleu Pastel `#E3F2FD` pour l'expéditeur).
         *   Sélecteur de couleurs ergonomique (Popup s'ouvrant vers le haut) avec une palette moderne.
         *   Affichage des noms au format "Nom Prénom".
+        *   **Message de Statut** : Affichage centralisé du statut du partenaire (ex: "L'utilisateur est En ligne") positionné après l'historique des messages.
 *   **Gestion des Sessions et Statuts** :
     *   **Suivi en Temps Réel** : Système de sessions (`UserSessions`) traquant l'IP, le nom de la machine et le statut de connexion.
     *   **Synchronisation** : Mise à jour automatique des statuts (En ligne, Absent, Occupé, etc.) dans la liste d'amis toutes les 5 secondes.

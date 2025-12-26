@@ -239,7 +239,7 @@
                                              Background="Transparent" BorderThickness="0" 
                                              Padding="15,8,5,8"
                                              FontSize="14" Foreground="{StaticResource TextDarkColor}"
-                                             KeyDown="MessageInput_KeyDown" TextChanged="MessageInput_TextChanged">
+                                             PreviewKeyDown="MessageInput_KeyDown" TextChanged="MessageInput_TextChanged">
                                     <FlowDocument>
                                         <Paragraph Margin="0">
                                             <Run Text=""/>

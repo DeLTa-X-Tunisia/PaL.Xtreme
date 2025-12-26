@@ -18,6 +18,7 @@ namespace PaLX.Admin
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
         private SoundPlayer? _onlineSound;
         private SoundPlayer? _offlineSound;
+        private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
 
         public MainView(string username, string role)
         {
@@ -46,10 +47,46 @@ namespace PaLX.Admin
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
             _refreshTimer.Interval = TimeSpan.FromSeconds(2); // Faster refresh
-            _refreshTimer.Tick += (s, e) => LoadFriends();
+            _refreshTimer.Tick += (s, e) => 
+            {
+                LoadFriends();
+                CheckForIncomingMessages();
+            };
             _refreshTimer.Start();
 
             this.Closing += MainView_Closing;
+        }
+
+        private void CheckForIncomingMessages()
+        {
+            var senders = _dbService.GetSendersWithUnreadMessages(CurrentUsername);
+            foreach (var sender in senders)
+            {
+                if (!_openChatWindows.ContainsKey(sender))
+                {
+                    OpenChatWindow(sender);
+                }
+                else
+                {
+                    // Optional: Flash window or bring to front
+                }
+            }
+        }
+
+        private void OpenChatWindow(string partnerUsername)
+        {
+            if (_openChatWindows.ContainsKey(partnerUsername))
+            {
+                var window = _openChatWindows[partnerUsername];
+                if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                window.Activate();
+                return;
+            }
+
+            var chatWindow = new ChatWindow(CurrentUsername, partnerUsername);
+            chatWindow.Closed += (s, args) => _openChatWindows.Remove(partnerUsername);
+            _openChatWindows.Add(partnerUsername, chatWindow);
+            chatWindow.Show();
         }
 
         private void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -263,8 +300,7 @@ namespace PaLX.Admin
             {
                 if (sender is Button btn && btn.Tag is string username)
                 {
-                    var chatWindow = new ChatWindow(CurrentUsername, username);
-                    chatWindow.Show();
+                    OpenChatWindow(username);
                 }
             }
             catch (Exception ex)

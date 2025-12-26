@@ -105,12 +105,26 @@ namespace PaLX.Admin
         .mine .bubble { background-color: #E3F2FD; color: black; border-bottom-right-radius: 4px; }
         .theirs .bubble { background-color: white; color: black; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; }
         .timestamp { font-size: 10px; margin-top: 4px; opacity: 0.7; text-align: right; }
+        .status-message { text-align: center; margin: 15px 0; font-size: 12px; font-weight: 600; opacity: 0.9; animation: fadeIn 0.5s ease; }
+        .status-online { color: #4CAF50; }
+        .status-busy { color: #F44336; }
+        .status-away { color: #FF9800; }
+        .status-offline { color: #9E9E9E; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id=""chat-container""></div>
     <script>
+        function addStatusMessage(text, statusClass) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'status-message ' + statusClass;
+            msgDiv.innerText = text;
+            container.appendChild(msgDiv);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
         function addMessage(contentBase64, isMine, time) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
@@ -151,8 +165,27 @@ namespace PaLX.Admin
                 AppendMessageToUi(msg);
                 if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
             }
+            
+            // Initial Status Message (at the bottom)
+            UpdateStatusMessageInChat();
+
             // Mark as read
             _dbService.MarkMessagesAsRead(_partnerUser, _currentUser);
+        }
+
+        private void UpdateStatusMessageInChat()
+        {
+            string status = PartnerStatus.Text;
+            string name = PartnerName.Text;
+            string cssClass = "status-offline";
+            
+            if (status.ToLower() == "en ligne") cssClass = "status-online";
+            else if (status.ToLower() == "occupé" || status.ToLower() == "ne pas déranger") cssClass = "status-busy";
+            else if (status.ToLower() == "absent") cssClass = "status-away";
+
+            string message = $"{name} est actuellement {status}";
+            string script = $"addStatusMessage('{message}', '{cssClass}');";
+            ChatWebView.ExecuteScriptAsync(script);
         }
 
         private void PollTimer_Tick(object? sender, EventArgs e)
@@ -192,6 +225,9 @@ namespace PaLX.Admin
                 var statusColor = GetStatusColor(currentStatus);
                 PartnerStatus.Foreground = statusColor;
                 StatusIndicator.Fill = statusColor;
+                
+                // Inject status update in chat
+                UpdateStatusMessageInChat();
             }
         }
 

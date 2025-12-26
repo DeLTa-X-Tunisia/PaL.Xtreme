@@ -1377,5 +1377,31 @@ namespace PaLX.Admin
             catch { }
             return "Hors ligne";
         }
+
+        public List<string> GetSendersWithUnreadMessages(string receiver)
+        {
+            var senders = new List<string>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"SELECT DISTINCT ""SenderUsername"" FROM ""Messages"" WHERE ""ReceiverUsername"" = @r AND ""IsRead"" = FALSE";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                senders.Add(reader.GetString(0));
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Get Unread Senders: " + ex.Message); }
+            return senders;
+        }
     }
 }
