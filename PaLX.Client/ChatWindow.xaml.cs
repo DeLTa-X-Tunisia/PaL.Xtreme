@@ -108,6 +108,11 @@ namespace PaLX.Client
                 // Ensure the environment is ready
                 await ChatWebView.EnsureCoreWebView2Async();
                 
+                // Map Assets folder for Smileys
+                string assetsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
+                ChatWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
+                    "assets", assetsPath, CoreWebView2HostResourceAccessKind.Allow);
+                
                 string html = @"
 <!DOCTYPE html>
 <html>
@@ -126,6 +131,7 @@ namespace PaLX.Client
         .status-away { color: #FF9800; }
         .status-offline { color: #9E9E9E; }
         .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
+        .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -153,6 +159,10 @@ namespace PaLX.Client
             } catch (e) {
                 content = atob(contentBase64); // Fallback
             }
+
+            // Replace smiley codes with images
+            // Format: [smiley:b_s_1.png]
+            content = content.replace(/\[smiley:(b_s_\d+\.png)\]/g, '<img src=""https://assets/Smiley/$1"" class=""smiley"" />');
 
             msgDiv.innerHTML = `<div class=""bubble"">${content}<div class=""timestamp"">${time}</div></div>`;
             container.appendChild(msgDiv);
@@ -478,6 +488,77 @@ namespace PaLX.Client
             }
         }
 
+        private void EmojiButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (SmileyPanel.Children.Count == 0)
+            {
+                LoadSmileys();
+            }
+            SmileyPopup.IsOpen = !SmileyPopup.IsOpen;
+        }
+
+        private void LoadSmileys()
+        {
+            string smileyPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Smiley");
+            if (System.IO.Directory.Exists(smileyPath))
+            {
+                var files = System.IO.Directory.GetFiles(smileyPath, "*.png");
+                var sortedFiles = files.OrderBy(f => {
+                    string name = System.IO.Path.GetFileNameWithoutExtension(f);
+                    string numberPart = name.Replace("b_s_", "");
+                    if (int.TryParse(numberPart, out int n)) return n;
+                    return 999;
+                });
+
+                foreach (var file in sortedFiles)
+                {
+                    var btn = new Button
+                    {
+                        Width = 32,
+                        Height = 32,
+                        Margin = new Thickness(2),
+                        Background = Brushes.Transparent,
+                        BorderThickness = new Thickness(0),
+                        Cursor = Cursors.Hand,
+                        Tag = System.IO.Path.GetFileName(file)
+                    };
+
+                    var img = new Image
+                    {
+                        Source = new BitmapImage(new Uri(file, UriKind.Absolute)),
+                        Stretch = Stretch.Uniform
+                    };
+                    
+                    btn.Content = img;
+                    btn.Click += Smiley_Click;
+                    SmileyPanel.Children.Add(btn);
+                }
+            }
+        }
+
+        private void Smiley_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string filename)
+            {
+                string fullPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Smiley", filename);
+                
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+
+                var image = new Image { Source = bitmap, Width = 30, Height = 30, Stretch = Stretch.Uniform, Tag = filename };
+                
+                // Insert into RichTextBox
+                var container = new InlineUIContainer(image, MessageInput.CaretPosition);
+                
+                // Move caret after the image
+                MessageInput.CaretPosition = container.ElementEnd;
+                MessageInput.Focus();
+            }
+        }
+
         private string ConvertRichTextBoxToHtml(RichTextBox rtb)
         {
             StringBuilder html = new StringBuilder();
@@ -487,7 +568,11 @@ namespace PaLX.Client
                 {
                     foreach (Inline inline in paragraph.Inlines)
                     {
-                        if (inline is Run run)
+                        if (inline is InlineUIContainer uiContainer && uiContainer.Child is Image img && img.Tag is string filename)
+                        {
+                            html.Append($"[smiley:{filename}]");
+                        }
+                        else if (inline is Run run)
                         {
                             string text = System.Net.WebUtility.HtmlEncode(run.Text);
                             if (run.FontWeight == FontWeights.Bold) text = $"<b>{text}</b>";
@@ -515,10 +600,10 @@ namespace PaLX.Client
 
         private void SendMessage()
         {
-            string plainText = GetTextFromRichTextBox(MessageInput).Trim();
-            if (string.IsNullOrEmpty(plainText)) return;
-
             string content = ConvertRichTextBoxToHtml(MessageInput);
+            string plainText = GetTextFromRichTextBox(MessageInput).Trim();
+            
+            if (string.IsNullOrEmpty(plainText) && !content.Contains("[smiley:")) return;
 
             // Capture current formatting to persist it
             object fontWeight = MessageInput.Selection.GetPropertyValue(TextElement.FontWeightProperty);

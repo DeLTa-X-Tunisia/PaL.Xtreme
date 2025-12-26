@@ -265,10 +265,22 @@
 
                                 <!-- Emoji Button -->
                                 <Button x:Name="EmojiButton" Grid.Column="2" Style="{StaticResource IconButtonStyle}" 
-                                        Width="30" Height="30" Margin="0,0,5,0" ToolTip="Emojis">
+                                        Width="30" Height="30" Margin="0,0,5,0" ToolTip="Emojis" Click="EmojiButton_Click">
                                     <Path Data="M12,17.5C14.33,17.5 16.3,16.04 17.11,14H6.89C7.69,16.04 9.67,17.5 12,17.5M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M10,10H8V8H10V10M16,10H14V8H16V10Z" 
                                           Fill="#FFC107" Stretch="Uniform" Width="16" Height="16"/>
                                 </Button>
+                                
+                                <Popup x:Name="SmileyPopup" PlacementTarget="{Binding ElementName=EmojiButton}" 
+                                       Placement="Top" StaysOpen="False" AllowsTransparency="True">
+                                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="8" Padding="10">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.2"/>
+                                        </Border.Effect>
+                                        <ScrollViewer MaxHeight="200" Width="250" VerticalScrollBarVisibility="Auto">
+                                            <WrapPanel x:Name="SmileyPanel" Width="230"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
                             </Grid>
                         </Border>
 
