@@ -30,6 +30,24 @@ namespace PaLX.Client
         public int StatusValue { get; set; } = 6; // 0-6
         public int FriendshipStatus { get; set; } // 0: Pending, 1: Accepted, 2: None (Search result)
         public bool IsIncomingRequest { get; set; }
+
+        public string StatusColor
+        {
+            get
+            {
+                if (Status == "Bloqué") return "#D32F2F"; // Red
+                switch (StatusValue)
+                {
+                    case 0: return "#4CAF50"; // Green
+                    case 1: return "#FF9800"; // Orange
+                    case 2: return "#F44336"; // Red (Busy)
+                    case 3: return "#E91E63"; // Pink (Phone)
+                    case 4: return "#9C27B0"; // Purple (Break)
+                    case 5: return "#2196F3"; // Blue (Meeting)
+                    default: return "#9E9E9E"; // Gray
+                }
+            }
+        }
     }
 
     public class BlockedUserInfo
@@ -830,21 +848,28 @@ namespace PaLX.Client
                             FROM ""UserSessions""
                             WHERE ""DéconnectéLe"" IS NULL
                             ORDER BY ""UserId"", ""ConnectéLe"" DESC
+                        ),
+                        MyId AS (
+                            SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u
                         )
-                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus""
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus"",
+                               CASE WHEN b.""BlockerId"" IS NOT NULL THEN 1 ELSE 0 END as IsBlocked
                         FROM ""Friendships"" f
                         JOIN ""Users"" u ON f.""ReceiverId"" = u.""Id""
                         LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                         LEFT JOIN ActiveSessions s ON u.""Id"" = s.""UserId""
-                        WHERE f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        LEFT JOIN ""BlockedUsers"" b ON b.""BlockedId"" = u.""Id"" AND b.""BlockerId"" = (SELECT ""Id"" FROM MyId)
+                        WHERE f.""RequesterId"" = (SELECT ""Id"" FROM MyId)
                         AND f.""Status"" = 1
                         UNION
-                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus""
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus"",
+                               CASE WHEN b.""BlockerId"" IS NOT NULL THEN 1 ELSE 0 END as IsBlocked
                         FROM ""Friendships"" f
                         JOIN ""Users"" u ON f.""RequesterId"" = u.""Id""
                         LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                         LEFT JOIN ActiveSessions s ON u.""Id"" = s.""UserId""
-                        WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        LEFT JOIN ""BlockedUsers"" b ON b.""BlockedId"" = u.""Id"" AND b.""BlockerId"" = (SELECT ""Id"" FROM MyId)
+                        WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM MyId)
                         AND f.""Status"" = 1";
 
                     using (var cmd = new NpgsqlCommand(sql, conn))
@@ -859,17 +884,26 @@ namespace PaLX.Client
                                 var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
                                 var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
                                 var statusVal = reader.IsDBNull(4) ? 6 : reader.GetInt32(4); // Default to 6 (Offline) if null
+                                var isBlocked = reader.GetInt32(5) == 1;
 
                                 string statusText = "Hors ligne";
-                                switch (statusVal)
+                                if (isBlocked)
                                 {
-                                    case 0: statusText = "En ligne"; break;
-                                    case 1: statusText = "Absent"; break;
-                                    case 2: statusText = "Occupé"; break;
-                                    case 3: statusText = "Au téléphone"; break;
-                                    case 4: statusText = "En pause"; break;
-                                    case 5: statusText = "En réunion"; break;
-                                    default: statusText = "Hors ligne"; break;
+                                    statusText = "Bloqué";
+                                    statusVal = 99; // Special value
+                                }
+                                else
+                                {
+                                    switch (statusVal)
+                                    {
+                                        case 0: statusText = "En ligne"; break;
+                                        case 1: statusText = "Absent"; break;
+                                        case 2: statusText = "Occupé"; break;
+                                        case 3: statusText = "Au téléphone"; break;
+                                        case 4: statusText = "En pause"; break;
+                                        case 5: statusText = "En réunion"; break;
+                                        default: statusText = "Hors ligne"; break;
+                                    }
                                 }
 
                                 results.Add(new FriendInfo
@@ -888,6 +922,101 @@ namespace PaLX.Client
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
             return results;
+        }
+
+        public void SendSystemAlert(string sender, string receiver, string message)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""Messages"" (""SenderUsername"", ""ReceiverUsername"", ""Content"", ""MessageType"", ""Timestamp"", ""IsRead"")
+                        VALUES (@s, @r, @c, 'SystemAlert', NOW(), FALSE)";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", sender);
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        cmd.Parameters.AddWithValue("c", message);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("SendSystemAlert: " + ex.Message); }
+        }
+
+        public List<ChatMessage> GetUnreadSystemAlerts(string receiver)
+        {
+            var list = new List<ChatMessage>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT ""Id"", ""SenderUsername"", ""Content"", ""Timestamp""
+                        FROM ""Messages""
+                        WHERE ""ReceiverUsername"" = @r 
+                          AND ""MessageType"" = 'SystemAlert' 
+                          AND ""IsRead"" = FALSE";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                list.Add(new ChatMessage
+                                {
+                                    Id = reader.GetInt32(0),
+                                    Sender = reader.GetString(1),
+                                    Content = reader.GetString(2),
+                                    Timestamp = reader.GetDateTime(3),
+                                    Type = "SystemAlert"
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        public string GetUserFullName(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT p.""FirstName"", p.""LastName""
+                        FROM ""UserProfiles"" p
+                        JOIN ""Users"" u ON p.""UserId"" = u.""Id""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string first = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                                string last = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                if (!string.IsNullOrWhiteSpace(first) || !string.IsNullOrWhiteSpace(last))
+                                {
+                                    return $"{last} {first}".Trim();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return username;
         }
 
         public int GetUserRoleLevel(string username)
@@ -972,6 +1101,37 @@ namespace PaLX.Client
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); return false; }
         }
 
+        public void BlockUser(string blockerUsername, string blockedUsername)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    string sql = @"
+                        INSERT INTO ""BlockedUsers"" (""BlockerId"", ""BlockedId"", ""BlockType"", ""StartDate"")
+                        VALUES (
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @blockerUsername),
+                            (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @blockedUsername),
+                            0, 
+                            NOW()
+                        )
+                        ON CONFLICT (""BlockerId"", ""BlockedId"") DO NOTHING;";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("blockerUsername", blockerUsername);
+                        cmd.Parameters.AddWithValue("blockedUsername", blockedUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error blocking user: {ex.Message}");
+            }
+        }
+
         public void UnblockUser(string blockerUsername, string blockedUsername)
         {
             try
@@ -993,6 +1153,28 @@ namespace PaLX.Client
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public bool IsUserBlocked(string blocker, string blocked)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT 1 FROM ""BlockedUsers""
+                        WHERE ""BlockerId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bu)
+                        AND ""BlockedId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @bdu)";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("bu", blocker);
+                        cmd.Parameters.AddWithValue("bdu", blocked);
+                        return cmd.ExecuteScalar() != null;
+                    }
+                }
+            }
+            catch { return false; }
         }
 
         public List<BlockedUserInfo> GetBlockedUsers(string username)
@@ -1332,39 +1514,7 @@ namespace PaLX.Client
             catch { return false; }
         }
 
-        public string GetUserFullName(string username)
-        {
-            try
-            {
-                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
-                {
-                    conn.Open();
-                    var sql = @"
-                        SELECT p.""FirstName"", p.""LastName"" 
-                        FROM ""Users"" u
-                        JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
-                        WHERE u.""Username"" = @u";
-                    using (var cmd = new NpgsqlCommand(sql, conn))
-                    {
-                        cmd.Parameters.AddWithValue("u", username);
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            if (reader.Read())
-                            {
-                                string first = reader.IsDBNull(0) ? "" : reader.GetString(0);
-                                string last = reader.IsDBNull(1) ? "" : reader.GetString(1);
-                                if (!string.IsNullOrWhiteSpace(first) || !string.IsNullOrWhiteSpace(last))
-                                {
-                                    return $"{last} {first}".Trim();
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-            return username; // Fallback
-        }
+
 
         public string GetUserStatus(string username)
         {

@@ -22,6 +22,8 @@ namespace PaLX.Admin
         private int _lastMessageId = 0;
         private DateTime _lastTypingSent = DateTime.MinValue;
         private System.Media.SoundPlayer? _messageSound;
+        private bool _isBlocked = false;
+        private bool _isBlockedByPartner = false;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
@@ -120,6 +122,7 @@ namespace PaLX.Admin
         .status-busy { color: #F44336; }
         .status-away { color: #FF9800; }
         .status-offline { color: #9E9E9E; }
+        .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -198,14 +201,131 @@ namespace PaLX.Admin
             ChatWebView.ExecuteScriptAsync(script);
         }
 
+        private void CheckBlockStatus()
+        {
+            bool blockedByMe = _dbService.IsUserBlocked(_currentUser, _partnerUser);
+            bool blockedByPartner = _dbService.IsUserBlocked(_partnerUser, _currentUser);
+
+            if (blockedByMe != _isBlocked || blockedByPartner != _isBlockedByPartner)
+            {
+                _isBlocked = blockedByMe;
+                _isBlockedByPartner = blockedByPartner;
+                UpdateBlockUi();
+            }
+        }
+
+        private void UpdateBlockUi()
+        {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                // Blocked State
+                this.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFEBEE")); // Light Red
+                MessageInput.IsEnabled = false;
+                SendButton.IsEnabled = false;
+                AttachmentButton.IsEnabled = false;
+                AudioButton.IsEnabled = false;
+                EmojiButton.IsEnabled = false;
+                
+                if (_isBlocked)
+                {
+                    // I blocked them -> Green Dot (Active Action)
+                    BlockButton.ToolTip = "Débloquer cet utilisateur";
+                    BlockIndicator.Background = new SolidColorBrush(Colors.Green); 
+                }
+                else
+                {
+                    // They blocked me -> Red Dot (Danger/Stop)
+                    BlockButton.ToolTip = "Cet utilisateur vous a bloqué";
+                    BlockIndicator.Background = new SolidColorBrush(Colors.Red);
+                }
+
+                TypingIndicator.Visibility = Visibility.Visible;
+                TypingIndicator.Foreground = new SolidColorBrush(Colors.Red);
+                if (_isBlocked) TypingIndicator.Text = "Vous avez bloqué cet utilisateur.";
+                else TypingIndicator.Text = "Cet utilisateur vous a bloqué.";
+            }
+            else
+            {
+                // Normal State -> Red Dot (Ready to block)
+                this.Background = new SolidColorBrush(Colors.White);
+                MessageInput.IsEnabled = true;
+                SendButton.IsEnabled = true;
+                AttachmentButton.IsEnabled = true;
+                AudioButton.IsEnabled = true;
+                EmojiButton.IsEnabled = true;
+
+                BlockButton.ToolTip = "Bloquer cet utilisateur";
+                BlockIndicator.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336")); // Red
+                BlockButton.IsEnabled = true;
+
+                TypingIndicator.Visibility = Visibility.Collapsed;
+                TypingIndicator.Foreground = new SolidColorBrush(Colors.Gray);
+            }
+        }
+
+        private void Block_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBlocked)
+            {
+                // Unblock
+                _dbService.UnblockUser(_currentUser, _partnerUser);
+                _isBlocked = false;
+                
+                string msg = $"{_currentUser} a débloqué {_partnerUser} – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                string script = $"addStatusMessage('{msg}', 'status-online');";
+                ChatWebView.ExecuteScriptAsync(script);
+            }
+            else
+            {
+                // Check Hierarchy
+                int myRole = _dbService.GetUserRoleLevel(_currentUser);
+                int partnerRole = _dbService.GetUserRoleLevel(_partnerUser);
+
+                if (myRole > partnerRole)
+                {
+                    string partnerName = _dbService.GetUserFullName(_partnerUser);
+                    MessageBox.Show($"Vous n’avez pas le pouvoir suffisant pour bloquer {partnerName.ToUpper()}", "Permission refusée", MessageBoxButton.OK, MessageBoxImage.Stop);
+                    
+                    // Notify the superior
+                    string myName = _dbService.GetUserFullName(_currentUser);
+                    _dbService.SendSystemAlert(_currentUser, _partnerUser, $"Veuillez noter que {myName.ToUpper()} a essayé de vous bloquer");
+                    return;
+                }
+
+                // Block
+                if (MessageBox.Show($"Voulez-vous vraiment bloquer {_partnerUser} ?\nVous ne pourrez plus échanger de messages.", "Confirmer le blocage", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    _dbService.BlockUser(_currentUser, _partnerUser);
+                    _isBlocked = true;
+
+                    string msg = $"{_currentUser} a bloqué {_partnerUser} – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                }
+            }
+            CheckBlockStatus(); // Refresh status immediately
+        }
+
         private void PollTimer_Tick(object? sender, EventArgs e)
         {
+            CheckBlockStatus();
+
             var messages = _dbService.GetMessages(_currentUser, _partnerUser);
             var newMessages = messages.Where(m => m.Id > _lastMessageId).ToList();
             
             foreach (var msg in newMessages)
             {
-                AppendMessageToUi(msg);
+                if (msg.Type == "SystemAlert")
+                {
+                    MessageBox.Show(msg.Content, "Alerte de Sécurité", MessageBoxButton.OK, MessageBoxImage.Information);
+                    // Also show in chat as a system message
+                    string script = $"addStatusMessage('{msg.Content}', 'status-busy');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                }
+                else
+                {
+                    AppendMessageToUi(msg);
+                }
                 if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
             }
             
@@ -219,16 +339,19 @@ namespace PaLX.Admin
             }
 
             // Check Typing Status
-            bool isTyping = _dbService.GetTypingStatus(_partnerUser, _currentUser);
-            if (isTyping)
+            if (!_isBlocked && !_isBlockedByPartner)
             {
-                TypingIndicator.Visibility = Visibility.Visible;
-                string name = PartnerName.Text.Split(' ')[0];
-                TypingIndicator.Text = $"{name} est en train d'écrire...";
-            }
-            else
-            {
-                TypingIndicator.Visibility = Visibility.Collapsed;
+                bool isTyping = _dbService.GetTypingStatus(_partnerUser, _currentUser);
+                if (isTyping)
+                {
+                    TypingIndicator.Visibility = Visibility.Visible;
+                    string name = PartnerName.Text.Split(' ')[0];
+                    TypingIndicator.Text = $"{name} est en train d'écrire...";
+                }
+                else
+                {
+                    TypingIndicator.Visibility = Visibility.Collapsed;
+                }
             }
 
             // Update Partner Status

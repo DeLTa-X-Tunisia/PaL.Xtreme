@@ -77,6 +77,22 @@ namespace PaLX.Client
 
         private void CheckForIncomingMessages()
         {
+            // Check for System Alerts
+            var alerts = _dbService.GetUnreadSystemAlerts(_username);
+            foreach (var alert in alerts)
+            {
+                // Only show if chat window is NOT open for this sender
+                if (!_openChatWindows.ContainsKey(alert.Sender))
+                {
+                    var alertWindow = new CustomAlertWindow(alert.Content);
+                    alertWindow.Topmost = true;
+                    alertWindow.Show();
+                    
+                    // Mark as read
+                    _dbService.MarkMessagesAsRead(alert.Sender, _username);
+                }
+            }
+
             var senders = _dbService.GetSendersWithUnreadMessages(_username);
             foreach (var sender in senders)
             {
