@@ -44,7 +44,7 @@ namespace PaLX.Client
 
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _refreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _refreshTimer.Interval = TimeSpan.FromSeconds(2); // Faster refresh for better UX
             _refreshTimer.Tick += (s, e) => LoadFriends();
             _refreshTimer.Start();
 
@@ -185,6 +185,7 @@ namespace PaLX.Client
             {
                 _addFriendWindow = new AddFriendWindow(_username);
                 _addFriendWindow.Closed += (s, args) => _addFriendWindow = null;
+                _addFriendWindow.FriendAdded += () => LoadFriends(); // Instant refresh on action
                 _addFriendWindow.Show();
             }
             else

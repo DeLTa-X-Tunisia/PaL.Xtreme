@@ -29,7 +29,7 @@ namespace PaLX.Admin
 
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _refreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _refreshTimer.Interval = TimeSpan.FromSeconds(2); // Faster refresh
             _refreshTimer.Tick += (s, e) => LoadFriends();
             _refreshTimer.Start();
 
@@ -181,8 +181,9 @@ namespace PaLX.Admin
         private void AddFriend_Click(object sender, RoutedEventArgs e)
         {
             var addFriendWindow = new AddFriendWindow(CurrentUsername);
+            addFriendWindow.FriendAdded += () => LoadFriends(); // Instant refresh
             addFriendWindow.ShowDialog();
-            LoadFriends(); // Refresh list after closing
+            LoadFriends(); // Refresh list after closing (redundant but safe)
         }
 
         private void BlockedUsers_Click(object sender, RoutedEventArgs e)

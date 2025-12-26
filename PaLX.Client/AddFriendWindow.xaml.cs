@@ -15,6 +15,8 @@ namespace PaLX.Client
         private string _currentUsername;
         private DatabaseService _dbService;
 
+        public event Action? FriendAdded;
+
         public AddFriendWindow(string username)
         {
             InitializeComponent();
@@ -78,6 +80,7 @@ namespace PaLX.Client
                 _dbService.RespondToFriendRequest(_currentUsername, requester, 1); // 1 = Accept
                 LoadRequests();
                 PerformSearch(SearchBox.Text.Trim());
+                FriendAdded?.Invoke();
             }
         }
 
@@ -88,6 +91,7 @@ namespace PaLX.Client
                 _dbService.RespondToFriendRequest(_currentUsername, requester, 2); // 2 = Accept & Add
                 LoadRequests();
                 PerformSearch(SearchBox.Text.Trim());
+                FriendAdded?.Invoke();
             }
         }
 
