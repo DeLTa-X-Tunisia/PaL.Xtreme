@@ -106,9 +106,13 @@ namespace PaLX.Admin
         private void LoadFriends()
         {
             var friends = _dbService.GetFriends(CurrentUsername);
+            
+            // Sort: Online (0-5) first, Offline (6) last
+            var sortedFriends = friends.OrderBy(f => f.StatusValue == 6).ThenBy(f => f.DisplayName);
+
             var friendItems = new List<FriendItem>();
 
-            foreach (var f in friends)
+            foreach (var f in sortedFriends)
             {
                 bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
                 
@@ -132,7 +136,8 @@ namespace PaLX.Admin
                     Username = f.Username,
                     AvatarPath = hasAvatar ? f.AvatarPath : null,
                     AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
-                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible
+                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
+                    NameFontWeight = f.StatusValue != 6 ? FontWeights.Bold : FontWeights.Normal
                 });
             }
             FriendsList.ItemsSource = friendItems;
@@ -244,5 +249,6 @@ namespace PaLX.Admin
         public string? AvatarPath { get; set; }
         public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
         public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
+        public FontWeight NameFontWeight { get; set; } = FontWeights.Normal;
     }
 }

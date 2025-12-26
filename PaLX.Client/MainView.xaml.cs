@@ -78,7 +78,11 @@ namespace PaLX.Client
         private void LoadFriends()
         {
             var friends = _dbService.GetFriends(_username);
-            var friendViewModels = friends.Select(f => {
+            
+            // Sort: Online (0-5) first, Offline (6) last
+            var sortedFriends = friends.OrderBy(f => f.StatusValue == 6).ThenBy(f => f.DisplayName);
+
+            var friendViewModels = sortedFriends.Select(f => {
                 bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
                 
                 SolidColorBrush statusBrush = Brushes.Gray;
@@ -101,7 +105,8 @@ namespace PaLX.Client
                     AvatarPath = hasAvatar ? f.AvatarPath : null,
                     Username = f.Username,
                     AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
-                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible
+                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
+                    NameFontWeight = f.StatusValue != 6 ? FontWeights.Bold : FontWeights.Normal
                 };
             }).ToList();
 
@@ -249,5 +254,6 @@ namespace PaLX.Client
         public string Username { get; set; } = "";
         public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
         public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
+        public FontWeight NameFontWeight { get; set; } = FontWeights.Normal;
     }
 }
