@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.IO;
 using System;
 using System.Linq;
+using System.Media;
 
 namespace PaLX.Client
 {
@@ -17,6 +18,8 @@ namespace PaLX.Client
         private AddFriendWindow? _addFriendWindow;
 
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
+        private SoundPlayer? _onlineSound;
+        private SoundPlayer? _offlineSound;
 
         public MainView(string username, string role)
         {
@@ -24,6 +27,18 @@ namespace PaLX.Client
             _username = username;
             _role = role;
             _dbService = new DatabaseService();
+
+            // Load Sounds
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                _onlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "online.wav"));
+                _offlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "offline.wav"));
+                // Preload
+                _onlineSound.LoadAsync();
+                _offlineSound.LoadAsync();
+            }
+            catch { /* Ignore sound errors */ }
 
             LoadUserProfile(username);
             LoadFriends();
@@ -108,6 +123,20 @@ namespace PaLX.Client
                     {
                         // Status changed, set blinking expiration to Now + 5 seconds
                         _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
+
+                        // Play Sound Effects
+                        try
+                        {
+                            if (f.StatusValue == 0) // Came Online
+                            {
+                                _onlineSound?.Play();
+                            }
+                            else if (f.StatusValue == 6) // Went Offline
+                            {
+                                _offlineSound?.Play();
+                            }
+                        }
+                        catch { /* Ignore playback errors */ }
                     }
                 }
                 _previousStatuses[f.Username] = f.StatusValue;
