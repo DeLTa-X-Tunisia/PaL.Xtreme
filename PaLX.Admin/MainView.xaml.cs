@@ -103,6 +103,9 @@ namespace PaLX.Admin
             }
         }
 
+        private Dictionary<string, int> _previousStatuses = new Dictionary<string, int>();
+        private Dictionary<string, DateTime> _blinkingUntil = new Dictionary<string, DateTime>();
+
         private void LoadFriends()
         {
             var friends = _dbService.GetFriends(CurrentUsername);
@@ -128,6 +131,31 @@ namespace PaLX.Admin
                     default: statusBrush = Brushes.Gray; break;
                 }
 
+                // Check for status change
+                bool isBlinking = false;
+                if (_previousStatuses.ContainsKey(f.Username))
+                {
+                    if (_previousStatuses[f.Username] != f.StatusValue)
+                    {
+                        // Status changed, set blinking expiration to Now + 5 seconds
+                        _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
+                    }
+                }
+                _previousStatuses[f.Username] = f.StatusValue;
+
+                // Check if currently blinking
+                if (_blinkingUntil.ContainsKey(f.Username))
+                {
+                    if (DateTime.Now < _blinkingUntil[f.Username])
+                    {
+                        isBlinking = true;
+                    }
+                    else
+                    {
+                        _blinkingUntil.Remove(f.Username);
+                    }
+                }
+
                 friendItems.Add(new FriendItem
                 {
                     Name = f.DisplayName,
@@ -137,7 +165,8 @@ namespace PaLX.Admin
                     AvatarPath = hasAvatar ? f.AvatarPath : null,
                     AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
                     PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
-                    NameFontWeight = f.StatusValue != 6 ? FontWeights.Bold : FontWeights.Normal
+                    NameFontWeight = f.StatusValue != 6 ? FontWeights.Bold : FontWeights.Normal,
+                    IsBlinking = isBlinking
                 });
             }
             FriendsList.ItemsSource = friendItems;
@@ -250,5 +279,6 @@ namespace PaLX.Admin
         public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
         public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
         public FontWeight NameFontWeight { get; set; } = FontWeights.Normal;
+        public bool IsBlinking { get; set; } = false;
     }
 }
