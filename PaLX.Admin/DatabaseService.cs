@@ -127,12 +127,12 @@ namespace PaLX.Admin
 
                     // Drop old Role column if exists
                     var dropRoleColSql = @"
-                        DO push 
+                        DO $$ 
                         BEGIN 
                             IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'Users' AND column_name = 'Role') THEN
                                 ALTER TABLE ""Users"" DROP COLUMN ""Role"";
                             END IF;
-                        END push;";
+                        END $$;";
                     using (var cmd = new NpgsqlCommand(dropRoleColSql, conn)) cmd.ExecuteNonQuery();
 
                     // Create UserRoles Table
@@ -196,12 +196,12 @@ namespace PaLX.Admin
 
                     // Add DateOfBirth column if it doesn't exist (migration)
                     var addDobSql = @"
-                        DO push 
+                        DO $$ 
                         BEGIN 
                             IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'UserProfiles' AND column_name = 'DateOfBirth') THEN
                                 ALTER TABLE ""UserProfiles"" ADD COLUMN ""DateOfBirth"" TIMESTAMP;
                             END IF;
-                        END push;";
+                        END $$;";
                     using (var cmd = new NpgsqlCommand(addDobSql, conn)) cmd.ExecuteNonQuery();
 
                     SeedUsers(conn);
