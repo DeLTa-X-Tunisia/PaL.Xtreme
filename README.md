@@ -19,10 +19,15 @@ La solution se compose de deux projets principaux :
 *   **Gestion des Amis** :
     *   **Recherche** : Recherche d'utilisateurs par pseudo ou email.
     *   **Demandes** : Envoi, réception, acceptation et refus de demandes d'amis.
-    *   **Liste d'Amis** : Affichage en temps réel avec statut de connexion.
+    *   **Liste d'Amis** : Affichage en temps réel avec statut de connexion synchronisé.
+*   **Gestion des Sessions et Statuts** :
+    *   **Suivi en Temps Réel** : Système de sessions (`UserSessions`) traquant l'IP, le nom de la machine et le statut de connexion.
+    *   **Synchronisation** : Mise à jour automatique des statuts (En ligne, Absent, Occupé, etc.) dans la liste d'amis toutes les 5 secondes.
+    *   **Gestion des Doublons** : Logique robuste pour éviter les doublons dans la liste d'amis lors des changements de statut.
 *   **Gestion des Blocages** :
-    *   **Blocage** : Possibilité de bloquer un utilisateur de façon permanente, pour 7 jours, ou pour une durée personnalisée.
-    *   **Liste Noire** : Gestion et déblocage des utilisateurs via une interface dédiée.
+    *   **Blocage Hiérarchique** : Système de sécurité basé sur les rôles (Niveau 1 à 7). Un utilisateur ne peut pas bloquer un supérieur hiérarchique.
+    *   **Types de Blocage** : Permanent, 7 jours, ou durée personnalisée.
+    *   **Interface de Gestion** : Fenêtre dédiée pour voir, modifier (durée/raison) ou lever les blocages.
 *   **Profil Utilisateur** :
     *   Édition complète du profil (Avatar, Nom, Prénom, Genre, Pays, Date de naissance).
     *   Indicateur de complétion du profil.
@@ -33,7 +38,7 @@ La solution se compose de deux projets principaux :
     *   **Barre d'outils** : Accès rapide aux paramètres, ajout d'amis, utilisateurs bloqués et déconnexion.
 *   **Base de Données** :
     *   Intégration avec **PostgreSQL**.
-    *   Tables : Users, Roles, UserRoles, UserProfiles, Friendships, BlockedUsers.
+    *   Tables : Users, Roles, UserRoles, UserProfiles, Friendships, BlockedUsers, UserSessions.
 
 ## 🛠 Prérequis et Installation
 

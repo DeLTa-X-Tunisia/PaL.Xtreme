@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Controls;
 using System.IO;
 using System;
 
@@ -13,6 +14,8 @@ namespace PaLX.Admin
         public string CurrentRole { get; private set; }
         private DatabaseService _dbService;
 
+        private System.Windows.Threading.DispatcherTimer _refreshTimer;
+
         public MainView(string username, string role)
         {
             InitializeComponent();
@@ -23,6 +26,19 @@ namespace PaLX.Admin
             LoadStatuses();
             LoadUserProfile(username);
             LoadFriends();
+
+            // Setup Timer
+            _refreshTimer = new System.Windows.Threading.DispatcherTimer();
+            _refreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _refreshTimer.Tick += (s, e) => LoadFriends();
+            _refreshTimer.Start();
+
+            this.Closing += MainView_Closing;
+        }
+
+        private void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            _dbService.EndSession(CurrentUsername);
         }
 
         private void LoadUserProfile(string username)
@@ -65,6 +81,26 @@ namespace PaLX.Admin
             };
             StatusCombo.ItemsSource = statuses;
             StatusCombo.SelectedIndex = 0;
+            StatusCombo.SelectionChanged += StatusCombo_SelectionChanged;
+        }
+
+        private void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (StatusCombo.SelectedItem is UserStatus selectedStatus)
+            {
+                int statusValue = 0;
+                switch (selectedStatus.Name)
+                {
+                    case "En ligne": statusValue = 0; break;
+                    case "Absent": statusValue = 1; break;
+                    case "Occupé": statusValue = 2; break;
+                    case "En appel": statusValue = 3; break;
+                    case "Ne pas déranger": statusValue = 2; break;
+                    case "Hors ligne": statusValue = 6; break;
+                    default: statusValue = 0; break;
+                }
+                _dbService.UpdateStatus(CurrentUsername, statusValue);
+            }
         }
 
         private void LoadFriends()
@@ -74,11 +110,29 @@ namespace PaLX.Admin
 
             foreach (var f in friends)
             {
+                bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
+                
+                Brush statusBrush = Brushes.Gray;
+                switch (f.StatusValue)
+                {
+                    case 0: statusBrush = Brushes.Green; break;
+                    case 1: statusBrush = Brushes.Orange; break;
+                    case 2: statusBrush = Brushes.Red; break;
+                    case 3: statusBrush = Brushes.DarkRed; break;
+                    case 4: statusBrush = Brushes.YellowGreen; break;
+                    case 5: statusBrush = Brushes.DarkBlue; break;
+                    default: statusBrush = Brushes.Gray; break;
+                }
+
                 friendItems.Add(new FriendItem
                 {
                     Name = f.DisplayName,
                     StatusText = f.Status,
-                    StatusColor = GetStatusColor(f.Status)
+                    StatusColor = statusBrush,
+                    Username = f.Username,
+                    AvatarPath = hasAvatar ? f.AvatarPath : null,
+                    AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
+                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible
                 });
             }
             FriendsList.ItemsSource = friendItems;
@@ -137,6 +191,41 @@ namespace PaLX.Admin
             blockedWindow.ShowDialog();
             LoadFriends(); // Refresh list in case unblocked users are now friends (unlikely but good practice)
         }
+
+        private void ViewProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                var profileWindow = new PublicProfileWindow(username);
+                profileWindow.ShowDialog();
+            }
+        }
+
+        private void BlockUser_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                if (MessageBox.Show($"Voulez-vous vraiment bloquer {username} ?", "Bloquer", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    if (_dbService.BlockUser(CurrentUsername, username, 0, null, "Bloqué par l'admin"))
+                    {
+                        LoadFriends();
+                    }
+                }
+            }
+        }
+
+        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                if (MessageBox.Show($"Voulez-vous vraiment retirer {username} de vos amis ?", "Retirer", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    _dbService.RemoveFriend(CurrentUsername, username);
+                    LoadFriends();
+                }
+            }
+        }
     }
 
     public class UserStatus
@@ -150,5 +239,9 @@ namespace PaLX.Admin
         public string Name { get; set; } = "";
         public string StatusText { get; set; } = "";
         public Brush StatusColor { get; set; } = Brushes.Gray;
+        public string Username { get; set; } = "";
+        public string? AvatarPath { get; set; }
+        public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
+        public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
     }
 }

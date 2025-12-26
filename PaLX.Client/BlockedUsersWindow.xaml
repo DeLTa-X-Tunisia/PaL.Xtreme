@@ -68,7 +68,7 @@
                                     </Button.Resources>
                                 </Button>
                                 <Button Content="✏️" Width="35" Height="35" ToolTip="Modifier"
-                                        Background="#f1c40f" Foreground="White" BorderThickness="0" Click="Edit_Click" Tag="{Binding Username}">
+                                        Background="#f1c40f" Foreground="White" BorderThickness="0" Click="Edit_Click" Tag="{Binding}">
                                     <Button.Resources>
                                         <Style TargetType="Border">
                                             <Setter Property="CornerRadius" Value="17.5"/>

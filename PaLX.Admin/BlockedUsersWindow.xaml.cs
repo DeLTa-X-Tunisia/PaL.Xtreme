@@ -44,11 +44,26 @@ namespace PaLX.Admin
 
         private void Edit_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string targetUsername)
+            if (sender is Button btn)
             {
-                var blockWindow = new BlockUserWindow(_currentUsername, targetUsername);
-                blockWindow.UserBlocked += LoadBlockedUsers;
-                blockWindow.ShowDialog();
+                BlockUserWindow? blockWindow = null;
+
+                if (btn.Tag is string targetUsername)
+                {
+                    // Fallback if Tag is string
+                    blockWindow = new BlockUserWindow(_currentUsername, targetUsername);
+                }
+                else if (btn.Tag is BlockedUserInfo info)
+                {
+                    // Edit mode
+                    blockWindow = new BlockUserWindow(_currentUsername, info);
+                }
+
+                if (blockWindow != null)
+                {
+                    blockWindow.UserBlocked += LoadBlockedUsers;
+                    blockWindow.ShowDialog();
+                }
             }
         }
     }

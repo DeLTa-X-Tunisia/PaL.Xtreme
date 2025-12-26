@@ -27,6 +27,7 @@ namespace PaLX.Admin
         public string Country { get; set; } = "";
         public int Age { get; set; }
         public string Status { get; set; } = "Hors ligne"; // For UI
+        public int StatusValue { get; set; } = 6; // 0-6
         public int FriendshipStatus { get; set; } // 0: Pending, 1: Accepted, 2: None (Search result)
         public bool IsIncomingRequest { get; set; }
     }
@@ -193,6 +194,23 @@ namespace PaLX.Admin
                             UNIQUE(""BlockerId"", ""BlockedId"")
                         );";
                     using (var cmd = new NpgsqlCommand(createBlockedUsersSql, conn)) cmd.ExecuteNonQuery();
+
+                    // Create UserSessions Table
+                    var createUserSessionsSql = @"
+                        CREATE TABLE IF NOT EXISTS ""UserSessions"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""UserId"" INT NOT NULL,
+                            ""Nom"" TEXT,
+                            ""Prenom"" TEXT,
+                            ""IP"" TEXT,
+                            ""DeviceName"" TEXT,
+                            ""DeviceNumber"" TEXT,
+                            ""ConnectéLe"" TIMESTAMP NOT NULL DEFAULT NOW(),
+                            ""DéconnectéLe"" TIMESTAMP,
+                            ""DisplayedStatus"" INT NOT NULL DEFAULT 0, -- 0: Online, 6: Offline
+                            FOREIGN KEY (""UserId"") REFERENCES ""Users""(""Id"") ON DELETE CASCADE
+                        );";
+                    using (var cmd = new NpgsqlCommand(createUserSessionsSql, conn)) cmd.ExecuteNonQuery();
 
                     // Add DateOfBirth column if it doesn't exist (migration)
                     var addDobSql = @"
@@ -752,6 +770,28 @@ namespace PaLX.Admin
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         }
 
+        public void RemoveFriend(string username, string friendUsername)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        DELETE FROM ""Friendships""
+                        WHERE (""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u) AND ""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @fu))
+                        OR (""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u) AND ""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @fu))";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        cmd.Parameters.AddWithValue("fu", friendUsername);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
         public List<FriendInfo> GetFriends(string username)
         {
             var results = new List<FriendInfo>();
@@ -762,17 +802,25 @@ namespace PaLX.Admin
                     conn.Open();
                     // Get all friends (both directions)
                     var sql = @"
-                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        WITH ActiveSessions AS (
+                            SELECT DISTINCT ON (""UserId"") ""UserId"", ""DisplayedStatus""
+                            FROM ""UserSessions""
+                            WHERE ""DéconnectéLe"" IS NULL
+                            ORDER BY ""UserId"", ""ConnectéLe"" DESC
+                        )
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus""
                         FROM ""Friendships"" f
                         JOIN ""Users"" u ON f.""ReceiverId"" = u.""Id""
                         LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        LEFT JOIN ActiveSessions s ON u.""Id"" = s.""UserId""
                         WHERE f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
                         AND f.""Status"" = 1
                         UNION
-                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath""
+                        SELECT u.""Username"", p.""FirstName"", p.""LastName"", p.""AvatarPath"", s.""DisplayedStatus""
                         FROM ""Friendships"" f
                         JOIN ""Users"" u ON f.""RequesterId"" = u.""Id""
                         LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        LEFT JOIN ActiveSessions s ON u.""Id"" = s.""UserId""
                         WHERE f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
                         AND f.""Status"" = 1";
 
@@ -787,6 +835,19 @@ namespace PaLX.Admin
                                 var firstName = reader.IsDBNull(1) ? "" : reader.GetString(1);
                                 var lastName = reader.IsDBNull(2) ? "" : reader.GetString(2);
                                 var avatarPath = reader.IsDBNull(3) ? null : reader.GetString(3);
+                                var statusVal = reader.IsDBNull(4) ? 6 : reader.GetInt32(4); // Default to 6 (Offline) if null
+
+                                string statusText = "Hors ligne";
+                                switch (statusVal)
+                                {
+                                    case 0: statusText = "En ligne"; break;
+                                    case 1: statusText = "Absent"; break;
+                                    case 2: statusText = "Occupé"; break;
+                                    case 3: statusText = "Au téléphone"; break;
+                                    case 4: statusText = "En pause"; break;
+                                    case 5: statusText = "En réunion"; break;
+                                    default: statusText = "Hors ligne"; break;
+                                }
 
                                 results.Add(new FriendInfo
                                 {
@@ -794,7 +855,8 @@ namespace PaLX.Admin
                                     DisplayName = string.IsNullOrWhiteSpace(firstName) ? uname : $"{lastName} {firstName}",
                                     AvatarPath = avatarPath,
                                     FriendshipStatus = 1,
-                                    Status = "En ligne"
+                                    Status = statusText,
+                                    StatusValue = statusVal
                                 });
                             }
                         }
@@ -805,10 +867,47 @@ namespace PaLX.Admin
             return results;
         }
 
-        public void BlockUser(string blockerUsername, string blockedUsername, int blockType, DateTime? endDate, string reason)
+        public int GetUserRoleLevel(string username)
         {
             try
             {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT r.""RoleLevel""
+                        FROM ""Users"" u
+                        JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                        JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null) return (int)result;
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            return 7; // Default to User
+        }
+
+        public bool BlockUser(string blockerUsername, string blockedUsername, int blockType, DateTime? endDate, string reason)
+        {
+            try
+            {
+                // Check Roles
+                int blockerRole = GetUserRoleLevel(blockerUsername);
+                int blockedRole = GetUserRoleLevel(blockedUsername);
+
+                // Rule: A role cannot block a higher role (lower value)
+                if (blockerRole > blockedRole)
+                {
+                    System.Windows.MessageBox.Show("Impossible de bloquer cet utilisateur : son rôle est supérieur au vôtre.", "Permission refusée", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                    return false;
+                }
+
                 using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
                 {
                     conn.Open();
@@ -845,8 +944,9 @@ namespace PaLX.Admin
                         cmd.ExecuteNonQuery();
                     }
                 }
+                return true;
             }
-            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); return false; }
         }
 
         public void UnblockUser(string blockerUsername, string blockedUsername)
@@ -929,6 +1029,83 @@ namespace PaLX.Admin
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
             return results;
+        }
+        public void CreateSession(string username, string ip, string deviceName, string deviceNumber)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    // Close any previous active sessions for this user/device combo or just insert new
+                    // For simplicity, we just insert a new active session.
+                    // We also need Nom/Prenom from UserProfiles
+                    var sql = @"
+                        INSERT INTO ""UserSessions"" (""UserId"", ""Nom"", ""Prenom"", ""IP"", ""DeviceName"", ""DeviceNumber"", ""ConnectéLe"", ""DisplayedStatus"")
+                        SELECT u.""Id"", p.""LastName"", p.""FirstName"", @ip, @dn, @dnum, NOW(), 0
+                        FROM ""Users"" u
+                        LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE u.""Username"" = @u";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        cmd.Parameters.AddWithValue("ip", ip);
+                        cmd.Parameters.AddWithValue("dn", deviceName);
+                        cmd.Parameters.AddWithValue("dnum", deviceNumber);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public void EndSession(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    // Close all active sessions for this user
+                    var sql = @"
+                        UPDATE ""UserSessions""
+                        SET ""DéconnectéLe"" = NOW(), ""DisplayedStatus"" = 6
+                        WHERE ""UserId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND ""DéconnectéLe"" IS NULL";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        public void UpdateStatus(string username, int status)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        UPDATE ""UserSessions""
+                        SET ""DisplayedStatus"" = @s
+                        WHERE ""UserId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                        AND ""DéconnectéLe"" IS NULL";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        cmd.Parameters.AddWithValue("s", status);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
         }
     }
 }

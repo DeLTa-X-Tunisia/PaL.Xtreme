@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Controls;
 using System.IO;
 using System;
 using System.Linq;
@@ -14,6 +15,8 @@ namespace PaLX.Client
         private string _role;
         private DatabaseService _dbService;
         private AddFriendWindow? _addFriendWindow;
+
+        private System.Windows.Threading.DispatcherTimer _refreshTimer;
 
         public MainView(string username, string role)
         {
@@ -37,17 +40,69 @@ namespace PaLX.Client
             };
             StatusCombo.ItemsSource = statuses;
             StatusCombo.SelectedIndex = 0;
+            StatusCombo.SelectionChanged += StatusCombo_SelectionChanged;
+
+            // Setup Timer
+            _refreshTimer = new System.Windows.Threading.DispatcherTimer();
+            _refreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _refreshTimer.Tick += (s, e) => LoadFriends();
+            _refreshTimer.Start();
+
+            this.Closing += MainView_Closing;
+        }
+
+        private void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        {
+            _dbService.EndSession(_username);
+        }
+
+        private void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (StatusCombo.SelectedItem is StatusItem selectedStatus)
+            {
+                int statusValue = 0;
+                switch (selectedStatus.Name)
+                {
+                    case "En ligne": statusValue = 0; break;
+                    case "Absent": statusValue = 1; break;
+                    case "Occupé": statusValue = 2; break;
+                    case "En appel": statusValue = 3; break;
+                    case "Ne pas déranger": statusValue = 2; break;
+                    case "Hors ligne": statusValue = 6; break;
+                    default: statusValue = 0; break;
+                }
+                _dbService.UpdateStatus(_username, statusValue);
+            }
         }
 
         private void LoadFriends()
         {
             var friends = _dbService.GetFriends(_username);
-            var friendViewModels = friends.Select(f => new Friend
-            {
-                Name = f.DisplayName,
-                StatusText = "Hors ligne", // Default for now, real status needs real-time logic
-                StatusColor = Brushes.Gray,
-                AvatarPath = (!string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath)) ? f.AvatarPath : null
+            var friendViewModels = friends.Select(f => {
+                bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
+                
+                SolidColorBrush statusBrush = Brushes.Gray;
+                switch (f.StatusValue)
+                {
+                    case 0: statusBrush = Brushes.Green; break;
+                    case 1: statusBrush = Brushes.Orange; break;
+                    case 2: statusBrush = Brushes.Red; break;
+                    case 3: statusBrush = Brushes.DarkRed; break;
+                    case 4: statusBrush = Brushes.YellowGreen; break;
+                    case 5: statusBrush = Brushes.DarkBlue; break;
+                    default: statusBrush = Brushes.Gray; break;
+                }
+
+                return new Friend
+                {
+                    Name = f.DisplayName,
+                    StatusText = f.Status,
+                    StatusColor = statusBrush,
+                    AvatarPath = hasAvatar ? f.AvatarPath : null,
+                    Username = f.Username,
+                    AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
+                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible
+                };
             }).ToList();
 
             FriendsList.ItemsSource = friendViewModels;
@@ -82,6 +137,7 @@ namespace PaLX.Client
 
         private void Logout_Click(object sender, RoutedEventArgs e)
         {
+            _dbService.EndSession(_username);
             // Close all other windows
             foreach (Window window in Application.Current.Windows)
             {
@@ -140,6 +196,41 @@ namespace PaLX.Client
                 _addFriendWindow.Activate();
             }
         }
+
+        private void ViewProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                var profileWindow = new PublicProfileWindow(username);
+                profileWindow.ShowDialog();
+            }
+        }
+
+        private void BlockUser_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                if (MessageBox.Show($"Voulez-vous vraiment bloquer {username} ?", "Bloquer", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    if (_dbService.BlockUser(_username, username, 0, null, "Bloqué par l'utilisateur"))
+                    {
+                        LoadFriends();
+                    }
+                }
+            }
+        }
+
+        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                if (MessageBox.Show($"Voulez-vous vraiment retirer {username} de vos amis ?", "Retirer", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                {
+                    _dbService.RemoveFriend(_username, username);
+                    LoadFriends();
+                }
+            }
+        }
     }
 
     public class StatusItem
@@ -154,5 +245,8 @@ namespace PaLX.Client
         public string StatusText { get; set; } = "";
         public SolidColorBrush StatusColor { get; set; } = Brushes.Gray;
         public string? AvatarPath { get; set; }
+        public string Username { get; set; } = "";
+        public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
+        public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
     }
 }

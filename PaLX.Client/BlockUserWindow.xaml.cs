@@ -21,8 +21,23 @@ namespace PaLX.Client
             TargetUserText.Text = blockedUsername;
         }
 
+        public BlockUserWindow(string blockerUsername, BlockedUserInfo info) : this(blockerUsername, info.Username)
+        {
+            // Pre-fill data
+            BlockTypeCombo.SelectedIndex = info.BlockType;
+            
+            if (info.BlockType == 2 && info.EndDate.HasValue)
+            {
+                EndDatePicker.SelectedDate = info.EndDate;
+            }
+
+            ReasonBox.Text = info.Reason;
+        }
+
         private void BlockTypeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (DateRangePanel == null) return;
+
             if (BlockTypeCombo.SelectedItem is ComboBoxItem item && item.Tag.ToString() == "2")
             {
                 DateRangePanel.Visibility = Visibility.Visible;
