@@ -11,21 +11,23 @@ namespace PaLX.Admin
     {
         public string CurrentUsername { get; private set; }
         public string CurrentRole { get; private set; }
+        private DatabaseService _dbService;
 
         public MainView(string username, string role)
         {
             InitializeComponent();
             CurrentUsername = username;
             CurrentRole = role;
+            _dbService = new DatabaseService();
 
-            LoadDummyData();
+            LoadStatuses();
             LoadUserProfile(username);
+            LoadFriends();
         }
 
         private void LoadUserProfile(string username)
         {
-            var dbService = new DatabaseService();
-            var profile = dbService.GetUserProfile(username);
+            var profile = _dbService.GetUserProfile(username);
 
             if (profile != null)
             {
@@ -50,9 +52,8 @@ namespace PaLX.Admin
             }
         }
 
-        private void LoadDummyData()
+        private void LoadStatuses()
         {
-            // Statuses
             var statuses = new List<UserStatus>
             {
                 new UserStatus { Name = "En ligne", ColorBrush = Brushes.Green },
@@ -64,16 +65,35 @@ namespace PaLX.Admin
             };
             StatusCombo.ItemsSource = statuses;
             StatusCombo.SelectedIndex = 0;
+        }
 
-            // Friends
-            var friends = new List<FriendItem>
+        private void LoadFriends()
+        {
+            var friends = _dbService.GetFriends(CurrentUsername);
+            var friendItems = new List<FriendItem>();
+
+            foreach (var f in friends)
             {
-                new FriendItem { Name = "AdminUser", StatusText = "En ligne", StatusColor = Brushes.Green },
-                new FriendItem { Name = "Moderator1", StatusText = "Occupé", StatusColor = Brushes.Red },
-                new FriendItem { Name = "Support", StatusText = "Absent", StatusColor = Brushes.Orange },
-                new FriendItem { Name = "NewUser123", StatusText = "Hors ligne", StatusColor = Brushes.Gray }
+                friendItems.Add(new FriendItem
+                {
+                    Name = f.DisplayName,
+                    StatusText = f.Status,
+                    StatusColor = GetStatusColor(f.Status)
+                });
+            }
+            FriendsList.ItemsSource = friendItems;
+        }
+
+        private Brush GetStatusColor(string status)
+        {
+            return status switch
+            {
+                "En ligne" => Brushes.Green,
+                "Occupé" => Brushes.Red,
+                "Absent" => Brushes.Orange,
+                "Hors ligne" => Brushes.Gray,
+                _ => Brushes.Gray
             };
-            FriendsList.ItemsSource = friends;
         }
 
         private void Logout_Click(object sender, RoutedEventArgs e)
@@ -103,18 +123,32 @@ namespace PaLX.Admin
         {
             MessageBox.Show("Paramètres - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
         }
+
+        private void AddFriend_Click(object sender, RoutedEventArgs e)
+        {
+            var addFriendWindow = new AddFriendWindow(CurrentUsername);
+            addFriendWindow.ShowDialog();
+            LoadFriends(); // Refresh list after closing
+        }
+
+        private void BlockedUsers_Click(object sender, RoutedEventArgs e)
+        {
+            var blockedWindow = new BlockedUsersWindow(CurrentUsername);
+            blockedWindow.ShowDialog();
+            LoadFriends(); // Refresh list in case unblocked users are now friends (unlikely but good practice)
+        }
     }
 
     public class UserStatus
     {
-        public required string Name { get; set; }
-        public required Brush ColorBrush { get; set; }
+        public string Name { get; set; } = "";
+        public Brush ColorBrush { get; set; } = Brushes.Gray;
     }
 
     public class FriendItem
     {
-        public required string Name { get; set; }
-        public required string StatusText { get; set; }
-        public required Brush StatusColor { get; set; }
+        public string Name { get; set; } = "";
+        public string StatusText { get; set; } = "";
+        public Brush StatusColor { get; set; } = Brushes.Gray;
     }
 }

@@ -268,7 +268,8 @@ namespace PaLX.Admin
                     gender,
                     country,
                     PhoneBox.Text,
-                    _avatarPath
+                    _avatarPath,
+                    null
                 );
             }
             catch (System.Exception ex)

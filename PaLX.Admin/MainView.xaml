@@ -123,6 +123,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
                 <!-- Settings -->
@@ -145,12 +146,17 @@
                 </Button>
 
                 <!-- Add Friend -->
-                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami">
+                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
                     <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
                 </Button>
 
+                <!-- Blocked Users -->
+                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" ToolTip="Utilisateurs bloqués" Click="BlockedUsers_Click">
+                    <TextBlock Text="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#e74c3c"/>
+                </Button>
+
                 <!-- Logout -->
-                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
+                <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
                     <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
                 </Button>
             </Grid>
