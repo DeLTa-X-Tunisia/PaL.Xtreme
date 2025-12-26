@@ -54,6 +54,18 @@ namespace PaLX.Client
         }
     }
 
+    public class ChatMessage
+    {
+        public int Id { get; set; }
+        public string Sender { get; set; } = "";
+        public string Receiver { get; set; } = "";
+        public string Content { get; set; } = "";
+        public DateTime Timestamp { get; set; }
+        public string Type { get; set; } = "Text"; // Text, Image, Video, Audio, File
+        public bool IsRead { get; set; }
+        public bool IsMine { get; set; } // Helper for UI
+    }
+
     public class DatabaseService
     {
         private const string Host = "localhost";
@@ -221,6 +233,17 @@ namespace PaLX.Client
                             END IF;
                         END $$;";
                     using (var cmd = new NpgsqlCommand(addDobSql, conn)) cmd.ExecuteNonQuery();
+
+                    // Create TypingStatus Table
+                    var createTypingStatusSql = @"
+                        CREATE TABLE IF NOT EXISTS ""TypingStatus"" (
+                            ""Sender"" TEXT NOT NULL,
+                            ""Receiver"" TEXT NOT NULL,
+                            ""IsTyping"" BOOLEAN DEFAULT FALSE,
+                            ""LastUpdated"" TIMESTAMP DEFAULT NOW(),
+                            PRIMARY KEY (""Sender"", ""Receiver"")
+                        );";
+                    using (var cmd = new NpgsqlCommand(createTypingStatusSql, conn)) cmd.ExecuteNonQuery();
 
                     SeedUsers(conn);
                 }
@@ -1106,6 +1129,284 @@ namespace PaLX.Client
                 }
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine(ex.Message); }
+        }
+
+        // --- Chat Features ---
+
+        public void InitializeChatTables()
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        CREATE TABLE IF NOT EXISTS ""Messages"" (
+                            ""Id"" SERIAL PRIMARY KEY,
+                            ""SenderUsername"" VARCHAR(50) NOT NULL,
+                            ""ReceiverUsername"" VARCHAR(50) NOT NULL,
+                            ""Content"" TEXT,
+                            ""Timestamp"" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            ""MessageType"" VARCHAR(20) DEFAULT 'Text',
+                            ""IsRead"" BOOLEAN DEFAULT FALSE
+                        );
+                        CREATE TABLE IF NOT EXISTS ""ChatSettings"" (
+                            ""Username"" VARCHAR(50) PRIMARY KEY,
+                            ""EnableSmartSuggestions"" BOOLEAN DEFAULT FALSE,
+                            ""EnableChatSummary"" BOOLEAN DEFAULT FALSE
+                        );
+                    ";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Init Chat Tables: " + ex.Message); }
+        }
+
+        public int SendMessage(string sender, string receiver, string content, string type = "Text")
+        {
+            int newId = 0;
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""Messages"" (""SenderUsername"", ""ReceiverUsername"", ""Content"", ""MessageType"", ""Timestamp"", ""IsRead"")
+                        VALUES (@s, @r, @c, @t, NOW(), FALSE)
+                        RETURNING ""Id""";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", sender);
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        cmd.Parameters.AddWithValue("c", content);
+                        cmd.Parameters.AddWithValue("t", type);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            newId = Convert.ToInt32(result);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Send Message: " + ex.Message); }
+            return newId;
+        }
+
+        public List<string> GetSendersWithUnreadMessages(string receiver)
+        {
+            var senders = new List<string>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"SELECT DISTINCT ""SenderUsername"" FROM ""Messages"" WHERE ""ReceiverUsername"" = @r AND ""IsRead"" = FALSE";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                senders.Add(reader.GetString(0));
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Get Unread Senders: " + ex.Message); }
+            return senders;
+        }
+
+        public List<ChatMessage> GetMessages(string user1, string user2)
+        {
+            var list = new List<ChatMessage>();
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT ""Id"", ""SenderUsername"", ""ReceiverUsername"", ""Content"", ""Timestamp"", ""MessageType"", ""IsRead""
+                        FROM ""Messages""
+                        WHERE (""SenderUsername"" = @u1 AND ""ReceiverUsername"" = @u2)
+                           OR (""SenderUsername"" = @u2 AND ""ReceiverUsername"" = @u1)
+                        ORDER BY ""Timestamp"" ASC";
+
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u1", user1);
+                        cmd.Parameters.AddWithValue("u2", user2);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                list.Add(new ChatMessage
+                                {
+                                    Id = reader.GetInt32(0),
+                                    Sender = reader.GetString(1),
+                                    Receiver = reader.GetString(2),
+                                    Content = reader.GetString(3),
+                                    Timestamp = reader.GetDateTime(4),
+                                    Type = reader.GetString(5),
+                                    IsRead = reader.GetBoolean(6),
+                                    IsMine = reader.GetString(1) == user1
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Get Messages: " + ex.Message); }
+            return list;
+        }
+
+        public void MarkMessagesAsRead(string sender, string receiver)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"UPDATE ""Messages"" SET ""IsRead"" = TRUE 
+                                WHERE ""SenderUsername"" = @s AND ""ReceiverUsername"" = @r AND ""IsRead"" = FALSE";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", sender);
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Mark Read: " + ex.Message); }
+        }
+
+        public void SetTypingStatus(string sender, string receiver, bool isTyping)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        INSERT INTO ""TypingStatus"" (""Sender"", ""Receiver"", ""IsTyping"", ""LastUpdated"")
+                        VALUES (@s, @r, @t, NOW())
+                        ON CONFLICT (""Sender"", ""Receiver"") 
+                        DO UPDATE SET ""IsTyping"" = @t, ""LastUpdated"" = NOW()";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", sender);
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        cmd.Parameters.AddWithValue("t", isTyping);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("SetTyping: " + ex.Message); }
+        }
+
+        public bool GetTypingStatus(string sender, string receiver)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    // Check if sender is typing to receiver, and update was within last 5 seconds
+                    var sql = @"
+                        SELECT ""IsTyping"" FROM ""TypingStatus"" 
+                        WHERE ""Sender"" = @s AND ""Receiver"" = @r 
+                        AND ""LastUpdated"" > NOW() - INTERVAL '5 seconds'";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("s", sender);
+                        cmd.Parameters.AddWithValue("r", receiver);
+                        var result = cmd.ExecuteScalar();
+                        return result != null && (bool)result;
+                    }
+                }
+            }
+            catch { return false; }
+        }
+
+        public string GetUserFullName(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    var sql = @"
+                        SELECT p.""FirstName"", p.""LastName"" 
+                        FROM ""Users"" u
+                        JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                        WHERE u.""Username"" = @u";
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string first = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                                string last = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                if (!string.IsNullOrWhiteSpace(first) || !string.IsNullOrWhiteSpace(last))
+                                {
+                                    return $"{last} {first}".Trim();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+            return username; // Fallback
+        }
+
+        public string GetUserStatus(string username)
+        {
+            try
+            {
+                using (var conn = new NpgsqlConnection(GetConnectionString(DatabaseName)))
+                {
+                    conn.Open();
+                    // Join UserSessions to get status. If no session, assume Offline (6).
+                    // We take the most recent session if multiple exist (though usually one active per user/device)
+                    // Actually, we want the displayed status from the active session.
+                    var sql = @"
+                        SELECT s.""DisplayedStatus""
+                        FROM ""UserSessions"" s
+                        JOIN ""Users"" u ON s.""UserId"" = u.""Id""
+                        WHERE u.""Username"" = @u AND s.""DéconnectéLe"" IS NULL
+                        ORDER BY s.""ConnectéLe"" DESC
+                        LIMIT 1";
+                    
+                    using (var cmd = new NpgsqlCommand(sql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("u", username);
+                        var result = cmd.ExecuteScalar();
+                        if (result != null && result != DBNull.Value)
+                        {
+                            int statusVal = Convert.ToInt32(result);
+                            return statusVal switch
+                            {
+                                0 => "En ligne",
+                                1 => "Absent",
+                                2 => "Occupé",
+                                3 => "En appel",
+                                4 => "Ne pas déranger",
+                                6 => "Hors ligne",
+                                _ => "En ligne"
+                            };
+                        }
+                    }
+                }
+            }
+            catch { }
+            return "Hors ligne";
         }
     }
 }

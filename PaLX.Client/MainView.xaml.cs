@@ -20,6 +20,7 @@ namespace PaLX.Client
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
         private SoundPlayer? _onlineSound;
         private SoundPlayer? _offlineSound;
+        private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
 
         public MainView(string username, string role)
         {
@@ -27,6 +28,7 @@ namespace PaLX.Client
             _username = username;
             _role = role;
             _dbService = new DatabaseService();
+            _dbService.InitializeChatTables(); // Ensure tables exist
 
             // Load Sounds
             try
@@ -60,10 +62,46 @@ namespace PaLX.Client
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
             _refreshTimer.Interval = TimeSpan.FromSeconds(2); // Faster refresh for better UX
-            _refreshTimer.Tick += (s, e) => LoadFriends();
+            _refreshTimer.Tick += (s, e) => 
+            {
+                LoadFriends();
+                CheckForIncomingMessages();
+            };
             _refreshTimer.Start();
 
             this.Closing += MainView_Closing;
+        }
+
+        private void CheckForIncomingMessages()
+        {
+            var senders = _dbService.GetSendersWithUnreadMessages(_username);
+            foreach (var sender in senders)
+            {
+                if (!_openChatWindows.ContainsKey(sender))
+                {
+                    OpenChatWindow(sender);
+                }
+                else
+                {
+                    // Optional: Flash window or bring to front
+                }
+            }
+        }
+
+        private void OpenChatWindow(string partnerUsername)
+        {
+            if (_openChatWindows.ContainsKey(partnerUsername))
+            {
+                var window = _openChatWindows[partnerUsername];
+                if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                window.Activate();
+                return;
+            }
+
+            var chatWindow = new ChatWindow(_username, partnerUsername);
+            chatWindow.Closed += (s, args) => _openChatWindows.Remove(partnerUsername);
+            _openChatWindows.Add(partnerUsername, chatWindow);
+            chatWindow.Show();
         }
 
         private void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -258,6 +296,21 @@ namespace PaLX.Client
                     _addFriendWindow.WindowState = WindowState.Normal;
                 }
                 _addFriendWindow.Activate();
+            }
+        }
+
+        private void OpenChat_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is Button btn && btn.Tag is string username)
+                {
+                    OpenChatWindow(username);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Impossible d'ouvrir le chat : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

@@ -137,6 +137,9 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Style="{StaticResource IconButtonStyle}" ToolTip="Message" Click="OpenChat_Click" Tag="{Binding Username}" Margin="0,0,5,0">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#2ecc71"/>
+                                </Button>
                                 <Button Style="{StaticResource IconButtonStyle}" ToolTip="Voir le profil" Click="ViewProfile_Click" Tag="{Binding Username}" Margin="0,0,5,0">
                                     <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#3498db"/>
                                 </Button>

@@ -25,6 +25,7 @@ namespace PaLX.Admin
             CurrentUsername = username;
             CurrentRole = role;
             _dbService = new DatabaseService();
+            _dbService.InitializeChatTables(); // Ensure tables exist
 
             // Load Sounds
             try
@@ -254,6 +255,22 @@ namespace PaLX.Admin
             var blockedWindow = new BlockedUsersWindow(CurrentUsername);
             blockedWindow.ShowDialog();
             LoadFriends(); // Refresh list in case unblocked users are now friends (unlikely but good practice)
+        }
+
+        private void OpenChat_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is Button btn && btn.Tag is string username)
+                {
+                    var chatWindow = new ChatWindow(CurrentUsername, username);
+                    chatWindow.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Impossible d'ouvrir le chat : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private void ViewProfile_Click(object sender, RoutedEventArgs e)
