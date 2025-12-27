@@ -18,6 +18,11 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
     *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
     *   **Disponibilité** : Le bouton BUZZ (icône cloche) n'est actif que si le correspondant est "En ligne".
+*   **Partage de Médias** :
+    *   **Envoi d'Images** : Possibilité d'envoyer des images (JPG, PNG, GIF) directement dans le chat via le bouton trombone.
+    *   **Expérience Utilisateur** : Barre de progression intégrée affichant l'avancement de l'upload en temps réel.
+    *   **Visualisation** : Les images s'affichent directement dans la conversation. Un clic sur l'image l'ouvre en taille réelle dans la visionneuse par défaut du système.
+    *   **Sécurité** : Validation stricte des extensions et limite de taille fixée à 5 MB.
 *   **Formatage Riche** : Support complet du **Gras**, *Italique*, <u>Souligné</u> et de la **Couleur** du texte.
 *   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents.
 *   **Historique Visuel** : Bulles de messages distinctes et affichage centralisé des changements de statut du partenaire.
