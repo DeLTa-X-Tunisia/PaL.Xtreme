@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PaLX.Admin.Services;
 
 namespace PaLX.Admin
 {
@@ -22,7 +23,7 @@ namespace PaLX.Admin
             PasswordBox.Password = password;
         }
 
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(UsernameBox.Text) || string.IsNullOrEmpty(PasswordBox.Password))
             {
@@ -30,48 +31,51 @@ namespace PaLX.Admin
                 return;
             }
 
-            var dbService = new DatabaseService();
-            var (isValid, roleLevel, roleName) = dbService.ValidateUser(UsernameBox.Text, PasswordBox.Password);
-            
-            if (isValid)
+            LoginButton.IsEnabled = false;
+
+            try
             {
-                // Admin App: Allows roles 1-6
-                if (roleLevel >= 1 && roleLevel <= 6)
+                string hostName = System.Net.Dns.GetHostName();
+                string ip = System.Net.Dns.GetHostEntry(hostName).AddressList
+                    .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
+                string deviceName = System.Environment.MachineName;
+                string deviceNumber = "ADM-" + new Random().Next(1000, 9999);
+
+                var (result, isConnectionError) = await ApiService.Instance.LoginAsync(UsernameBox.Text, PasswordBox.Password, ip, deviceName, deviceNumber);
+                
+                if (result != null)
                 {
-                    // Create Session
-                    try
+                    // Admin App: Allows roles 1-6
+                    if (result.RoleLevel >= 1 && result.RoleLevel <= 6)
                     {
-                        string hostName = System.Net.Dns.GetHostName();
-                        string ip = System.Net.Dns.GetHostEntry(hostName).AddressList
-                            .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
-                        string deviceName = System.Environment.MachineName;
-                        string deviceNumber = "ADM-" + new Random().Next(1000, 9999);
+                        // Connect SignalR
+                        await ApiService.Instance.ConnectSignalRAsync();
 
-                        dbService.CreateSession(UsernameBox.Text, ip, deviceName, deviceNumber);
-                    }
-                    catch { /* Ignore session creation errors */ }
-
-                    // Check if profile is complete
-                    if (dbService.IsProfileComplete(UsernameBox.Text))
-                    {
-                        var mainView = new MainView(UsernameBox.Text, roleName ?? "Admin");
-                        mainView.Show();
+                        if (result.IsProfileComplete)
+                        {
+                            var mainView = new MainView(UsernameBox.Text, result.Role);
+                            mainView.Show();
+                        }
+                        else
+                        {
+                            var userProfiles = new UserProfiles(UsernameBox.Text, result.Role);
+                            userProfiles.Show();
+                        }
+                        Window.GetWindow(this)?.Close();
                     }
                     else
                     {
-                        var userProfiles = new UserProfiles(UsernameBox.Text, roleName ?? "Admin");
-                        userProfiles.Show();
+                        MessageBox.Show("Accès refusé. Vous n'avez pas les droits d'administration.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
-                    Window.GetWindow(this)?.Close();
                 }
-                else
+                else if (!isConnectionError)
                 {
-                    MessageBox.Show("Accès refusé. Vous n'avez pas les droits d'administration.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    new LoginFailedWindow().ShowDialog();
                 }
             }
-            else
+            finally
             {
-                MessageBox.Show("Nom d'utilisateur ou mot de passe incorrect.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                LoginButton.IsEnabled = true;
             }
         }
 

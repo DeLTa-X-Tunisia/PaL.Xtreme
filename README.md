@@ -14,11 +14,15 @@ La solution se compose de deux projets principaux :
 *   **Authentification Sécurisée** :
     *   Système de Login et d'Inscription.
     *   Hachage des mots de passe utilisant **BCrypt** pour une sécurité maximale.
+    *   **Health Check** : Vérification automatique de la disponibilité du serveur au lancement du Launcher.
 *   **Gestion des Rôles** :
     *   Séparation stricte entre les utilisateurs standards et les administrateurs via la base de données.
 *   **Gestion des Amis** :
     *   **Recherche** : Recherche d'utilisateurs par pseudo ou email.
-    *   **Demandes** : Envoi, réception, acceptation et refus de demandes d'amis.
+    *   **Demandes & Notifications** : 
+        *   Envoi, réception, acceptation et refus de demandes.
+        *   **Badge de Notification** : Indicateur rouge en temps réel sur l'icône d'amis signalant les demandes en attente (Client & Admin).
+        *   **Interface Sécurisée** : Boutons distincts pour "Voir le Profil" (Icône bleue) et "Accepter" (Icône verte) pour éviter les erreurs.
     *   **Liste d'Amis** : Affichage en temps réel avec statut de connexion synchronisé.
         *   **Tri Intelligent** : Les utilisateurs en ligne apparaissent en premier (nom en **Gras**), suivis des utilisateurs hors ligne.
         *   **Synchronisation Instantanée** : Mise à jour immédiate lors de l'ajout d'amis et rafraîchissement rapide (toutes les 2 secondes) pour les statuts.

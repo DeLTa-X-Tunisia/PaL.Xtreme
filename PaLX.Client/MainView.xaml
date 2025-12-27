@@ -8,6 +8,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}">
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <Style x:Key="IconButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
@@ -101,12 +102,20 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <Ellipse Width="40" Height="40" Margin="0,0,15,0" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1" Visibility="{Binding AvatarVisibility}">
-                                <Ellipse.Fill>
-                                    <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
-                                </Ellipse.Fill>
-                            </Ellipse>
-                            <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False" Visibility="{Binding PlaceholderVisibility}"/>
+                            
+                            <!-- Avatar with Block Overlay -->
+                            <Grid Margin="0,0,15,0">
+                                <Ellipse Width="40" Height="40" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1" Visibility="{Binding AvatarVisibility}">
+                                    <Ellipse.Fill>
+                                        <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Visibility="{Binding PlaceholderVisibility}"/>
+                                
+                                <!-- Block Overlay -->
+                                <Ellipse Width="40" Height="40" Fill="#99FFFFFF" Visibility="{Binding BlockOverlayVisibility}"/>
+                                <TextBlock Text="🚫" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Red" Visibility="{Binding BlockOverlayVisibility}"/>
+                            </Grid>
                             
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Name}" FontSize="14">
@@ -143,8 +152,8 @@
                                 <Button Style="{StaticResource IconButtonStyle}" ToolTip="Voir le profil" Click="ViewProfile_Click" Tag="{Binding Username}" Margin="0,0,5,0">
                                     <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#3498db"/>
                                 </Button>
-                                <Button Style="{StaticResource IconButtonStyle}" ToolTip="Bloquer" Click="BlockUser_Click" Tag="{Binding Username}" Margin="0,0,5,0">
-                                    <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#e67e22"/>
+                                <Button Style="{StaticResource IconButtonStyle}" ToolTip="{Binding BlockToolTip}" Click="BlockUser_Click" Tag="{Binding Username}" Margin="0,0,5,0">
+                                    <TextBlock Text="{Binding BlockIcon}" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#e67e22"/>
                                 </Button>
                                 <Button Style="{StaticResource IconButtonStyle}" ToolTip="Retirer" Click="RemoveFriend_Click" Tag="{Binding Username}">
                                     <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#e74c3c"/>
@@ -160,6 +169,7 @@
         <Border Grid.Row="3" Background="White" Padding="10" BorderBrush="#ecf0f1" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
@@ -189,13 +199,23 @@
                     </Button.ContextMenu>
                 </Button>
 
+                <!-- Notifications -->
+                <Button Grid.Column="1" x:Name="NotificationButton" Click="NotificationButton_Click" Style="{StaticResource IconButtonStyle}" ToolTip="Demandes d'amis">
+                     <Grid>
+                        <TextBlock Text="👥" FontSize="24" Foreground="{StaticResource TextBrush}"/>
+                        <Border Background="Red" CornerRadius="10" MinWidth="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-8,-5,0,0" Padding="4,0" Visibility="{Binding HasNotifications, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock Text="{Binding NotificationCount}" Foreground="White" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
+                        </Border>
+                     </Grid>
+                </Button>
+
                 <!-- Add Friend -->
-                <Button Grid.Column="1" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
+                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
                     <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
                 </Button>
 
                 <!-- Logout -->
-                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
+                <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
                     <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
                 </Button>
             </Grid>

@@ -3,25 +3,25 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.IO;
+using PaLX.Admin.Services;
+using System.Threading.Tasks;
 
 namespace PaLX.Admin
 {
     public partial class PublicProfileWindow : Window
     {
         private string _username;
-        private DatabaseService _dbService;
 
         public PublicProfileWindow(string username)
         {
             InitializeComponent();
             _username = username;
-            _dbService = new DatabaseService();
             LoadProfile();
         }
 
-        private void LoadProfile()
+        private async void LoadProfile()
         {
-            var profile = _dbService.GetUserProfile(_username);
+            var profile = await ApiService.Instance.GetUserProfileAsync(_username);
             if (profile != null)
             {
                 DisplayNameText.Text = $"{profile.LastName} {profile.FirstName}";

@@ -1,42 +1,42 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.IO;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
     public partial class BlockedUsersWindow : Window
     {
         private string _currentUsername;
-        private DatabaseService _dbService;
 
         public BlockedUsersWindow(string username)
         {
             InitializeComponent();
             _currentUsername = username;
-            _dbService = new DatabaseService();
             LoadBlockedUsers();
         }
 
-        private void LoadBlockedUsers()
+        private async void LoadBlockedUsers()
         {
-            var users = _dbService.GetBlockedUsers(_currentUsername);
+            var users = await ApiService.Instance.GetBlockedUsersAsync();
+            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
             foreach (var u in users)
             {
                 if (string.IsNullOrEmpty(u.AvatarPath) || !File.Exists(u.AvatarPath))
                 {
-                    u.AvatarPath = null;
+                    u.AvatarPath = defaultAvatar;
                 }
             }
             BlockedList.ItemsSource = users;
         }
 
-        private void Unblock_Click(object sender, RoutedEventArgs e)
+        private async void Unblock_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string targetUsername)
             {
                 if (MessageBox.Show($"Voulez-vous vraiment débloquer {targetUsername} ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
                 {
-                    _dbService.UnblockUser(_currentUsername, targetUsername);
+                    await ApiService.Instance.UnblockUserAsync(targetUsername);
                     LoadBlockedUsers();
                 }
             }
@@ -53,7 +53,7 @@ namespace PaLX.Client
                     // Fallback if Tag is string (should not happen with new binding but safe to keep)
                     blockWindow = new BlockUserWindow(_currentUsername, targetUsername);
                 }
-                else if (btn.Tag is BlockedUserInfo info)
+                else if (btn.Tag is BlockedUserDto info)
                 {
                     // Edit mode
                     blockWindow = new BlockUserWindow(_currentUsername, info);

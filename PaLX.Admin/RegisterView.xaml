@@ -87,7 +87,7 @@
             </Grid>
 
             <!-- Register Button (Icon) -->
-            <Button Style="{StaticResource IconButtonStyle}" Click="RegisterButton_Click" HorizontalAlignment="Center" Width="60" Height="60">
+            <Button x:Name="RegisterButton" Style="{StaticResource IconButtonStyle}" Click="RegisterButton_Click" HorizontalAlignment="Center" Width="60" Height="60">
                 <Path Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z" 
                       Fill="{StaticResource PrimaryBrush}" Stretch="Uniform" Width="30" Height="30"/>
             </Button>

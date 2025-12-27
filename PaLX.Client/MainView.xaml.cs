@@ -7,6 +7,7 @@ using System.IO;
 using System;
 using System.Linq;
 using System.Media;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
@@ -14,7 +15,6 @@ namespace PaLX.Client
     {
         private string _username;
         private string _role;
-        private DatabaseService _dbService;
         private AddFriendWindow? _addFriendWindow;
 
         private System.Windows.Threading.DispatcherTimer _refreshTimer;
@@ -23,13 +23,33 @@ namespace PaLX.Client
         private SoundPlayer? _messageSound;
         private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
 
+        // Notification Properties
+        public static readonly DependencyProperty NotificationCountProperty =
+            DependencyProperty.Register("NotificationCount", typeof(int), typeof(MainView), new PropertyMetadata(0));
+
+        public int NotificationCount
+        {
+            get { return (int)GetValue(NotificationCountProperty); }
+            set { SetValue(NotificationCountProperty, value); }
+        }
+
+        public static readonly DependencyProperty HasNotificationsProperty =
+            DependencyProperty.Register("HasNotifications", typeof(bool), typeof(MainView), new PropertyMetadata(false));
+
+        public bool HasNotifications
+        {
+            get { return (bool)GetValue(HasNotificationsProperty); }
+            set { SetValue(HasNotificationsProperty, value); }
+        }
+
         public MainView(string username, string role)
         {
             InitializeComponent();
             _username = username;
             _role = role;
-            _dbService = new DatabaseService();
-            _dbService.InitializeChatTables(); // Ensure tables exist
+            
+            // Set DataContext for bindings
+            NotificationButton.DataContext = this;
 
             // Load Sounds
             try
@@ -47,6 +67,7 @@ namespace PaLX.Client
 
             LoadUserProfile(username);
             LoadFriends();
+            UpdateFriendRequestsCount();
             
             // Initialize Statuses
             var statuses = new List<StatusItem>
@@ -64,48 +85,171 @@ namespace PaLX.Client
 
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
-            _refreshTimer.Interval = TimeSpan.FromSeconds(2); // Faster refresh for better UX
+            _refreshTimer.Interval = TimeSpan.FromSeconds(5); // Slower refresh as we use SignalR for messages
             _refreshTimer.Tick += (s, e) => 
             {
                 LoadFriends();
-                CheckForIncomingMessages();
+                // CheckForIncomingMessages(); // Handled by SignalR
             };
             _refreshTimer.Start();
+
+            // Subscribe to SignalR events
+            ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
+            ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
+            
+            // Friend Sync
+            ApiService.Instance.OnFriendRequestAccepted += OnFriendUpdate;
+            ApiService.Instance.OnFriendRequestReceived += OnFriendRequestReceived;
+            ApiService.Instance.OnFriendRemoved += OnFriendUpdate;
+
+            // Block Sync
+            ApiService.Instance.OnUserBlocked += OnUserBlocked;
+            ApiService.Instance.OnUserBlockedBy += OnUserBlocked; 
+            ApiService.Instance.OnUserUnblocked += OnUserUnblocked;
+            ApiService.Instance.OnUserUnblockedBy += OnUserUnblocked;
+
+            // System Events
+            ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
 
             this.Closing += MainView_Closing;
         }
 
-        private void CheckForIncomingMessages()
+        private void OnConnectionClosed()
         {
-            // Check for System Alerts
-            var alerts = _dbService.GetUnreadSystemAlerts(_username);
-            foreach (var alert in alerts)
+            Dispatcher.Invoke(() =>
             {
-                // Only show if chat window is NOT open for this sender
-                if (!_openChatWindows.ContainsKey(alert.Sender))
-                {
-                    var alertWindow = new CustomAlertWindow(alert.Content);
-                    alertWindow.Topmost = true;
-                    alertWindow.Show();
-                    
-                    // Mark as read
-                    _dbService.MarkMessagesAsRead(alert.Sender, _username);
-                }
-            }
+                var maintenance = new MaintenanceWindow();
+                maintenance.ShowDialog();
+                
+                // Force Logout logic
+                Logout_Click(null!, null!);
+            });
+        }
 
-            var senders = _dbService.GetSendersWithUnreadMessages(_username);
-            foreach (var sender in senders)
+        private void OnUserBlocked(string username)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (FriendsList.ItemsSource is List<Friend> items)
+                {
+                    var friend = items.FirstOrDefault(f => f.Username == username);
+                    if (friend != null)
+                    {
+                        friend.StatusText = "Bloqué";
+                        friend.StatusColor = Brushes.Red;
+                        friend.NameFontWeight = FontWeights.Normal;
+                        FriendsList.Items.Refresh();
+                    }
+                }
+            });
+        }
+
+        private void OnUserUnblocked(string username)
+        {
+             Dispatcher.Invoke(() => LoadFriends());
+        }
+
+        private void OnFriendUpdate(string username)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                LoadFriends();
+                UpdateFriendRequestsCount();
+            });
+        }
+
+        private void OnFriendRequestReceived(string username)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                UpdateFriendRequestsCount();
+                LoadFriends();
+            });
+        }
+
+        private void OnPrivateMessageReceived(string sender, string message)
+        {
+            Dispatcher.Invoke(() => 
             {
                 if (!_openChatWindows.ContainsKey(sender))
                 {
+                    // Show alert or open window?
+                    // For now, just play sound if not open
+                    _messageSound?.Play();
+                    
+                    // Optionally open chat window automatically
                     OpenChatWindow(sender);
-                    _messageSound?.Play(); // Sound for new chat window
                 }
-                else
+            });
+        }
+
+        private void OnUserStatusChanged(string username, string status)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // Determine status value
+                int statusValue = 6;
+                switch (status)
                 {
-                    // Optional: Flash window or bring to front
+                    case "En ligne": statusValue = 0; break;
+                    case "Occupé": statusValue = 1; break;
+                    case "Absent": statusValue = 2; break;
+                    case "En appel": statusValue = 3; break;
+                    case "Ne pas déranger": statusValue = 4; break;
+                    default: statusValue = 6; break;
                 }
-            }
+
+                // Update tracking to prevent overwriting by polling
+                _previousStatuses[username] = statusValue;
+                _lastSignalRUpdate[username] = DateTime.Now;
+                _blinkingUntil[username] = DateTime.Now.AddSeconds(5);
+
+                if (FriendsList.ItemsSource is List<Friend> items)
+                {
+                    var friend = items.FirstOrDefault(f => f.Username == username);
+                    if (friend != null)
+                    {
+                        // Update Status
+                        friend.StatusText = status;
+                        
+                        SolidColorBrush statusBrush = Brushes.Gray;
+                        switch (statusValue)
+                        {
+                            case 0: statusBrush = Brushes.Green; break;
+                            case 1: statusBrush = Brushes.Red; break;
+                            case 2: statusBrush = Brushes.Orange; break;
+                            case 3: statusBrush = Brushes.DarkRed; break;
+                            case 4: statusBrush = Brushes.Purple; break;
+                            default: statusBrush = Brushes.Gray; break;
+                        }
+                        friend.StatusColor = statusBrush;
+                        friend.NameFontWeight = statusValue != 6 ? FontWeights.Bold : FontWeights.Normal;
+                        friend.IsBlinking = true;
+
+                        // Play Sound
+                        try
+                        {
+                            if (statusValue == 0) _onlineSound?.Play();
+                            else if (statusValue == 6) _offlineSound?.Play();
+                        }
+                        catch { }
+
+                        // Re-sort and Refresh
+                        var sortedFriends = items.OrderBy(f => f.StatusColor == Brushes.Gray).ThenBy(f => f.Name).ToList();
+                        FriendsList.ItemsSource = null;
+                        FriendsList.ItemsSource = sortedFriends;
+                    }
+                    else
+                    {
+                        LoadFriends();
+                    }
+                }
+            });
+        }
+
+        private void CheckForIncomingMessages()
+        {
+            // Deprecated by SignalR
         }
 
         private void OpenChatWindow(string partnerUsername)
@@ -124,12 +268,19 @@ namespace PaLX.Client
             chatWindow.Show();
         }
 
-        private void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+        private async void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
-            _dbService.EndSession(_username);
+            _refreshTimer.Stop();
+            ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
+            ApiService.Instance.OnUserStatusChanged -= OnUserStatusChanged;
+            ApiService.Instance.OnFriendRequestAccepted -= OnFriendUpdate;
+            ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
+            ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
+
+            await ApiService.Instance.DisconnectAsync();
         }
 
-        private void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private async void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (StatusCombo.SelectedItem is StatusItem selectedStatus)
             {
@@ -137,128 +288,199 @@ namespace PaLX.Client
                 switch (selectedStatus.Name)
                 {
                     case "En ligne": statusValue = 0; break;
-                    case "Absent": statusValue = 1; break;
-                    case "Occupé": statusValue = 2; break;
+                      case "Occupé": statusValue = 1; break;
+                      case "Absent": statusValue = 2; break;
                     case "En appel": statusValue = 3; break;
-                    case "Ne pas déranger": statusValue = 2; break;
+                    case "Ne pas déranger": statusValue = 4; break;
                     case "Hors ligne": statusValue = 6; break;
                     default: statusValue = 0; break;
                 }
-                _dbService.UpdateStatus(_username, statusValue);
+                await ApiService.Instance.UpdateStatusAsync(statusValue);
             }
         }
 
         private Dictionary<string, int> _previousStatuses = new Dictionary<string, int>();
         private Dictionary<string, DateTime> _blinkingUntil = new Dictionary<string, DateTime>();
+        private Dictionary<string, DateTime> _lastSignalRUpdate = new Dictionary<string, DateTime>();
 
-        private void LoadFriends()
+        private async void LoadFriends()
         {
-            var friends = _dbService.GetFriends(_username);
-            
-            // Sort: Online (0-5) first, Offline (6) last
-            var sortedFriends = friends.OrderBy(f => f.StatusValue == 6).ThenBy(f => f.DisplayName);
-
-            var friendViewModels = sortedFriends.Select(f => {
-                bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
+            try
+            {
+                var friends = await ApiService.Instance.GetFriendsAsync();
                 
-                SolidColorBrush statusBrush = Brushes.Gray;
-                switch (f.StatusValue)
-                {
-                    case 0: statusBrush = Brushes.Green; break;
-                    case 1: statusBrush = Brushes.Orange; break;
-                    case 2: statusBrush = Brushes.Red; break;
-                    case 3: statusBrush = Brushes.DarkRed; break;
-                    case 4: statusBrush = Brushes.YellowGreen; break;
-                    case 5: statusBrush = Brushes.DarkBlue; break;
-                    default: statusBrush = Brushes.Gray; break;
-                }
+                // Sort: Online (0-5) first, Offline (6) last
+                var sortedFriends = friends.OrderBy(f => f.StatusValue == 6).ThenBy(f => f.DisplayName);
 
-                // Check for status change
-                bool isBlinking = false;
-                if (_previousStatuses.ContainsKey(f.Username))
-                {
-                    if (_previousStatuses[f.Username] != f.StatusValue)
+                var friendViewModels = sortedFriends.Select(f => {
+                    bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
+                    
+                    // Check if we have a recent SignalR update (within last 5 seconds)
+                    // If so, use the cached status from _previousStatuses instead of API data
+                    // This prevents stale API data from overwriting fresh SignalR events
+                    int effectiveStatusValue = f.StatusValue;
+                    if (_lastSignalRUpdate.ContainsKey(f.Username) && 
+                        (DateTime.Now - _lastSignalRUpdate[f.Username]).TotalSeconds < 5 &&
+                        _previousStatuses.ContainsKey(f.Username))
                     {
-                        // Status changed, set blinking expiration to Now + 5 seconds
-                        _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
-
-                        // Play Sound Effects
-                        try
-                        {
-                            if (f.StatusValue == 0) // Came Online
-                            {
-                                _onlineSound?.Play();
-                            }
-                            else if (f.StatusValue == 6) // Went Offline
-                            {
-                                _offlineSound?.Play();
-                            }
-                        }
-                        catch { /* Ignore playback errors */ }
+                        effectiveStatusValue = _previousStatuses[f.Username];
                     }
-                }
-                _previousStatuses[f.Username] = f.StatusValue;
 
-                // Check if currently blinking
-                if (_blinkingUntil.ContainsKey(f.Username))
-                {
-                    if (DateTime.Now < _blinkingUntil[f.Username])
+                    SolidColorBrush statusBrush = Brushes.Gray;
+                    string statusText = f.Status;
+
+                    // Re-map status text if we are using effective value
+                    if (effectiveStatusValue != f.StatusValue)
                     {
-                        isBlinking = true;
+                        switch (effectiveStatusValue)
+                        {
+                            case 0: statusText = "En ligne"; break;
+                            case 1: statusText = "Occupé"; break;
+                            case 2: statusText = "Absent"; break;
+                            case 3: statusText = "En appel"; break;
+                            case 4: statusText = "Ne pas déranger"; break;
+                            default: statusText = "Hors ligne"; break;
+                        }
+                    }
+
+                    // Override if Blocked
+                    if (f.IsBlocked)
+                    {
+                        statusText = "Bloqué";
+                        statusBrush = Brushes.Red;
                     }
                     else
                     {
-                        _blinkingUntil.Remove(f.Username);
+                        switch (effectiveStatusValue)
+                        {
+                            case 0: statusBrush = Brushes.Green; break; // En ligne
+                            case 1: statusBrush = Brushes.Red; break;   // Occupé
+                            case 2: statusBrush = Brushes.Orange; break; // Absent
+                            case 3: statusBrush = Brushes.DarkRed; break; // En appel
+                            case 4: statusBrush = Brushes.Purple; break; // Ne pas déranger
+                            default: statusBrush = Brushes.Gray; break; // Hors ligne
+                        }
                     }
-                }
 
-                return new Friend
-                {
-                    Name = f.DisplayName,
-                    StatusText = f.Status,
-                    StatusColor = statusBrush,
-                    AvatarPath = hasAvatar ? f.AvatarPath : null,
-                    Username = f.Username,
-                    AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
-                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
-                    NameFontWeight = f.StatusValue != 6 ? FontWeights.Bold : FontWeights.Normal,
-                    IsBlinking = isBlinking
-                };
-            }).ToList();
+                    // Check for status change
+                    bool isBlinking = false;
+                    if (_previousStatuses.ContainsKey(f.Username))
+                    {
+                        if (_previousStatuses[f.Username] != effectiveStatusValue)
+                        {
+                            // Status changed, set blinking expiration to Now + 5 seconds
+                            _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
 
-            FriendsList.ItemsSource = friendViewModels;
+                            // Play Sound Effects
+                            try
+                            {
+                                if (effectiveStatusValue == 0) // Came Online
+                                {
+                                    _onlineSound?.Play();
+                                }
+                                else if (effectiveStatusValue == 6) // Went Offline
+                                {
+                                    _offlineSound?.Play();
+                                }
+                            }
+                            catch { /* Ignore playback errors */ }
+                        }
+                    }
+                    _previousStatuses[f.Username] = effectiveStatusValue;
+
+                    // Check if currently blinking
+                    if (_blinkingUntil.ContainsKey(f.Username))
+                    {
+                        if (DateTime.Now < _blinkingUntil[f.Username])
+                        {
+                            isBlinking = true;
+                        }
+                        else
+                        {
+                            _blinkingUntil.Remove(f.Username);
+                        }
+                    }
+
+                    return new Friend
+                    {
+                        Name = f.DisplayName,
+                        StatusText = statusText,
+                        StatusColor = statusBrush,
+                        AvatarPath = hasAvatar ? f.AvatarPath : null,
+                        Username = f.Username,
+                        AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
+                        PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
+                        NameFontWeight = effectiveStatusValue != 6 ? FontWeights.Bold : FontWeights.Normal,
+                        IsBlinking = isBlinking,
+                        IsBlocked = f.IsBlocked,
+                        BlockIcon = f.IsBlocked ? "\xE785" : "\xE72E", // Unlock vs Lock
+                        BlockToolTip = f.IsBlocked ? "Débloquer" : "Bloquer",
+                        BlockOverlayVisibility = f.IsBlocked ? Visibility.Visible : Visibility.Collapsed
+                    };
+                }).ToList();
+
+                FriendsList.ItemsSource = friendViewModels;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error loading friends: {ex.Message}");
+            }
         }
 
-        private void LoadUserProfile(string username)
+        private async void LoadUserProfile(string username)
         {
-            var profile = _dbService.GetUserProfile(username);
-
-            if (profile != null)
+            try
             {
-                // Display Name: LastName + FirstName
-                UsernameText.Text = $"{profile.LastName} {profile.FirstName}";
+                var profile = await ApiService.Instance.GetUserProfileAsync(username);
 
-                // Load Avatar
-                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                if (profile != null)
                 {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(profile.AvatarPath);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
-                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    // Display Name: LastName + FirstName
+                    UsernameText.Text = $"{profile.LastName} {profile.FirstName}";
+
+                    // Load Avatar
+                    if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                    {
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(profile.AvatarPath);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                        AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    }
+                }
+                else
+                {
+                    UsernameText.Text = username;
                 }
             }
-            else
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error loading profile: {ex.Message}");
                 UsernameText.Text = username;
             }
         }
 
-        private void Logout_Click(object sender, RoutedEventArgs e)
+        private async void Logout_Click(object sender, RoutedEventArgs e)
         {
-            _dbService.EndSession(_username);
+            try 
+            {
+                // Only attempt network calls if this is a manual logout (sender is Button)
+                if (sender is Button) 
+                {
+                    await ApiService.Instance.UpdateStatusAsync(6); // Offline
+                    await ApiService.Instance.DisconnectAsync();
+                }
+                else 
+                {
+                    // Forced logout - just ensure local cleanup
+                    // We can still call DisconnectAsync as it handles its own state check
+                    _ = ApiService.Instance.DisconnectAsync(); 
+                }
+            }
+            catch { }
+
             // Close all other windows
             var windows = new List<Window>(Application.Current.Windows.Cast<Window>());
             foreach (var window in windows)
@@ -344,29 +566,94 @@ namespace PaLX.Client
             }
         }
 
-        private void BlockUser_Click(object sender, RoutedEventArgs e)
+        private async void BlockUser_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string username)
             {
-                if (MessageBox.Show($"Voulez-vous vraiment bloquer {username} ?", "Bloquer", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                // Check current status
+                var friends = FriendsList.ItemsSource as List<Friend>;
+                var friend = friends?.FirstOrDefault(f => f.Username == username);
+                bool isBlocked = friend?.IsBlocked ?? false;
+
+                if (isBlocked)
                 {
-                    if (_dbService.BlockUser(_username, username, 0, null, "Bloqué par l'utilisateur"))
+                    // Unblock
+                    var result = await ApiService.Instance.UnblockUserAsync(username);
+                    if (result.Success)
                     {
                         LoadFriends();
+                    }
+                    else
+                    {
+                        new CustomAlertWindow(result.Message).ShowDialog();
+                    }
+                }
+                else
+                {
+                    // Block
+                    var confirm = new CustomConfirmWindow($"Voulez-vous vraiment bloquer {username} ?", "Bloquer");
+                    if (confirm.ShowDialog() == true)
+                    {
+                        var result = await ApiService.Instance.BlockUserAsync(username);
+                        if (result.Success)
+                        {
+                            LoadFriends();
+                        }
+                        else
+                        {
+                            new CustomAlertWindow(result.Message).ShowDialog();
+                        }
                     }
                 }
             }
         }
 
-        private void RemoveFriend_Click(object sender, RoutedEventArgs e)
+        private async void RemoveFriend_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string username)
             {
-                if (MessageBox.Show($"Voulez-vous vraiment retirer {username} de vos amis ?", "Retirer", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                var confirm = new CustomConfirmWindow($"Voulez-vous vraiment retirer {username} de vos amis ?", "Retirer");
+                if (confirm.ShowDialog() == true)
                 {
-                    _dbService.RemoveFriend(_username, username);
+                    await ApiService.Instance.RemoveFriendAsync(username);
                     LoadFriends();
                 }
+            }
+        }
+
+        private async void UpdateFriendRequestsCount()
+        {
+            try
+            {
+                var requests = await ApiService.Instance.GetPendingRequestsAsync();
+                NotificationCount = requests.Count;
+                HasNotifications = NotificationCount > 0;
+            }
+            catch { }
+        }
+
+        private void NotificationButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_addFriendWindow == null || !_addFriendWindow.IsLoaded)
+            {
+                _addFriendWindow = new AddFriendWindow(_username);
+                _addFriendWindow.Closed += (s, args) => _addFriendWindow = null;
+                _addFriendWindow.FriendAdded += () => 
+                {
+                    LoadFriends();
+                    UpdateFriendRequestsCount();
+                };
+                _addFriendWindow.SelectReceivedRequestsTab();
+                _addFriendWindow.Show();
+            }
+            else
+            {
+                if (_addFriendWindow.WindowState == WindowState.Minimized)
+                {
+                    _addFriendWindow.WindowState = WindowState.Normal;
+                }
+                _addFriendWindow.SelectReceivedRequestsTab();
+                _addFriendWindow.Activate();
             }
         }
     }
@@ -388,5 +675,11 @@ namespace PaLX.Client
         public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
         public FontWeight NameFontWeight { get; set; } = FontWeights.Normal;
         public bool IsBlinking { get; set; } = false;
+        
+        // New properties for Blocking
+        public bool IsBlocked { get; set; } = false;
+        public string BlockIcon { get; set; } = "\xE72B"; // Default Block Icon
+        public string BlockToolTip { get; set; } = "Bloquer";
+        public Visibility BlockOverlayVisibility { get; set; } = Visibility.Collapsed;
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PaLX.Admin.Services;
 
 namespace PaLX.Admin
 {
@@ -46,7 +47,7 @@ namespace PaLX.Admin
             UpdatePasswordPlaceholder();
         }
 
-        private void RegisterButton_Click(object sender, RoutedEventArgs e)
+        private async void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
             string password = ShowPasswordToggle.IsChecked == true ? PasswordTxtBox.Text : PasswordBox.Password;
 
@@ -62,13 +63,20 @@ namespace PaLX.Admin
                 return;
             }
 
-            var dbService = new DatabaseService();
-            // Register as Admin (ServerAdmin - Role 4)
-            if (dbService.RegisterUser(UsernameBox.Text, password, 4))
+            RegisterButton.IsEnabled = false;
+            bool success = await ApiService.Instance.RegisterAsync(UsernameBox.Text, password, ConfirmPasswordBox.Password);
+            RegisterButton.IsEnabled = true;
+
+            if (success)
             {
+                MessageBox.Show("Inscription réussie ! Vous pouvez maintenant vous connecter.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
                 AutoFillUsername = UsernameBox.Text;
                 AutoFillPassword = password;
                 SwitchToLogin?.Invoke(this, e);
+            }
+            else
+            {
+                MessageBox.Show("Erreur lors de l'inscription. Le nom d'utilisateur est peut-être déjà pris.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 

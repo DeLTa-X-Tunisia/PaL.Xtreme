@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
@@ -8,7 +9,6 @@ namespace PaLX.Client
     {
         private string _blockerUsername;
         private string _blockedUsername;
-        private DatabaseService _dbService;
 
         public event Action? UserBlocked;
 
@@ -17,11 +17,10 @@ namespace PaLX.Client
             InitializeComponent();
             _blockerUsername = blockerUsername;
             _blockedUsername = blockedUsername;
-            _dbService = new DatabaseService();
             TargetUserText.Text = blockedUsername;
         }
 
-        public BlockUserWindow(string blockerUsername, BlockedUserInfo info) : this(blockerUsername, info.Username)
+        public BlockUserWindow(string blockerUsername, BlockedUserDto info) : this(blockerUsername, info.Username)
         {
             // Pre-fill data
             BlockTypeCombo.SelectedIndex = info.BlockType;
@@ -53,7 +52,7 @@ namespace PaLX.Client
             this.Close();
         }
 
-        private void Confirm_Click(object sender, RoutedEventArgs e)
+        private async void Confirm_Click(object sender, RoutedEventArgs e)
         {
             int blockType = int.Parse(((ComboBoxItem)BlockTypeCombo.SelectedItem).Tag.ToString() ?? "0");
             DateTime? endDate = null;
@@ -72,10 +71,17 @@ namespace PaLX.Client
                 endDate = EndDatePicker.SelectedDate;
             }
 
-            _dbService.BlockUser(_blockerUsername, _blockedUsername, blockType, endDate, ReasonBox.Text);
-            UserBlocked?.Invoke();
-            DialogResult = true;
-            this.Close();
+            var result = await ApiService.Instance.BlockUserAsync(_blockedUsername, blockType, endDate, ReasonBox.Text);
+            if (result.Success)
+            {
+                UserBlocked?.Invoke();
+                DialogResult = true;
+                this.Close();
+            }
+            else
+            {
+                new CustomAlertWindow(result.Message).ShowDialog();
+            }
         }
     }
 }

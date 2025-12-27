@@ -7,6 +7,8 @@ using System.Windows.Media.Imaging;
 using System.Windows.Media;
 using System.IO;
 using System;
+using PaLX.Admin.Services;
+using System.Threading.Tasks;
 
 namespace PaLX.Admin
 {
@@ -54,13 +56,12 @@ namespace PaLX.Admin
             _roleName = roleName;
             _isEditMode = isEditMode;
             CountryCombo.ItemsSource = _countries;
-            LoadUserData();
+            Loaded += (s, e) => LoadUserData();
         }
 
-        private void LoadUserData()
+        private async void LoadUserData()
         {
-            var dbService = new DatabaseService();
-            var profile = dbService.GetUserProfile(_username);
+            var profile = await ApiService.Instance.GetUserProfileAsync(_username);
             
             if (profile != null)
             {
@@ -84,13 +85,17 @@ namespace PaLX.Admin
                 if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
                 {
                     _avatarPath = profile.AvatarPath;
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(_avatarPath);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
-                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    try
+                    {
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(_avatarPath);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                        AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    }
+                    catch { /* Ignore image load errors */ }
                 }
             }
         }
@@ -157,11 +162,16 @@ namespace PaLX.Admin
             }
         }
 
-        private void Done_Click(object sender, RoutedEventArgs e)
+        private async void Done_Click(object sender, RoutedEventArgs e)
         {
             if (ValidateForm())
             {
-                SaveProfile();
+                bool success = await SaveProfileAsync();
+                if (!success)
+                {
+                    MessageBox.Show("Erreur lors de la sauvegarde du profil.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
                 
                 if (_isEditMode)
                 {
@@ -252,30 +262,24 @@ namespace PaLX.Admin
             }
         }
 
-        private void SaveProfile()
+        private async Task<bool> SaveProfileAsync()
         {
-            var dbService = new DatabaseService();
             string gender = (GenderCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Autre";
             string country = CountryCombo.Text;
             
-            try
+            var profile = new UserProfileDto
             {
-                dbService.SaveProfile(
-                    _username,
-                    FirstNameBox.Text,
-                    LastNameBox.Text,
-                    EmailBox.Text,
-                    gender,
-                    country,
-                    PhoneBox.Text,
-                    _avatarPath,
-                    null
-                );
-            }
-            catch (System.Exception ex)
-            {
-                MessageBox.Show($"Erreur lors de la sauvegarde : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+                FirstName = FirstNameBox.Text,
+                LastName = LastNameBox.Text,
+                Email = EmailBox.Text,
+                Gender = gender,
+                Country = country,
+                PhoneNumber = PhoneBox.Text,
+                AvatarPath = _avatarPath,
+                DateOfBirth = null
+            };
+
+            return await ApiService.Instance.UpdateUserProfileAsync(profile);
         }
     }
 }

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
@@ -46,7 +47,7 @@ namespace PaLX.Client
             UpdatePasswordPlaceholder();
         }
 
-        private void RegisterButton_Click(object sender, RoutedEventArgs e)
+        private async void RegisterButton_Click(object sender, RoutedEventArgs e)
         {
             string password = ShowPasswordToggle.IsChecked == true ? PasswordTxtBox.Text : PasswordBox.Password;
 
@@ -62,12 +63,27 @@ namespace PaLX.Client
                 return;
             }
 
-            var dbService = new DatabaseService();
-            if (dbService.RegisterUser(UsernameBox.Text, password))
+            var btn = sender as Button;
+            if (btn != null) btn.IsEnabled = false;
+
+            try
             {
-                AutoFillUsername = UsernameBox.Text;
-                AutoFillPassword = password;
-                SwitchToLogin?.Invoke(this, e);
+                bool success = await ApiService.Instance.RegisterAsync(UsernameBox.Text, password, ConfirmPasswordBox.Password);
+                if (success)
+                {
+                    MessageBox.Show("Inscription réussie ! Vous pouvez maintenant vous connecter.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                    AutoFillUsername = UsernameBox.Text;
+                    AutoFillPassword = password;
+                    SwitchToLogin?.Invoke(this, e);
+                }
+                else
+                {
+                    MessageBox.Show("Erreur lors de l'inscription. Le nom d'utilisateur est peut-être déjà pris.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+            finally
+            {
+                if (btn != null) btn.IsEnabled = true;
             }
         }
 

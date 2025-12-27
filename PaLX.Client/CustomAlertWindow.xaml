@@ -14,7 +14,7 @@
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                 <TextBlock Text="⚠️" FontSize="24" Foreground="#F44336" Margin="0,0,10,0"/>
-                <TextBlock Text="Action Non Autorisée" FontSize="18" FontWeight="Bold" Foreground="#F44336" VerticalAlignment="Center"/>
+                <TextBlock x:Name="TitleText" Text="Action Non Autorisée" FontSize="18" FontWeight="Bold" Foreground="#F44336" VerticalAlignment="Center"/>
             </StackPanel>
 
             <TextBlock x:Name="MessageText" Grid.Row="1" 

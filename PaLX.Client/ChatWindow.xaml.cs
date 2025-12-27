@@ -10,27 +10,30 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Text;
 using Microsoft.Web.WebView2.Core;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
     public partial class ChatWindow : Window
     {
         private string _currentUser;
+        private string _currentUserDisplayName;
         private string _partnerUser;
-        private DatabaseService _dbService;
-        private DispatcherTimer _pollTimer;
-        private int _lastMessageId = 0;
         private DateTime _lastTypingSent = DateTime.MinValue;
         private System.Media.SoundPlayer? _messageSound;
         private bool _isBlocked = false;
         private bool _isBlockedByPartner = false;
+        private int _lastMessageId = 0;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
             InitializeComponent();
             _currentUser = currentUser;
+            _currentUserDisplayName = currentUser; // Default
             _partnerUser = partnerUser;
-            _dbService = new DatabaseService();
+
+            // Subscribe to SignalR
+            ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
 
             // Load Sound
             try
@@ -41,46 +44,211 @@ namespace PaLX.Client
             }
             catch { }
 
-            // Load partner full name
-            string fullName = _dbService.GetUserFullName(partnerUser);
-            PartnerName.Text = fullName;
+            InitializeWebView();
+            
+            // Subscribe to Typing
+            ApiService.Instance.OnUserTyping += OnUserTyping;
+
+            // Subscribe to Block Events
+            ApiService.Instance.OnUserBlocked += OnUserBlocked;
+            ApiService.Instance.OnUserBlockedBy += OnUserBlockedBy;
+            ApiService.Instance.OnUserUnblocked += OnUserUnblocked;
+            ApiService.Instance.OnUserUnblockedBy += OnUserUnblockedBy;
+
+            // Initial Load
+            Loaded += async (s, e) => 
+            {
+                await LoadPartnerInfo();
+                await CheckBlockStatusAsync();
+            };
+        }
+
+        private void OnUserBlocked(string blockedUser)
+        {
+            if (blockedUser == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    _isBlocked = true;
+                    UpdateBlockUi();
+
+                    string msg = $"Vous avez bloqué {PartnerName.Text} – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnUserBlockedBy(string blocker)
+        {
+            if (blocker == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    _isBlockedByPartner = true;
+                    UpdateBlockUi();
+
+                    string msg = $"{PartnerName.Text} vous a bloqué – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnUserUnblocked(string unblockedUser)
+        {
+            if (unblockedUser == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    _isBlocked = false;
+                    UpdateBlockUi();
+
+                    string msg = $"Vous avez débloqué {PartnerName.Text} – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                    string script = $"addStatusMessage('{msg}', 'status-unblocked');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnUserUnblockedBy(string blocker)
+        {
+            if (blocker == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    _isBlockedByPartner = false;
+                    UpdateBlockUi();
+
+                    string msg = $"{PartnerName.Text} vous a débloqué – {DateTime.Now:dd/MM/yyyy HH:mm}";
+                    string script = $"addStatusMessage('{msg}', 'status-unblocked');";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void UpdateBlockUi()
+        {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                MessageInput.IsEnabled = false;
+                SendButton.IsEnabled = false;
+                AttachmentButton.IsEnabled = false;
+                AudioButton.IsEnabled = false;
+                EmojiButton.IsEnabled = false;
+                
+                if (_isBlocked)
+                {
+                    BlockButton.ToolTip = "Débloquer cet utilisateur";
+                    BlockIndicator.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336"));
+                    TypingIndicator.Text = $"Vous avez bloqué {PartnerName.Text}.";
+                }
+                else
+                {
+                    BlockButton.Visibility = Visibility.Collapsed;
+                    TypingIndicator.Text = $"{PartnerName.Text} vous a bloqué.";
+                }
+                
+                TypingIndicator.Visibility = Visibility.Visible;
+                TypingIndicator.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336"));
+            }
+            else
+            {
+                MessageInput.IsEnabled = true;
+                SendButton.IsEnabled = true;
+                AttachmentButton.IsEnabled = true;
+                AudioButton.IsEnabled = true;
+                EmojiButton.IsEnabled = true;
+
+                BlockButton.Visibility = Visibility.Visible;
+                BlockButton.ToolTip = "Bloquer cet utilisateur";
+                BlockIndicator.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336"));
+                
+                TypingIndicator.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void OnUserTyping(string user)
+        {
+            if (user == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    TypingIndicator.Visibility = Visibility.Visible;
+                    string name = PartnerName.Text.Split(' ')[0];
+                    TypingIndicator.Text = $"{name} est en train d'écrire...";
+                    
+                    // Hide after 3 seconds
+                    var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+                    timer.Tick += (s, args) => 
+                    {
+                        TypingIndicator.Visibility = Visibility.Collapsed;
+                        timer.Stop();
+                    };
+                    timer.Start();
+                });
+            }
+        }
+
+        private async Task LoadPartnerInfo()
+        {
+            // Load my profile for display name
+            var myProfile = await ApiService.Instance.GetUserProfileAsync(_currentUser);
+            if (myProfile != null) _currentUserDisplayName = $"{myProfile.LastName} {myProfile.FirstName}";
 
             // Load partner details (avatar, status)
-            var friend = _dbService.GetFriends(currentUser).FirstOrDefault(f => f.Username == partnerUser);
-            if (friend != null)
+            var profile = await ApiService.Instance.GetUserProfileAsync(_partnerUser);
+            if (profile != null)
             {
-                // If friend has a display name that is different/better, use it, otherwise keep full name
-                if (!string.IsNullOrEmpty(friend.DisplayName) && friend.DisplayName != partnerUser)
-                    PartnerName.Text = friend.DisplayName; // Or prefer Full Name? User asked for Name & Surname.
+                PartnerName.Text = $"{profile.LastName} {profile.FirstName}";
                 
-                // Let's stick to Full Name if available, else DisplayName
-                if (!string.IsNullOrEmpty(fullName) && fullName != partnerUser)
-                    PartnerName.Text = fullName;
-
-                PartnerStatus.Text = friend.Status;
-                
-                // Set Status Color
-                var statusColor = GetStatusColor(friend.Status);
-                PartnerStatus.Foreground = statusColor;
-                StatusIndicator.Fill = statusColor;
-
                 // Set Avatar
-                if (!string.IsNullOrEmpty(friend.AvatarPath) && System.IO.File.Exists(friend.AvatarPath))
+                if (!string.IsNullOrEmpty(profile.AvatarPath) && System.IO.File.Exists(profile.AvatarPath))
                 {
                     try
                     {
-                        AvatarBrush.ImageSource = new BitmapImage(new Uri(friend.AvatarPath, UriKind.Absolute));
+                        AvatarBrush.ImageSource = new BitmapImage(new Uri(profile.AvatarPath, UriKind.Absolute));
                     }
                     catch { /* Keep default */ }
                 }
             }
+            else
+            {
+                PartnerName.Text = _partnerUser;
+            }
 
-            InitializeWebView();
-            
-            _pollTimer = new DispatcherTimer();
-            _pollTimer.Interval = TimeSpan.FromSeconds(2);
-            _pollTimer.Tick += PollTimer_Tick;
-            _pollTimer.Start();
+            // Get Status from Friends list (as Profile doesn't have status)
+            var friends = await ApiService.Instance.GetFriendsAsync();
+            var friend = friends.FirstOrDefault(f => f.Username == _partnerUser);
+            if (friend != null)
+            {
+                PartnerStatus.Text = friend.Status;
+                var statusColor = GetStatusColor(friend.Status);
+                PartnerStatus.Foreground = statusColor;
+                StatusIndicator.Fill = statusColor;
+            }
+        }
+
+        private void OnPrivateMessageReceived(string sender, string message)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    var msg = new ChatMessage 
+                    { 
+                        Content = message, 
+                        IsMine = false, 
+                        Timestamp = DateTime.Now 
+                    };
+                    AppendMessageToUi(msg);
+                    
+                    if (!this.IsActive)
+                    {
+                        _messageSound?.Play();
+                    }
+                });
+            }
         }
 
         private SolidColorBrush GetStatusColor(string status)
@@ -130,7 +298,8 @@ namespace PaLX.Client
         .status-busy { color: #F44336; }
         .status-away { color: #FF9800; }
         .status-offline { color: #9E9E9E; }
-        .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; text-transform: uppercase; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
+        .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
+        .status-unblocked { color: #4CAF50; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #4CAF50; padding: 10px; border-radius: 8px; background-color: #E8F5E9; }
         .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
@@ -172,10 +341,11 @@ namespace PaLX.Client
             document.getElementById('chat-container').innerHTML = '';
         }
     </script>
+
 </body>
 </html>";
                 ChatWebView.NavigateToString(html);
-                ChatWebView.CoreWebView2.DOMContentLoaded += (s, e) => LoadHistory();
+                ChatWebView.CoreWebView2.DOMContentLoaded += async (s, e) => await LoadHistoryAsync();
             }
             catch (Exception ex)
             {
@@ -183,12 +353,49 @@ namespace PaLX.Client
             }
         }
 
-        private void LoadHistory()
+        private async Task LoadHistoryAsync()
         {
-            var messages = _dbService.GetMessages(_currentUser, _partnerUser);
+            if (ChatWebView.CoreWebView2 == null) return;
+
+            var messages = await ApiService.Instance.GetChatHistoryAsync(_partnerUser);
             foreach (var msg in messages)
             {
-                AppendMessageToUi(msg);
+                if (msg.Content == "[SYSTEM_BLOCK]")
+                {
+                    string text;
+                    string partnerName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+                    
+                    if (msg.Sender == _currentUser)
+                        text = $"Vous avez bloqué {partnerName} – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                    else
+                        text = $"{partnerName} vous a bloqué – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                    
+                    string script = $"addStatusMessage('{text}', 'status-blocked');";
+                    await ChatWebView.ExecuteScriptAsync(script);
+                }
+                else if (msg.Content == "[SYSTEM_UNBLOCK]")
+                {
+                    string text;
+                    string partnerName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+
+                    if (msg.Sender == _currentUser)
+                        text = $"Vous avez débloqué {partnerName} – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                    else
+                        text = $"{partnerName} vous a débloqué – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                    
+                    string script = $"addStatusMessage('{text}', 'status-unblocked');";
+                    await ChatWebView.ExecuteScriptAsync(script);
+                }
+                else
+                {
+                    var chatMsg = new ChatMessage
+                    {
+                        Content = msg.Content,
+                        IsMine = msg.Sender == _currentUser,
+                        Timestamp = msg.Timestamp
+                    };
+                    AppendMessageToUi(chatMsg);
+                }
                 if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
             }
             
@@ -196,7 +403,7 @@ namespace PaLX.Client
             UpdateStatusMessageInChat();
 
             // Mark as read
-            _dbService.MarkMessagesAsRead(_partnerUser, _currentUser);
+            await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
         }
 
         private void UpdateStatusMessageInChat()
@@ -214,10 +421,10 @@ namespace PaLX.Client
             ChatWebView.ExecuteScriptAsync(script);
         }
 
-        private void CheckBlockStatus()
+        private async Task CheckBlockStatusAsync()
         {
-            bool blockedByMe = _dbService.IsUserBlocked(_currentUser, _partnerUser);
-            bool blockedByPartner = _dbService.IsUserBlocked(_partnerUser, _currentUser);
+            bool blockedByMe = await ApiService.Instance.IsUserBlockedAsync(_currentUser, _partnerUser);
+            bool blockedByPartner = await ApiService.Instance.IsUserBlockedAsync(_partnerUser, _currentUser);
 
             if (blockedByMe != _isBlocked || blockedByPartner != _isBlockedByPartner)
             {
@@ -227,172 +434,47 @@ namespace PaLX.Client
             }
         }
 
-        private void UpdateBlockUi()
-        {
-            if (_isBlocked || _isBlockedByPartner)
-            {
-                // Blocked State
-                this.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FFEBEE")); // Light Red
-                MessageInput.IsEnabled = false;
-                SendButton.IsEnabled = false;
-                AttachmentButton.IsEnabled = false;
-                AudioButton.IsEnabled = false;
-                EmojiButton.IsEnabled = false;
-                
-                if (_isBlocked)
-                {
-                    // I blocked them -> Green Dot (Active Action)
-                    BlockButton.ToolTip = "Débloquer cet utilisateur";
-                    BlockIndicator.Background = new SolidColorBrush(Colors.Green); 
-                }
-                else
-                {
-                    // They blocked me -> Red Dot (Danger/Stop)
-                    BlockButton.ToolTip = "Cet utilisateur vous a bloqué";
-                    BlockIndicator.Background = new SolidColorBrush(Colors.Red);
-                }
 
-                TypingIndicator.Visibility = Visibility.Visible;
-                TypingIndicator.Foreground = new SolidColorBrush(Colors.Red);
-                if (_isBlocked) TypingIndicator.Text = "Vous avez bloqué cet utilisateur.";
-                else TypingIndicator.Text = "Cet utilisateur vous a bloqué.";
-            }
-            else
-            {
-                // Normal State -> Red Dot (Ready to block)
-                this.Background = new SolidColorBrush(Colors.White);
-                MessageInput.IsEnabled = true;
-                SendButton.IsEnabled = true;
-                AttachmentButton.IsEnabled = true;
-                AudioButton.IsEnabled = true;
-                EmojiButton.IsEnabled = true;
 
-                BlockButton.ToolTip = "Bloquer cet utilisateur";
-                BlockIndicator.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336")); // Red
-                BlockButton.IsEnabled = true;
-
-                TypingIndicator.Visibility = Visibility.Collapsed;
-                TypingIndicator.Foreground = new SolidColorBrush(Colors.Gray);
-            }
-        }
-
-        private void Block_Click(object sender, RoutedEventArgs e)
+        private async void Block_Click(object sender, RoutedEventArgs e)
         {
             if (_isBlocked)
             {
                 // Unblock
-                _dbService.UnblockUser(_currentUser, _partnerUser);
-                _isBlocked = false;
-                
-                string msg = $"{_currentUser} a débloqué {_partnerUser} – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                string script = $"addStatusMessage('{msg}', 'status-online');";
-                ChatWebView.ExecuteScriptAsync(script);
+                var result = await ApiService.Instance.UnblockUserAsync(_partnerUser);
+                if (result.Success)
+                {
+                    _isBlocked = false;
+                    // Message will be added via SignalR event
+                }
+                else
+                {
+                    new CustomAlertWindow(result.Message, "Erreur").ShowDialog();
+                }
             }
             else
             {
-                // Check Hierarchy
-                int myRole = _dbService.GetUserRoleLevel(_currentUser);
-                int partnerRole = _dbService.GetUserRoleLevel(_partnerUser);
-
-                // Rule: Cannot block someone with a higher or equal rank (lower number)
-                // Exception: If I am User (7) and they are User (7), I CAN block them.
-                // Table says: User (7) -> X Superiors / V User.
-                // ServerEditor (2) -> X ServerMaster (1) / V Others (3-7).
-                // So if myRole > partnerRole, I cannot block.
-                // If myRole <= partnerRole, I can block.
-                
-                if (myRole > partnerRole)
-                {
-                    // Custom Alert Window
-                    var alert = new CustomAlertWindow("Action non autorisée : Vous ne pouvez pas bloquer un supérieur hiérarchique.");
-                    alert.Owner = this;
-                    alert.ShowDialog();
-                    
-                    // Notify the superior
-                    string myName = _dbService.GetUserFullName(_currentUser);
-                    _dbService.SendSystemAlert(_currentUser, _partnerUser, $"L'utilisateur {myName} a tenté de vous bloquer.");
-                    return;
-                }
-
                 // Block
-                if (MessageBox.Show($"Voulez-vous vraiment bloquer {_partnerUser} ?\nVous ne pourrez plus échanger de messages.", "Confirmer le blocage", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                var confirm = new CustomConfirmWindow($"Voulez-vous vraiment bloquer {_partnerUser} ?\nVous ne pourrez plus échanger de messages.", "Confirmer le blocage");
+                if (confirm.ShowDialog() == true)
                 {
-                    _dbService.BlockUser(_currentUser, _partnerUser);
-                    _isBlocked = true;
-
-                    string msg = $"{_currentUser} a bloqué {_partnerUser} – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    // Pass a default reason
+                    var result = await ApiService.Instance.BlockUserAsync(_partnerUser, 0, null, "Bloqué depuis le chat");
+                    if (result.Success)
+                    {
+                        _isBlocked = true;
+                        // Message will be added via SignalR event
+                    }
+                    else
+                    {
+                        new CustomAlertWindow(result.Message, "Erreur").ShowDialog();
+                    }
                 }
             }
-            CheckBlockStatus(); // Refresh status immediately
+            await CheckBlockStatusAsync(); // Refresh status immediately
         }
 
-        private void PollTimer_Tick(object? sender, EventArgs e)
-        {
-            CheckBlockStatus();
 
-            // Check for new messages
-            var messages = _dbService.GetMessages(_currentUser, _partnerUser);
-            var newMessages = messages.Where(m => m.Id > _lastMessageId).ToList();
-            
-            foreach (var msg in newMessages)
-            {
-                if (msg.Type == "SystemAlert")
-                {
-                    var alert = new CustomAlertWindow(msg.Content);
-                    alert.Owner = this;
-                    alert.ShowDialog();
-                    
-                    // Also show in chat as a system message
-                    string script = $"addStatusMessage('{msg.Content}', 'status-busy');";
-                    ChatWebView.ExecuteScriptAsync(script);
-                }
-                else
-                {
-                    AppendMessageToUi(msg);
-                }
-                if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
-            }
-
-            if (newMessages.Any())
-            {
-                if (!this.IsActive)
-                {
-                    _messageSound?.Play(); // Sound for background message
-                }
-                _dbService.MarkMessagesAsRead(_partnerUser, _currentUser);
-            }
-
-            // Check Typing Status
-            if (!_isBlocked && !_isBlockedByPartner)
-            {
-                bool isTyping = _dbService.GetTypingStatus(_partnerUser, _currentUser);
-                if (isTyping)
-                {
-                    TypingIndicator.Visibility = Visibility.Visible;
-                    string name = PartnerName.Text.Split(' ')[0];
-                    TypingIndicator.Text = $"{name} est en train d'écrire...";
-                }
-                else
-                {
-                    TypingIndicator.Visibility = Visibility.Collapsed;
-                }
-            }
-
-            // Update Partner Status
-            string currentStatus = _dbService.GetUserStatus(_partnerUser);
-            if (PartnerStatus.Text != currentStatus)
-            {
-                PartnerStatus.Text = currentStatus;
-                var statusColor = GetStatusColor(currentStatus);
-                PartnerStatus.Foreground = statusColor;
-                StatusIndicator.Fill = statusColor;
-                
-                // Inject status update in chat
-                UpdateStatusMessageInChat();
-            }
-        }
 
         private void AppendMessageToUi(ChatMessage msg)
         {
@@ -421,16 +503,18 @@ namespace PaLX.Client
             }
         }
 
-        private void MessageInput_TextChanged(object sender, TextChangedEventArgs e)
+        private async void MessageInput_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (_dbService == null) return;
-
-            string text = GetTextFromRichTextBox(MessageInput).Trim();
-            if (!string.IsNullOrEmpty(text) && (DateTime.Now - _lastTypingSent).TotalSeconds > 2)
+            try
             {
-                _dbService.SetTypingStatus(_currentUser, _partnerUser, true);
-                _lastTypingSent = DateTime.Now;
+                string text = GetTextFromRichTextBox(MessageInput).Trim();
+                if (!string.IsNullOrEmpty(text) && (DateTime.Now - _lastTypingSent).TotalSeconds > 2)
+                {
+                    await ApiService.Instance.SendTypingIndicatorAsync(_currentUser, _partnerUser);
+                    _lastTypingSent = DateTime.Now;
+                }
             }
+            catch { /* Ignore typing errors to prevent crash */ }
         }
 
         private string GetTextFromRichTextBox(RichTextBox rtb)
@@ -598,8 +682,14 @@ namespace PaLX.Client
             return result;
         }
 
-        private void SendMessage()
+        private async void SendMessage()
         {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                new CustomAlertWindow("Vous ne pouvez pas envoyer de message à cet utilisateur.").ShowDialog();
+                return;
+            }
+
             string content = ConvertRichTextBoxToHtml(MessageInput);
             string plainText = GetTextFromRichTextBox(MessageInput).Trim();
             
@@ -625,36 +715,37 @@ namespace PaLX.Client
                 }
             }
 
-            int newId = _dbService.SendMessage(_currentUser, _partnerUser, content);
-            
-            // Clear and restore formatting
-            MessageInput.Document.Blocks.Clear();
-            Paragraph p = new Paragraph();
-            Run r = new Run();
-            p.Inlines.Add(r);
-            MessageInput.Document.Blocks.Add(p);
-
-            if (fontWeight != DependencyProperty.UnsetValue && fontWeight != null) r.FontWeight = (FontWeight)fontWeight;
-            if (fontStyle != DependencyProperty.UnsetValue && fontStyle != null) r.FontStyle = (FontStyle)fontStyle;
-            if (textDecorations != DependencyProperty.UnsetValue && textDecorations != null) r.TextDecorations = (TextDecorationCollection)textDecorations;
-            if (foreground != DependencyProperty.UnsetValue && foreground != null) r.Foreground = (Brush)foreground;
-
-            MessageInput.CaretPosition = r.ContentEnd;
-            MessageInput.Focus();
-
-            _dbService.SetTypingStatus(_currentUser, _partnerUser, false);
-            
-            if (newId > 0)
+            try
             {
-                _lastMessageId = newId;
+                // Send via API
+                await ApiService.Instance.SendPrivateMessageAsync(_partnerUser, content);
+                
+                // Clear and restore formatting
+                MessageInput.Document.Blocks.Clear();
+                Paragraph p = new Paragraph();
+                Run r = new Run();
+                p.Inlines.Add(r);
+                MessageInput.Document.Blocks.Add(p);
+
+                if (fontWeight != DependencyProperty.UnsetValue && fontWeight != null) r.FontWeight = (FontWeight)fontWeight;
+                if (fontStyle != DependencyProperty.UnsetValue && fontStyle != null) r.FontStyle = (FontStyle)fontStyle;
+                if (textDecorations != DependencyProperty.UnsetValue && textDecorations != null) r.TextDecorations = (TextDecorationCollection)textDecorations;
+                if (foreground != DependencyProperty.UnsetValue && foreground != null) r.Foreground = (Brush)foreground;
+
+                MessageInput.CaretPosition = r.ContentEnd;
+                MessageInput.Focus();
+
                 var tempMsg = new ChatMessage 
                 { 
-                    Id = newId,
                     Content = content, 
                     IsMine = true, 
                     Timestamp = DateTime.Now 
                 };
                 AppendMessageToUi(tempMsg);
+            }
+            catch (Exception)
+            {
+                new CustomAlertWindow("Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.", "Erreur d'envoi").ShowDialog();
             }
         }
 
@@ -673,5 +764,12 @@ namespace PaLX.Client
         {
             this.Close();
         }
+    }
+
+    public class ChatMessage
+    {
+        public string Content { get; set; } = "";
+        public bool IsMine { get; set; }
+        public DateTime Timestamp { get; set; }
     }
 }

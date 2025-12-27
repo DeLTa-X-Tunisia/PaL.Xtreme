@@ -7,13 +7,13 @@ using System.Windows.Media.Imaging;
 using System.IO;
 using System.Windows.Data;
 using System.Globalization;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
     public partial class AddFriendWindow : Window
     {
         private string _currentUsername;
-        private DatabaseService _dbService;
 
         public event Action? FriendAdded;
 
@@ -21,21 +21,53 @@ namespace PaLX.Client
         {
             InitializeComponent();
             _currentUsername = username;
-            _dbService = new DatabaseService();
             
             // Load all users initially
             PerformSearch("");
             LoadRequests();
+
+            // Subscribe to SignalR events
+            ApiService.Instance.OnFriendRequestReceived += OnFriendUpdate;
+            ApiService.Instance.OnFriendRequestAccepted += OnFriendUpdate;
+            ApiService.Instance.OnFriendRemoved += OnFriendUpdate;
         }
 
-        private void LoadRequests()
+        public void SelectReceivedRequestsTab()
         {
-            var requests = _dbService.GetPendingRequests(_currentUsername);
+            if (MainTabControl != null && MainTabControl.Items.Count > 1)
+            {
+                MainTabControl.SelectedIndex = 1;
+            }
+        }
+
+        private void OnFriendUpdate(string username)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                LoadRequests();
+                PerformSearch(SearchBox.Text.Trim());
+                FriendAdded?.Invoke(); // Notify parent window if needed
+            });
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            ApiService.Instance.OnFriendRequestReceived -= OnFriendUpdate;
+            ApiService.Instance.OnFriendRequestAccepted -= OnFriendUpdate;
+            ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
+        }
+
+        private async void LoadRequests()
+        {
+            var requests = await ApiService.Instance.GetPendingRequestsAsync();
+            // Fix Avatar Paths for UI
+            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
             foreach (var r in requests)
             {
                 if (string.IsNullOrEmpty(r.AvatarPath) || !File.Exists(r.AvatarPath))
                 {
-                    r.AvatarPath = null;
+                    r.AvatarPath = defaultAvatar;
                 }
             }
             RequestsList.ItemsSource = requests;
@@ -46,60 +78,61 @@ namespace PaLX.Client
             PerformSearch(SearchBox.Text.Trim());
         }
 
-        private void PerformSearch(string query)
+        private async void PerformSearch(string query)
         {
-            var results = _dbService.SearchUsers(query, _currentUsername);
+            var results = await ApiService.Instance.SearchUsersAsync(query);
             
             // Fix Avatar Paths for UI
+            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
             foreach (var r in results)
             {
                 if (string.IsNullOrEmpty(r.AvatarPath) || !File.Exists(r.AvatarPath))
                 {
-                    r.AvatarPath = null; 
+                    r.AvatarPath = defaultAvatar; 
                 }
             }
             
             UsersList.ItemsSource = results;
         }
 
-        private void Add_Click(object sender, RoutedEventArgs e)
+        private async void Add_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string targetUsername)
             {
-                _dbService.SendFriendRequest(_currentUsername, targetUsername);
+                await ApiService.Instance.SendFriendRequestAsync(targetUsername);
                 
                 // Refresh list to show pending status
                 PerformSearch(SearchBox.Text.Trim());
             }
         }
 
-        private void Accept_Click(object sender, RoutedEventArgs e)
+        private async void Accept_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string requester)
             {
-                _dbService.RespondToFriendRequest(_currentUsername, requester, 1); // 1 = Accept
+                await ApiService.Instance.RespondToFriendRequestAsync(requester, 1); // 1 = Accept
                 LoadRequests();
                 PerformSearch(SearchBox.Text.Trim());
                 FriendAdded?.Invoke();
             }
         }
 
-        private void AcceptAdd_Click(object sender, RoutedEventArgs e)
+        private async void AcceptAdd_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string requester)
             {
-                _dbService.RespondToFriendRequest(_currentUsername, requester, 2); // 2 = Accept & Add
+                await ApiService.Instance.RespondToFriendRequestAsync(requester, 2); // 2 = Accept & Add
                 LoadRequests();
                 PerformSearch(SearchBox.Text.Trim());
                 FriendAdded?.Invoke();
             }
         }
 
-        private void Decline_Click(object sender, RoutedEventArgs e)
+        private async void Decline_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string requester)
             {
-                _dbService.RespondToFriendRequest(_currentUsername, requester, 3); // 3 = Decline
+                await ApiService.Instance.RespondToFriendRequestAsync(requester, 3); // 3 = Decline
                 LoadRequests();
             }
         }
@@ -114,6 +147,15 @@ namespace PaLX.Client
                     LoadRequests();
                     PerformSearch(SearchBox.Text.Trim());
                 }
+            }
+        }
+
+        private void ViewProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string username)
+            {
+                var profileWindow = new PublicProfileWindow(username);
+                profileWindow.ShowDialog();
             }
         }
     }

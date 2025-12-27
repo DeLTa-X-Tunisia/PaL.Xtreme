@@ -5,7 +5,7 @@
         Title="Ajouter des amis" Height="600" Width="450"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource BackgroundBrush}"
-        ResizeMode="CanMinimize">
+        ResizeMode="CanResize">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
@@ -34,7 +34,7 @@
     </Window.Resources>
 
     <Grid Margin="20">
-        <TabControl Background="Transparent" BorderThickness="0">
+        <TabControl x:Name="MainTabControl" Background="Transparent" BorderThickness="0">
             <TabControl.Resources>
                 <Style TargetType="TabItem">
                     <Setter Property="Template">
@@ -150,7 +150,7 @@
                                         <Grid Grid.Column="2" VerticalAlignment="Center">
                                             <!-- Add Button (Status 2: None) -->
                                             <Button Style="{StaticResource IconButtonStyle}" Click="Add_Click" Tag="{Binding Username}"
-                                                    Visibility="{Binding FriendshipStatus, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=2}">
+                                                    Visibility="{Binding StatusValue, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=2}">
                                                 <Border Background="{StaticResource PrimaryBrush}" CornerRadius="15" Width="35" Height="35">
                                                     <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White" 
                                                                HorizontalAlignment="Center" VerticalAlignment="Center"/>
@@ -159,14 +159,14 @@
 
                                             <!-- Pending Sent (Status 0) -->
                                             <Border Background="#f1c40f" CornerRadius="15" Width="35" Height="35" ToolTip="Demande envoyée"
-                                                    Visibility="{Binding FriendshipStatus, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=0}">
+                                                    Visibility="{Binding StatusValue, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=0}">
                                                 <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White" 
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
 
                                             <!-- Already Friend (Status 1) -->
                                             <Border Background="#2ecc71" CornerRadius="15" Width="35" Height="35" ToolTip="Ami"
-                                                    Visibility="{Binding FriendshipStatus, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=1}">
+                                                    Visibility="{Binding StatusValue, Converter={StaticResource StatusToVisibilityConverter}, ConverterParameter=1}">
                                                 <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="White" 
                                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
@@ -226,6 +226,11 @@
 
                                         <!-- Actions -->
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- View Profile -->
+                                            <Button Style="{StaticResource IconButtonStyle}" Width="35" Height="35" Background="#e8f6f3" Margin="0,0,5,0"
+                                                    Click="ViewProfile_Click" Tag="{Binding Username}" ToolTip="Voir le profil">
+                                                <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#3498db"/>
+                                            </Button>
                                             <!-- Accept -->
                                             <Button Style="{StaticResource IconButtonStyle}" Width="35" Height="35" Background="#e8f8f5" Margin="0,0,5,0"
                                                     Click="Accept_Click" Tag="{Binding Username}" ToolTip="Accepter (Ajoute l'utilisateur à votre liste)">

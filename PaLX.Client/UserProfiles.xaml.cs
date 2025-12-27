@@ -7,6 +7,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Media;
 using System.IO;
 using System;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
@@ -57,10 +58,9 @@ namespace PaLX.Client
             LoadUserData();
         }
 
-        private void LoadUserData()
+        private async void LoadUserData()
         {
-            var dbService = new DatabaseService();
-            var profile = dbService.GetUserProfile(_username);
+            var profile = await ApiService.Instance.GetUserProfileAsync(_username);
             
             if (profile != null)
             {
@@ -260,25 +260,26 @@ namespace PaLX.Client
             }
         }
 
-        private void SaveProfile()
+        private async void SaveProfile()
         {
-            var dbService = new DatabaseService();
             string gender = (GenderCombo.SelectedItem as ComboBoxItem)?.Content.ToString() ?? "Autre";
             string country = CountryCombo.Text;
             
             try
             {
-                dbService.SaveProfile(
-                    _username,
-                    FirstNameBox.Text,
-                    LastNameBox.Text,
-                    EmailBox.Text,
-                    gender,
-                    country,
-                    PhoneBox.Text,
-                    _avatarPath,
-                    DobPicker.SelectedDate
-                );
+                var profile = new UserProfileDto
+                {
+                    FirstName = FirstNameBox.Text,
+                    LastName = LastNameBox.Text,
+                    Email = EmailBox.Text,
+                    Gender = gender,
+                    Country = country,
+                    PhoneNumber = PhoneBox.Text,
+                    AvatarPath = _avatarPath,
+                    DateOfBirth = DobPicker.SelectedDate
+                };
+
+                await ApiService.Instance.UpdateUserProfileAsync(profile);
             }
             catch (System.Exception ex)
             {

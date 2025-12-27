@@ -1,25 +1,25 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.IO;
+using PaLX.Admin.Services;
+using System.Threading.Tasks;
 
 namespace PaLX.Admin
 {
     public partial class BlockedUsersWindow : Window
     {
         private string _currentUsername;
-        private DatabaseService _dbService;
 
         public BlockedUsersWindow(string username)
         {
             InitializeComponent();
             _currentUsername = username;
-            _dbService = new DatabaseService();
             LoadBlockedUsers();
         }
 
-        private void LoadBlockedUsers()
+        private async void LoadBlockedUsers()
         {
-            var users = _dbService.GetBlockedUsers(_currentUsername);
+            var users = await ApiService.Instance.GetBlockedUsersAsync();
             foreach (var u in users)
             {
                 if (string.IsNullOrEmpty(u.AvatarPath) || !File.Exists(u.AvatarPath))
@@ -30,14 +30,22 @@ namespace PaLX.Admin
             BlockedList.ItemsSource = users;
         }
 
-        private void Unblock_Click(object sender, RoutedEventArgs e)
+        private async void Unblock_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is string targetUsername)
             {
-                if (MessageBox.Show($"Voulez-vous vraiment débloquer {targetUsername} ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                var confirm = new CustomConfirmWindow($"Voulez-vous vraiment débloquer {targetUsername} ?", "Déblocage");
+                if (confirm.ShowDialog() == true)
                 {
-                    _dbService.UnblockUser(_currentUsername, targetUsername);
-                    LoadBlockedUsers();
+                    var result = await ApiService.Instance.UnblockUserAsync(targetUsername);
+                    if (result.Success)
+                    {
+                        LoadBlockedUsers();
+                    }
+                    else
+                    {
+                        new CustomAlertWindow(result.Message).ShowDialog();
+                    }
                 }
             }
         }
@@ -53,7 +61,7 @@ namespace PaLX.Admin
                     // Fallback if Tag is string
                     blockWindow = new BlockUserWindow(_currentUsername, targetUsername);
                 }
-                else if (btn.Tag is BlockedUserInfo info)
+                else if (btn.Tag is BlockedUserDto info)
                 {
                     // Edit mode
                     blockWindow = new BlockUserWindow(_currentUsername, info);

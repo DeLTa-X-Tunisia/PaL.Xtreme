@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
@@ -22,7 +23,7 @@ namespace PaLX.Client
             PasswordBox.Password = password;
         }
 
-        private void LoginButton_Click(object sender, RoutedEventArgs e)
+        private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(UsernameBox.Text) || string.IsNullOrEmpty(PasswordBox.Password))
             {
@@ -30,42 +31,48 @@ namespace PaLX.Client
                 return;
             }
 
-            var dbService = new DatabaseService();
-            var (isValid, roleLevel, roleName) = dbService.ValidateUser(UsernameBox.Text, PasswordBox.Password);
-            
-            if (isValid)
+            var btn = sender as Button;
+            if (btn != null) btn.IsEnabled = false;
+
+            try
             {
-                // Create Session
-                try
-                {
-                    string hostName = System.Net.Dns.GetHostName();
-                    string ip = System.Net.Dns.GetHostEntry(hostName).AddressList
-                        .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
-                    string deviceName = System.Environment.MachineName;
-                    string deviceNumber = "PC-" + new Random().Next(1000, 9999);
+                string hostName = System.Net.Dns.GetHostName();
+                string ip = System.Net.Dns.GetHostEntry(hostName).AddressList
+                    .FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)?.ToString() ?? "127.0.0.1";
+                string deviceName = System.Environment.MachineName;
+                string deviceNumber = "PC-" + new Random().Next(1000, 9999);
 
-                    dbService.CreateSession(UsernameBox.Text, ip, deviceName, deviceNumber);
-                }
-                catch { /* Ignore session creation errors */ }
+                var (authResult, isConnectionError) = await ApiService.Instance.LoginAsync(UsernameBox.Text, PasswordBox.Password, ip, deviceName, deviceNumber);
+                
+                if (authResult != null)
+                {
+                    // Connect SignalR
+                    await ApiService.Instance.ConnectSignalRAsync();
 
-                // Check if profile is complete
-                if (dbService.IsProfileComplete(UsernameBox.Text))
-                {
-                    // Client App: Allows all roles (1-7)
-                    var mainView = new MainView(UsernameBox.Text, roleName ?? "User");
-                    mainView.Show();
+                    if (authResult.IsProfileComplete)
+                    {
+                        var mainView = new MainView(UsernameBox.Text, authResult.Role);
+                        mainView.Show();
+                    }
+                    else
+                    {
+                        var userProfiles = new UserProfiles(UsernameBox.Text, authResult.Role);
+                        userProfiles.Show();
+                    }
+                    Window.GetWindow(this)?.Close();
                 }
-                else
+                else if (!isConnectionError)
                 {
-                    // Redirect to UserProfiles
-                    var userProfiles = new UserProfiles(UsernameBox.Text, roleName ?? "User");
-                    userProfiles.Show();
+                    new LoginFailedWindow().ShowDialog();
                 }
-                Window.GetWindow(this)?.Close();
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("Nom d'utilisateur ou mot de passe incorrect.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Erreur de connexion: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                if (btn != null) btn.IsEnabled = true;
             }
         }
 
