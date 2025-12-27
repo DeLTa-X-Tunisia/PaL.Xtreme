@@ -326,8 +326,13 @@ namespace PaLX.API.Services
             var sql = @"
                 SELECT ""Id"", ""SenderUsername"", ""ReceiverUsername"", ""Content"", ""Timestamp"", ""IsRead""
                 FROM ""Messages""
-                WHERE (""SenderUsername"" = @u1 AND ""ReceiverUsername"" = @u2)
-                   OR (""SenderUsername"" = @u2 AND ""ReceiverUsername"" = @u1)
+                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2))
+                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1))
+                UNION ALL
+                SELECT ""Id"", ""SenderUsername"", ""ReceiverUsername"", '[FILE_REQUEST:' || ""Id"" || ':' || ""FileName"" || ':' || ""FileUrl"" || ':' || ""Status"" || ']', ""Timestamp"", (""Status"" != 0)
+                FROM ""FileTransfers""
+                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2))
+                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1))
                 ORDER BY ""Timestamp"" ASC";
 
             using var cmd = new NpgsqlCommand(sql, conn);
@@ -342,7 +347,7 @@ namespace PaLX.API.Services
                     Id = reader.GetInt32(0),
                     Sender = reader.GetString(1),
                     Receiver = reader.GetString(2),
-                    Content = reader.GetString(3),
+                    Content = reader.IsDBNull(3) ? "" : reader.GetString(3),
                     Timestamp = reader.GetDateTime(4),
                     IsRead = reader.GetBoolean(5)
                 });
@@ -355,15 +360,31 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            var sql = @"
+            // Mark Messages as Read
+            var sqlMessages = @"
                 UPDATE ""Messages""
                 SET ""IsRead"" = TRUE
-                WHERE ""SenderUsername"" = @s AND ""ReceiverUsername"" = @r AND ""IsRead"" = FALSE";
+                WHERE LOWER(""SenderUsername"") = LOWER(@s) AND LOWER(""ReceiverUsername"") = LOWER(@r) AND ""IsRead"" = FALSE";
 
-            using var cmd = new NpgsqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("s", sender);
-            cmd.Parameters.AddWithValue("r", receiver);
-            await cmd.ExecuteNonQueryAsync();
+            using (var cmd = new NpgsqlCommand(sqlMessages, conn))
+            {
+                cmd.Parameters.AddWithValue("s", sender);
+                cmd.Parameters.AddWithValue("r", receiver);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Mark FileTransfers as Read
+            var sqlFiles = @"
+                UPDATE ""FileTransfers""
+                SET ""IsRead"" = TRUE
+                WHERE LOWER(""SenderUsername"") = LOWER(@s) AND LOWER(""ReceiverUsername"") = LOWER(@r) AND ""IsRead"" = FALSE";
+
+            using (var cmd = new NpgsqlCommand(sqlFiles, conn))
+            {
+                cmd.Parameters.AddWithValue("s", sender);
+                cmd.Parameters.AddWithValue("r", receiver);
+                await cmd.ExecuteNonQueryAsync();
+            }
         }
 
         public async Task<bool> UnblockUserAsync(string blocker, string blocked)
@@ -586,6 +607,28 @@ namespace PaLX.API.Services
                 cmd.Parameters.AddWithValue("res", responder);
                 return await cmd.ExecuteNonQueryAsync() > 0;
             }
+        }
+
+        public async Task<List<string>> GetUnreadSendersAsync(string username)
+        {
+            var senders = new List<string>();
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT DISTINCT ""SenderUsername"" FROM ""Messages"" WHERE LOWER(""ReceiverUsername"") = LOWER(@u) AND ""IsRead"" = false
+                UNION
+                SELECT DISTINCT ""SenderUsername"" FROM ""FileTransfers"" WHERE LOWER(""ReceiverUsername"") = LOWER(@u) AND ""IsRead"" = false";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("u", username);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                senders.Add(reader.GetString(0));
+            }
+            return senders;
         }
     }
 }

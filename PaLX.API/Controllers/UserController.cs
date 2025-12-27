@@ -138,12 +138,12 @@ namespace PaLX.API.Controllers
 
         [Authorize]
         [HttpPost("chat/read")]
-        public async Task<IActionResult> MarkMessagesAsRead([FromBody] string partner)
+        public async Task<IActionResult> MarkMessagesAsRead([FromBody] MarkReadDto model)
         {
             var username = User.FindFirst(ClaimTypes.Name)?.Value;
             if (string.IsNullOrEmpty(username)) return Unauthorized();
 
-            await _userService.MarkMessagesAsReadAsync(partner, username);
+            await _userService.MarkMessagesAsReadAsync(model.Partner, username);
             return Ok();
         }
 
@@ -192,6 +192,17 @@ namespace PaLX.API.Controllers
 
             var requests = await _userService.GetPendingRequestsAsync(username);
             return Ok(requests);
+        }
+
+        [Authorize]
+        [HttpGet("unread-conversations")]
+        public async Task<IActionResult> GetUnreadConversations()
+        {
+            var username = User.FindFirst(ClaimTypes.Name)?.Value;
+            if (string.IsNullOrEmpty(username)) return Unauthorized();
+
+            var senders = await _userService.GetUnreadSendersAsync(username);
+            return Ok(senders);
         }
 
         [Authorize]

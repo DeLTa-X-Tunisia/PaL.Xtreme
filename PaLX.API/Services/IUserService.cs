@@ -21,5 +21,6 @@ namespace PaLX.API.Services
         Task<bool> SendFriendRequestAsync(string fromUser, string toUser);
         Task<bool> RespondToFriendRequestAsync(string responder, string requester, int response);
         Task<bool> RemoveFriendAsync(string username, string friendUsername);
+        Task<List<string>> GetUnreadSendersAsync(string username);
     }
 }

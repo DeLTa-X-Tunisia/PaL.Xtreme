@@ -27,6 +27,18 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 *   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents.
 *   **Historique Visuel** : Bulles de messages distinctes et affichage centralisé des changements de statut du partenaire.
 
+### 🔄 Synchronisation & Fiabilité (Nouveau)
+*   **Messages Hors-Ligne (Push)** :
+    *   **Réception Automatique** : Les messages reçus pendant que l'utilisateur était déconnecté sont automatiquement "poussés" vers le client dès la reconnexion.
+    *   **Gestion Intelligente** :
+        *   **Client** : Les messages s'affichent directement et notifient l'utilisateur.
+        *   **Admin** : Les messages hors-ligne s'ajoutent discrètement à la liste des "Messages non lus" sans ouvrir intempestivement des dizaines de fenêtres.
+*   **Persistance de Lecture** :
+    *   **Correction "Zombie"** : Correction d'un bug où les messages marqués comme lus réapparaissaient comme non-lus à la reconnexion.
+    *   **Transferts de Fichiers** : L'ouverture d'une fenêtre de chat marque désormais correctement les transferts de fichiers comme "lus" en base de données.
+*   **Stabilité API** :
+    *   **Déconnexion Propre** : Distinction claire entre une déconnexion volontaire (Logout) et un crash serveur, évitant les fausses alertes de maintenance.
+
 ### 🛡️ Sécurité & Rôles
 *   **Séparation Stricte** : Un utilisateur standard (Rôle 7) ne peut pas se connecter sur l'interface Admin, et inversement.
 *   **Système de Blocage Avancé** :

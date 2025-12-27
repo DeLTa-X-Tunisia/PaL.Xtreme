@@ -66,6 +66,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles(); // Enable static files for uploads
+
 app.UseAuthentication();
 app.UseAuthorization();
 

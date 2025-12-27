@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using System.Windows;
+using System.IO;
 
 namespace PaLX.Admin.Services
 {
@@ -15,13 +16,18 @@ namespace PaLX.Admin.Services
         private readonly HttpClient _httpClient;
         private HubConnection? _hubConnection;
         private string _authToken = string.Empty;
-        private const string BaseUrl = "http://localhost:5145"; // Adjust if needed
+        public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
 
         public event Action<string, string>? OnMessageReceived;
         public event Action<string, string>? OnPrivateMessageReceived;
         public event Action<string>? OnUserTyping;
         public event Action<string>? OnBuzzReceived;
         public event Action<string, string>? OnUserStatusChanged;
+
+        // Image Transfer Events
+        public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
+        public event Action<int, string, string, string>? OnImageRequestSent; // id, receiver, filename, url
+        public event Action<int, bool, string>? OnImageTransferUpdated; // id, isAccepted, url
 
         // Friend Events
         public event Action<string>? OnFriendRequestReceived;
@@ -108,7 +114,32 @@ namespace PaLX.Admin.Services
                 return null;
             }
         }
+        public async Task<string?> UploadImageAsync(string filePath)
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                using var streamContent = new StreamContent(fileStream);
+                streamContent.Headers.ContentType = new MediaTypeHeaderValue("image/" + Path.GetExtension(filePath).TrimStart('.'));
+                content.Add(streamContent, "file", Path.GetFileName(filePath));
 
+                var response = await _httpClient.PostAsync("api/upload/image", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("url", out var urlProperty))
+                    {
+                        return urlProperty.GetString();
+                    }
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
         public async Task<bool> UpdateUserProfileAsync(UserProfileDto profile)
         {
             try
@@ -184,7 +215,8 @@ namespace PaLX.Admin.Services
         {
             try
             {
-                await _httpClient.PostAsJsonAsync("api/user/chat/read", partner);
+                var model = new { Partner = partner };
+                await _httpClient.PostAsJsonAsync("api/user/chat/read", model);
             }
             catch { }
         }
@@ -239,6 +271,15 @@ namespace PaLX.Admin.Services
             }
         }
 
+        public async Task<List<string>> GetUnreadConversationsAsync()
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<List<string>>("api/user/unread-conversations") ?? new List<string>();
+            }
+            catch { return new List<string>(); }
+        }
+
         public async Task<bool> SendFriendRequestAsync(string toUser)
         {
             try
@@ -274,9 +315,13 @@ namespace PaLX.Admin.Services
             catch { return false; }
         }
 
+        private bool _isIntentionalDisconnect = false;
+
         public async Task ConnectSignalRAsync()
         {
             if (string.IsNullOrEmpty(_authToken)) return;
+
+            _isIntentionalDisconnect = false;
 
             _hubConnection = new HubConnectionBuilder()
                 .WithUrl($"{BaseUrl}/chatHub", options =>
@@ -345,9 +390,27 @@ namespace PaLX.Admin.Services
                 OnBuzzReceived?.Invoke(sender);
             });
 
+            _hubConnection.On<int, string, string, string>("ReceiveImageRequest", (id, sender, filename, url) =>
+            {
+                OnImageRequestReceived?.Invoke(id, sender, filename, url);
+            });
+
+            _hubConnection.On<int, string, string, string>("ImageRequestSent", (id, receiver, filename, url) =>
+            {
+                OnImageRequestSent?.Invoke(id, receiver, filename, url);
+            });
+
+            _hubConnection.On<int, bool, string>("ImageTransferUpdated", (id, isAccepted, url) =>
+            {
+                OnImageTransferUpdated?.Invoke(id, isAccepted, url);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
-                OnConnectionClosed?.Invoke();
+                if (!_isIntentionalDisconnect)
+                {
+                    OnConnectionClosed?.Invoke();
+                }
                 await Task.CompletedTask;
             };
 
@@ -392,10 +455,37 @@ namespace PaLX.Admin.Services
                 await _hubConnection.InvokeAsync("SendBuzz", receiver);
             }
         }
-        
-        public async Task DisconnectAsync()
+
+        public async Task SendImageRequestAsync(string receiver, string fileUrl, string fileName, long fileSize)
         {
-            if (_hubConnection != null)
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendImageRequest", receiver, fileUrl, fileName, fileSize);
+            }
+        }
+
+        public async Task RespondToImageRequestAsync(int fileId, bool isAccepted)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("RespondToImageRequest", fileId, isAccepted);
+            }
+        }
+
+        public async Task DisconnectAsync()
+        {_isIntentionalDisconnect = true;
+                try
+                {
+                    await _hubConnection.StopAsync();
+                }
+                catch { }
+
+                try
+                {
+                    await _hubConnection.DisposeAsync();
+                }
+                catch { }
+
             {
                 await _hubConnection.StopAsync();
                 await _hubConnection.DisposeAsync();

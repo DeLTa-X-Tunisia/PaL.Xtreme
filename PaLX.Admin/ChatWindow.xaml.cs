@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Text;
+using System.Net.Http;
 using Microsoft.Web.WebView2.Core;
 using PaLX.Admin.Services;
 using System.Threading.Tasks;
@@ -34,11 +35,18 @@ namespace PaLX.Admin
             _currentUserDisplayName = currentUser; // Default
             _partnerUser = partnerUser;
             
+            Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
+
             // Subscribe to SignalR
             ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
             ApiService.Instance.OnUserTyping += OnUserTyping;
             ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
+
+            // Image Events
+            ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
+            ApiService.Instance.OnImageRequestSent += OnImageRequestSent;
+            ApiService.Instance.OnImageTransferUpdated += OnImageTransferUpdated;
 
             // Subscribe to Block Events
             ApiService.Instance.OnUserBlocked += OnUserBlocked;
@@ -59,10 +67,49 @@ namespace PaLX.Admin
             
             Loaded += async (s, e) => 
             {
+                await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
                 await LoadPartnerInfoAsync();
                 await CheckBlockStatusAsync();
                 CheckBuzzAvailability();
             };
+        }
+
+        private void OnImageRequestReceived(int id, string sender, string filename, string url)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    // Play Sound
+                    try { _messageSound?.Play(); } catch { }
+                    
+                    string script = $"addFileRequest({id}, '{sender}', '{filename}', '{url}', false);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnImageRequestSent(int id, string receiver, string filename, string url)
+        {
+            if (receiver == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    string script = $"addFileRequest({id}, '{_currentUser}', '{filename}', '{url}', true);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnImageTransferUpdated(int id, bool isAccepted, string url)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                string script1 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, true);";
+                string script2 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, false);";
+                ChatWebView.ExecuteScriptAsync(script1);
+                ChatWebView.ExecuteScriptAsync(script2);
+            });
         }
 
         private void OnUserStatusChanged(string username, string status)
@@ -317,7 +364,7 @@ namespace PaLX.Admin
         {
             if (sender == _partnerUser)
             {
-                Dispatcher.Invoke(() => 
+                Dispatcher.Invoke(async () => 
                 {
                     var msg = new ChatMessageDto 
                     { 
@@ -331,6 +378,11 @@ namespace PaLX.Admin
                     if (!this.IsActive)
                     {
                         _messageSound?.Play();
+                    }
+                    else
+                    {
+                        // Mark as read immediately if window is active
+                        await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
                     }
                 });
             }
@@ -369,10 +421,41 @@ namespace PaLX.Admin
             };
         }
 
-        private void AttachmentButton_Click(object sender, RoutedEventArgs e)
+        private async void AttachmentButton_Click(object sender, RoutedEventArgs e)
         {
-            // Placeholder for file attachment logic
-            MessageBox.Show("Fonctionnalité d'envoi de fichier à venir.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "Images|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp",
+                Title = "Sélectionner une image"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                string filePath = openFileDialog.FileName;
+                string fileName = System.IO.Path.GetFileName(filePath);
+                long fileSize = new System.IO.FileInfo(filePath).Length;
+                
+                string? url = await ApiService.Instance.UploadImageAsync(filePath);
+
+                if (!string.IsNullOrEmpty(url))
+                {
+                    string fullUrl = $"{ApiService.BaseUrl}{url}";
+                    
+                    try
+                    {
+                        // Send Request instead of direct message
+                        await ApiService.Instance.SendImageRequestAsync(_partnerUser, fullUrl, fileName, fileSize);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Erreur lors de l'envoi de la demande de fichier: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    MessageBox.Show("Échec du téléchargement de l'image.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
         }
 
         private async void InitializeWebView()
@@ -382,11 +465,110 @@ namespace PaLX.Admin
                 // Ensure the environment is ready
                 await ChatWebView.EnsureCoreWebView2Async();
                 
+                // Disable Default Context Menus and DevTools
+                ChatWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
+                ChatWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
+                ChatWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
+
+                // Handle Downloads Silently (Hide Default Dialog)
+                ChatWebView.CoreWebView2.DownloadStarting += (s, args) =>
+                {
+                    args.Handled = true; // Hide the default download dialog
+                };
+                
                 // Map Assets folder for Smileys
                 string assetsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
                 ChatWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
                     "assets", assetsPath, CoreWebView2HostResourceAccessKind.Allow);
                 
+                // Handle Web Messages (Accept/Decline/OpenImage/SaveImage)
+                ChatWebView.CoreWebView2.WebMessageReceived += async (s, args) =>
+                {
+                    try
+                    {
+                        string json = args.TryGetWebMessageAsString();
+                        var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                        
+                        if (data != null && data.ContainsKey("type"))
+                        {
+                            string type = data["type"];
+                            if (type == "openImage" && data.ContainsKey("url"))
+                            {
+                                try 
+                                {
+                                    // Download to Temp and Open
+                                    string url = data["url"];
+                                    string ext = System.IO.Path.GetExtension(url);
+                                    if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+                                    string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"PaLX_View_{Guid.NewGuid()}{ext}");
+                                    
+                                    using (var client = new HttpClient())
+                                    {
+                                        var bytes = await client.GetByteArrayAsync(url);
+                                        await System.IO.File.WriteAllBytesAsync(tempFile, bytes);
+                                    }
+
+                                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                    {
+                                        FileName = tempFile,
+                                        UseShellExecute = true
+                                    });
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Impossible d'ouvrir l'image : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }
+                            else if (type == "saveImage" && data.ContainsKey("url"))
+                            {
+                                try
+                                {
+                                    string url = data["url"];
+                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "image.jpg";
+                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
+
+                                    // Ensure unique filename
+                                    int count = 1;
+                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                                    string extension = System.IO.Path.GetExtension(filePath);
+                                    while (System.IO.File.Exists(filePath))
+                                    {
+                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
+                                    }
+
+                                    using (var client = new HttpClient())
+                                    {
+                                        var bytes = await client.GetByteArrayAsync(url);
+                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
+                                    }
+
+                                    var dialog = new DownloadCompleteWindow();
+                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
+                                    {
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                        {
+                                            FileName = filePath,
+                                            UseShellExecute = true
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }
+                            else if (type == "respondImage" && data.ContainsKey("id") && data.ContainsKey("accepted"))
+                            {
+                                int id = int.Parse(data["id"]);
+                                bool accepted = bool.Parse(data["accepted"]);
+                                await ApiService.Instance.RespondToImageRequestAsync(id, accepted);
+                            }
+                        }
+                    }
+                    catch { }
+                };
+
                 string html = @"
 <!DOCTYPE html>
 <html>
@@ -407,19 +589,36 @@ namespace PaLX.Admin
         .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
         .status-unblocked { color: #4CAF50; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #4CAF50; padding: 10px; border-radius: 8px; background-color: #E8F5E9; }
         .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
+        
+        /* File Transfer Styles */
+        .file-request { background-color: #FFF3E0; border: 1px solid #FFB74D; padding: 10px; border-radius: 8px; text-align: center; }
+        .file-actions { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
+        .btn-accept { background-color: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .btn-decline { background-color: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
+        .file-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: opacity 0.2s; }
+        .file-thumb:hover { opacity: 0.8; }
+        .file-status-accepted { color: #4CAF50; font-weight: bold; font-size: 12px; margin-top: 5px; }
+        .file-status-declined { color: #F44336; font-weight: bold; font-size: 12px; margin-top: 5px; }
+        .download-link { display: block; margin-top: 5px; font-size: 12px; color: #2196F3; text-decoration: none; cursor: pointer; }
+        .download-link:hover { text-decoration: underline; }
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id=""chat-container""></div>
     <script>
+        function scrollToBottom() {
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
         function addStatusMessage(text, statusClass) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = 'status-message ' + statusClass;
             msgDiv.innerText = text;
             container.appendChild(msgDiv);
-            window.scrollTo(0, document.body.scrollHeight);
+            scrollToBottom();
         }
 
         function addMessage(contentBase64, isMine, time) {
@@ -427,26 +626,111 @@ namespace PaLX.Admin
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             
-            // Decode Base64 (UTF-8 safe)
             let content = '';
-            try {
-                content = decodeURIComponent(escape(atob(contentBase64)));
-            } catch (e) {
-                content = atob(contentBase64); // Fallback
-            }
+            try { content = decodeURIComponent(escape(atob(contentBase64))); } catch (e) { content = atob(contentBase64); }
 
-            // Replace smiley codes with images
-            // Format: [smiley:b_s_1.png]
             content = content.replace(/\[smiley:(b_s_\d+\.png)\]/g, '<img src=""https://assets/Smiley/$1"" class=""smiley"" />');
+
+            // Legacy Image Support
+            if (content.startsWith('[IMAGE]')) {
+                var url = content.substring(7);
+                content = `<img src=""${url}"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />`;
+            }
 
             msgDiv.innerHTML = `<div class=""bubble"">${content}<div class=""timestamp"">${time}</div></div>`;
             container.appendChild(msgDiv);
-            window.scrollTo(0, document.body.scrollHeight);
+            
+            scrollToBottom();
+            
+            // Ensure scroll after images load
+            const images = msgDiv.getElementsByTagName('img');
+            for(let img of images) {
+                img.onload = scrollToBottom;
+            }
         }
+
+        function addFileRequest(id, sender, filename, url, isMine, status) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
+            msgDiv.id = 'file-' + id;
+
+            let innerHtml = '';
+            if (isMine) {
+                innerHtml = `
+                    <div class=""bubble"">
+                        <img src=""${url}"" class=""file-thumb"" style=""opacity:0.7"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />
+                        <div id=""status-${id}"" style=""font-size:11px; color:#666; margin-top:5px;"">En attente...</div>
+                    </div>`;
+            } else {
+                innerHtml = `
+                    <div class=""bubble file-request"">
+                        <div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">
+                            <span style=""font-size:16px;"">📷</span> <span>${filename}</span>
+                        </div>
+                        <div id=""actions-${id}"" class=""file-actions"">
+                            <button class=""btn-accept"" onclick=""respond(${id}, true)"">Accepter</button>
+                            <button class=""btn-decline"" onclick=""respond(${id}, false)"">Refuser</button>
+                        </div>
+                        <div id=""content-${id}"" style=""display:none; margin-top:10px;"">
+                            <img src=""${url}"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />
+                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
+                        </div>
+                    </div>`;
+            }
+
+            msgDiv.innerHTML = innerHtml;
+            container.appendChild(msgDiv);
+            
+            // Apply status if not pending (0)
+            if (status !== undefined && status !== 0) {
+                updateFileStatus(id, status === 1, isMine);
+            }
+
+            scrollToBottom();
+            
+            // Ensure scroll after images load
+            const images = msgDiv.getElementsByTagName('img');
+            for(let img of images) {
+                img.onload = scrollToBottom;
+            }
+        }
+
+        function updateFileStatus(id, isAccepted, isMine) {
+            if (isMine) {
+                const statusDiv = document.getElementById('status-' + id);
+                if (statusDiv) {
+                    if (isAccepted) {
+                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Votre image a été acceptée</span>';
+                        const img = document.querySelector(`#file-${id} img`);
+                        if(img) img.style.opacity = '1';
+                    } else {
+                        statusDiv.innerHTML = '<span class=""file-status-declined"">Votre image a été refusée</span>';
+                    }
+                }
+            } else {
+                const actionsDiv = document.getElementById('actions-' + id);
+                const contentDiv = document.getElementById('content-' + id);
+                if (actionsDiv) actionsDiv.style.display = 'none';
+                
+                if (isAccepted) {
+                    if (contentDiv) contentDiv.style.display = 'block';
+                } else {
+                    const bubble = document.querySelector(`#file-${id} .bubble`);
+                    if(bubble) bubble.innerHTML = '<div style=""color:#F44336; font-style:italic;"">Image refusée</div>';
+                }
+            }
+        }
+
+        function respond(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
+        }
+
         function clearChat() {
             document.getElementById('chat-container').innerHTML = '';
         }
     </script>
+
 </body>
 </html>";
                 ChatWebView.NavigateToString(html);
@@ -462,10 +746,64 @@ namespace PaLX.Admin
         {
             if (ChatWebView.CoreWebView2 == null) return;
 
+            // Mark messages as read
+            await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
+
             var messages = await ApiService.Instance.GetChatHistoryAsync(_partnerUser);
             foreach (var msg in messages)
             {
-                if (msg.Content == "[SYSTEM_BLOCK]")
+                if (msg.Content.StartsWith("[FILE_REQUEST:"))
+                {
+                    try 
+                    {
+                        string data = msg.Content.Substring(14, msg.Content.Length - 15);
+                        
+                        // Format: Id:FileName:Url:Status
+                        int lastColon = data.LastIndexOf(':');
+                        if (lastColon > 0)
+                        {
+                            string statusStr = data.Substring(lastColon + 1);
+                            string rest = data.Substring(0, lastColon);
+                            
+                            int firstColon = rest.IndexOf(':');
+                            int secondColon = rest.IndexOf(':', firstColon + 1);
+                            
+                            if (firstColon > 0 && secondColon > 0)
+                            {
+                                string idStr = rest.Substring(0, firstColon);
+                                string filename = rest.Substring(firstColon + 1, secondColon - firstColon - 1);
+                                string url = rest.Substring(secondColon + 1);
+                                
+                                int id = int.Parse(idStr);
+                                int status = int.Parse(statusStr);
+                                bool isMine = msg.Sender == _currentUser;
+                                
+                                string script = $"addFileRequest({id}, '{msg.Sender}', '{filename}', '{url}', {(isMine ? "true" : "false")}, {status});";
+                                await ChatWebView.ExecuteScriptAsync(script);
+                                continue;
+                            }
+                        }
+                        // Fallback for old format (Id:FileName:Url)
+                        else 
+                        {
+                            int firstColon = data.IndexOf(':');
+                            int secondColon = data.IndexOf(':', firstColon + 1);
+                            if (firstColon > 0 && secondColon > 0)
+                            {
+                                string idStr = data.Substring(0, firstColon);
+                                string filename = data.Substring(firstColon + 1, secondColon - firstColon - 1);
+                                string url = data.Substring(secondColon + 1);
+                                int id = int.Parse(idStr);
+                                bool isMine = msg.Sender == _currentUser;
+                                string script = $"addFileRequest({id}, '{msg.Sender}', '{filename}', '{url}', {(isMine ? "true" : "false")}, 0);";
+                                await ChatWebView.ExecuteScriptAsync(script);
+                                continue;
+                            }
+                        }
+                    }
+                    catch {}
+                }
+                else if (msg.Content == "[SYSTEM_BLOCK]")
                 {
                     string text;
                     string partnerName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
@@ -519,66 +857,7 @@ namespace PaLX.Admin
             ChatWebView.ExecuteScriptAsync(script);
         }
 
-        private string GetHtmlTemplate()
-        {
-            return @"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset='utf-8'>
-                <style>
-                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; background-color: #f9f9f9; }
-                    .message-container { display: flex; flex-direction: column; margin-bottom: 10px; }
-                    .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
-                    .mine { align-self: flex-end; background-color: #0078D7; color: white; border-bottom-right-radius: 4px; }
-                    .theirs { align-self: flex-start; background-color: #E0E0E0; color: #333; border-bottom-left-radius: 4px; }
-                    .timestamp { font-size: 10px; margin-top: 4px; opacity: 0.7; text-align: right; }
-                    .status-message { text-align: center; font-size: 12px; margin: 15px 0; font-style: italic; padding: 5px; border-radius: 10px; }
-                    .status-online { color: #4CAF50; background-color: #E8F5E9; }
-                    .status-offline { color: #9E9E9E; background-color: #F5F5F5; }
-                    .status-busy { color: #F44336; background-color: #FFEBEE; }
-                    .status-away { color: #FF9800; background-color: #FFF3E0; }
-                    .status-blocked { color: #D32F2F; background-color: #FFCDD2; font-weight: bold; border: 1px solid #EF9A9A; }
-                    
-                    /* BUZZ STYLES */
-                    .status-buzz-sent { color: #2196F3; background-color: #E3F2FD; font-weight: bold; border: 1px solid #90CAF9; animation: pulse 1s; }
-                    .status-buzz-received { color: #FF9800; background-color: #FFF3E0; font-weight: bold; border: 1px solid #FFCC80; animation: shake 0.5s; }
 
-                    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-                    @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
-                </style>
-                <script>
-                    function addMessage(base64Content, isMine, time) {
-                        var content = decodeURIComponent(escape(window.atob(base64Content)));
-                        var container = document.createElement('div');
-                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
-                        
-                        var bubble = document.createElement('div');
-                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
-                        bubble.innerHTML = content;
-                        
-                        var ts = document.createElement('div');
-                        ts.className = 'timestamp';
-                        ts.innerText = time;
-                        
-                        bubble.appendChild(ts);
-                        container.appendChild(bubble);
-                        document.body.appendChild(container);
-                        window.scrollTo(0, document.body.scrollHeight);
-                    }
-
-                    function addStatusMessage(text, cssClass) {
-                        var div = document.createElement('div');
-                        div.className = 'status-message ' + cssClass;
-                        div.innerText = text;
-                        document.body.appendChild(div);
-                        window.scrollTo(0, document.body.scrollHeight);
-                    }
-                </script>
-            </head>
-            <body></body>
-            </html>";
-        }
 
         private async Task CheckBlockStatusAsync()
         {
