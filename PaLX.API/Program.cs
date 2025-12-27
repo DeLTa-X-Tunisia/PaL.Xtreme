@@ -54,7 +54,6 @@ builder.Services.AddAuthentication(options =>
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddHostedService<StartupService>();
 
 var app = builder.Build();
@@ -66,8 +65,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-app.UseStaticFiles(); // Enable serving static files (uploads)
 
 app.UseAuthentication();
 app.UseAuthorization();

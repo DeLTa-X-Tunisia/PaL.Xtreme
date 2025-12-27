@@ -9,7 +9,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Text;
-using System.Threading.Tasks;
 using Microsoft.Web.WebView2.Core;
 using PaLX.Client.Services;
 
@@ -59,12 +58,6 @@ namespace PaLX.Client
             ApiService.Instance.OnUserBlockedBy += OnUserBlockedBy;
             ApiService.Instance.OnUserUnblocked += OnUserUnblocked;
             ApiService.Instance.OnUserUnblockedBy += OnUserUnblockedBy;
-
-            // Subscribe to File Events
-            ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
-            ApiService.Instance.OnFileTransferAccepted += OnFileTransferAccepted;
-            ApiService.Instance.OnFileTransferAcceptedNotification += OnFileTransferAcceptedNotification;
-            ApiService.Instance.OnFileTransferDeclinedNotification += OnFileTransferDeclinedNotification;
 
             // Initial Load
             Loaded += async (s, e) => 
@@ -379,94 +372,11 @@ namespace PaLX.Client
             };
         }
 
-        private async void AttachmentButton_Click(object sender, RoutedEventArgs e)
+        private void AttachmentButton_Click(object sender, RoutedEventArgs e)
         {
-            var openFileDialog = new Microsoft.Win32.OpenFileDialog
-            {
-                Filter = "Images|*.jpg;*.jpeg;*.png;*.gif|Tous les fichiers|*.*",
-                Title = "Envoyer une image"
-            };
-
-            if (openFileDialog.ShowDialog() == true)
-            {
-                await UploadImage(openFileDialog.FileName);
-            }
-        }
-
-        private async Task UploadImage(string filePath)
-        {
-            try
-            {
-                UploadProgressPanel.Visibility = Visibility.Visible;
-                UploadProgressBar.Value = 0;
-                UploadStatusText.Text = "0%";
-
-                var fileInfo = new System.IO.FileInfo(filePath);
-                if (fileInfo.Length > 5 * 1024 * 1024)
-                {
-                    MessageBox.Show("L'image est trop volumineuse (Max 5 MB).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                var progressIndicator = new Progress<int>(percent =>
-                {
-                    Dispatcher.Invoke(() =>
-                    {
-                        UploadProgressBar.Value = percent;
-                        UploadStatusText.Text = $"{percent}%";
-                    });
-                });
-
-                var result = await ApiService.Instance.UploadImageAsync(filePath, _partnerUser, progressIndicator);
-
-                if (result.Url != null)
-                {
-                    // Send File Request via SignalR
-                    await ApiService.Instance.SendFileRequestAsync(_partnerUser, result.Id, result.FileName, result.FileSize.ToString());
-                    
-                    // Append Pending Card to my UI
-                    AppendFileRequest(result.Id, result.FileName, result.FileSize.ToString(), true);
-                }
-                else
-                {
-                    MessageBox.Show("L'upload a échoué (URL vide).", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Erreur lors de l'envoi de l'image : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-            finally
-            {
-                UploadProgressPanel.Visibility = Visibility.Collapsed;
-            }
-        }
-
-        private void ChatWebView_WebMessageReceived(object sender, CoreWebView2WebMessageReceivedEventArgs e)
-        {
-            try
-            {
-                var json = e.TryGetWebMessageAsString();
-                if (json.Contains("imageClick"))
-                {
-                    // Simple parsing
-                    int urlIndex = json.IndexOf("\"url\":");
-                    if (urlIndex != -1)
-                    {
-                        string url = json.Substring(urlIndex + 6); // "url":
-                        url = url.Trim(' ', '"', '}', ':');
-                        
-                        // Open in default viewer
-                        var p = new System.Diagnostics.Process();
-                        p.StartInfo = new System.Diagnostics.ProcessStartInfo(url)
-                        {
-                            UseShellExecute = true
-                        };
-                        p.Start();
-                    }
-                }
-            }
-            catch { }
+            // Placeholder for file attachment logic
+            // OpenFileDialog or similar would go here
+            MessageBox.Show("Fonctionnalité d'envoi de fichier à venir.", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private async void InitializeWebView()
@@ -475,7 +385,6 @@ namespace PaLX.Client
             {
                 // Ensure the environment is ready
                 await ChatWebView.EnsureCoreWebView2Async();
-                ChatWebView.WebMessageReceived += ChatWebView_WebMessageReceived;
                 
                 // Map Assets folder for Smileys
                 string assetsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
@@ -502,30 +411,12 @@ namespace PaLX.Client
         .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
         .status-unblocked { color: #4CAF50; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #4CAF50; padding: 10px; border-radius: 8px; background-color: #E8F5E9; }
         .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
-        .chat-image { max-width: 100%; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; margin-top: 5px; }
-        .chat-image:hover { opacity: 0.9; }
-        
-        /* File Transfer Styles */
-        .file-request { background: #fff; border: 1px solid #ddd; padding: 10px; border-radius: 8px; width: 250px; }
-        .file-info { font-weight: bold; margin-bottom: 5px; font-size: 13px; }
-        .file-size { font-size: 11px; color: #666; margin-bottom: 10px; }
-        .file-actions { display: flex; gap: 10px; margin-top: 10px; }
-        .btn-accept { background: #4CAF50; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; flex: 1; }
-        .btn-decline { background: #F44336; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; flex: 1; }
-        .file-status-accepted { color: #4CAF50; font-size: 12px; margin-top: 5px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-        .file-status-declined { color: #F44336; font-size: 12px; margin-top: 5px; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-        .chat-thumbnail { max-width: 150px; max-height: 150px; border-radius: 8px; cursor: pointer; border: 1px solid #eee; }
-        
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
     <div id=""chat-container""></div>
     <script>
-        function acceptFile(id) { window.chrome.webview.postMessage('accept:' + id); }
-        function declineFile(id) { window.chrome.webview.postMessage('decline:' + id); }
-        function openImage(url) { window.chrome.webview.postMessage('open:' + url); }
-
         function addStatusMessage(text, statusClass) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
@@ -564,7 +455,6 @@ namespace PaLX.Client
 </body>
 </html>";
                 ChatWebView.NavigateToString(html);
-                ChatWebView.WebMessageReceived += ChatWebView_WebMessageReceived;
                 ChatWebView.CoreWebView2.DOMContentLoaded += async (s, e) => await LoadHistoryAsync();
             }
             catch (Exception ex)
@@ -1028,138 +918,6 @@ namespace PaLX.Client
             {
                 new CustomAlertWindow("Une erreur est survenue lors de l'envoi du message. Veuillez réessayer.", "Erreur d'envoi").ShowDialog();
             }
-        }
-
-        // File Transfer Handlers
-        private void OnFileRequestReceived(string sender, int fileId, string fileName, string fileSize)
-        {
-            if (sender != _partnerUser) return;
-            Dispatcher.Invoke(() => {
-                try { _messageSound?.Play(); } catch { }
-                AppendFileRequest(fileId, fileName, fileSize, false);
-            });
-        }
-
-        private void OnFileTransferAccepted(int fileId, string url)
-        {
-            Dispatcher.Invoke(() => 
-            {
-                // Remove request card if exists
-                ExecuteScript($"var el = document.getElementById('file-request-{fileId}'); if(el) el.remove();");
-                // Append Image
-                AppendImage(url, false, true); // isMine=false, isAccepted=true
-            });
-        }
-
-        private void OnFileTransferAcceptedNotification(int fileId)
-        {
-            Dispatcher.Invoke(() => 
-            {
-                // Update sender's view
-                string script = $@"
-                    var el = document.getElementById('file-status-{fileId}');
-                    if(el) {{
-                        el.innerHTML = '<div class=""file-status-accepted"">✅ Votre image a été acceptée</div>';
-                    }}
-                ";
-                ExecuteScript(script);
-            });
-        }
-
-        private void OnFileTransferDeclinedNotification(int fileId)
-        {
-            Dispatcher.Invoke(() => 
-            {
-                // Update sender's view
-                string script = $@"
-                    var el = document.getElementById('file-status-{fileId}');
-                    if(el) {{
-                        el.innerHTML = '<div class=""file-status-declined"">❌ Votre image a été refusée</div>';
-                    }}
-                ";
-                ExecuteScript(script);
-            });
-        }
-
-        private async void ChatWebView_WebMessageReceived(object? sender, CoreWebView2WebMessageReceivedEventArgs e)
-        {
-            var message = e.TryGetWebMessageAsString();
-            if (message.StartsWith("accept:"))
-            {
-                var id = int.Parse(message.Split(':')[1]);
-                await ApiService.Instance.RespondToFileRequestAsync(id, true);
-                // Update UI to show accepted
-                ExecuteScript($"document.getElementById('file-request-{id}').innerHTML = '<div class=\"file-status-accepted\">✅ Image acceptée</div>';");
-            }
-            else if (message.StartsWith("decline:"))
-            {
-                var id = int.Parse(message.Split(':')[1]);
-                await ApiService.Instance.RespondToFileRequestAsync(id, false);
-                ExecuteScript($"document.getElementById('file-request-{id}').innerHTML = '<div class=\"file-status-declined\">❌ Image refusée</div>';");
-            }
-            else if (message.StartsWith("open:"))
-            {
-                var url = message.Substring(5);
-                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
-            }
-        }
-
-        private void AppendFileRequest(int fileId, string fileName, string fileSize, bool isMine)
-        {
-            string sizeStr = FormatFileSize(long.Parse(fileSize));
-            string content = "";
-            
-            if (isMine)
-            {
-                content = $@"
-                    <div class='file-request' id='file-request-{fileId}'>
-                        <div class='file-info'>📤 Envoi de fichier</div>
-                        <div class='file-name'>{fileName}</div>
-                        <div class='file-size'>{sizeStr}</div>
-                        <div id='file-status-{fileId}' class='file-status'>En attente...</div>
-                    </div>";
-            }
-            else
-            {
-                content = $@"
-                    <div class='file-request' id='file-request-{fileId}'>
-                        <div class='file-info'>📥 {PartnerName.Text} vous a envoyé une image</div>
-                        <div class='file-name'>{fileName}</div>
-                        <div class='file-size'>{sizeStr}</div>
-                        <div class='file-actions'>
-                            <button class='btn-accept' onclick='acceptFile({fileId})'>Accepter</button>
-                            <button class='btn-decline' onclick='declineFile({fileId})'>Refuser</button>
-                        </div>
-                    </div>";
-            }
-
-            string script = $"addMessage(`{content}`, {isMine.ToString().ToLower()});";
-            ExecuteScript(script);
-        }
-
-        private void AppendImage(string url, bool isMine, bool isAccepted)
-        {
-            string content = $"<img src='{url}' class='chat-thumbnail' onclick='openImage(\"{url}\")' />";
-            string script = $"addMessage(`{content}`, {isMine.ToString().ToLower()});";
-            ExecuteScript(script);
-        }
-
-        private string FormatFileSize(long bytes)
-        {
-            string[] sizes = { "B", "KB", "MB", "GB", "TB" };
-            double len = bytes;
-            int order = 0;
-            while (len >= 1024 && order < sizes.Length - 1)
-            {
-                order++;
-                len = len / 1024;
-            }
-            return $"{len:0.##} {sizes[order]}";
-        }
-
-        private void ExecuteScript(string script)
-        {
-            ChatWebView.ExecuteScriptAsync(script);
         }
 
         private void Header_MouseDown(object sender, MouseButtonEventArgs e)

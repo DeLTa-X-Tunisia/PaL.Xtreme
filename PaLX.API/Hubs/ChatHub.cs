@@ -1,48 +1,16 @@
 using Microsoft.AspNetCore.SignalR;
 using Npgsql;
-using PaLX.API.Services;
 
 namespace PaLX.API.Hubs
 {
     public class ChatHub : Hub
     {
         private readonly string _connectionString;
-        private readonly IFileService _fileService;
 
-        public ChatHub(IConfiguration configuration, IFileService fileService)
+        public ChatHub(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
-            _fileService = fileService;
-        }
-
-        public async Task SendFileRequest(string receiver, int fileId, string fileName, string fileSize)
-        {
-            var sender = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(sender)) return;
-
-            await Clients.User(receiver).SendAsync("ReceiveFileRequest", sender, fileId, fileName, fileSize);
-        }
-
-        public async Task RespondToFileRequest(int fileId, bool accepted)
-        {
-            var receiver = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(receiver)) return;
-
-            var transfer = await _fileService.GetFileTransferAsync(fileId);
-            if (transfer == null || transfer.ReceiverUsername != receiver) return;
-
-            if (accepted)
-            {
-                await _fileService.UpdateFileStatusAsync(fileId, 1); // Accepted
-                await Clients.User(receiver).SendAsync("FileTransferAccepted", fileId, transfer.FilePath);
-                await Clients.User(transfer.SenderUsername).SendAsync("FileTransferAcceptedNotification", fileId);
-            }
-            else
-            {
-                await _fileService.UpdateFileStatusAsync(fileId, 2); // Declined
-                await Clients.User(transfer.SenderUsername).SendAsync("FileTransferDeclinedNotification", fileId);
-            }
         }
 
         public async Task SendMessage(string user, string message)
