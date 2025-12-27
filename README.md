@@ -14,16 +14,23 @@ La solution se compose de deux projets principaux :
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
 ### 💬 Chat & Messagerie
+*   **Fonction BUZZ** :
+    *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
+    *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
+    *   **Disponibilité** : Le bouton BUZZ (icône cloche) n'est actif que si le correspondant est "En ligne".
 *   **Formatage Riche** : Support complet du **Gras**, *Italique*, <u>Souligné</u> et de la **Couleur** du texte.
-*   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents (actifs uniquement si la fenêtre n'a pas le focus).
+*   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents.
 *   **Historique Visuel** : Bulles de messages distinctes et affichage centralisé des changements de statut du partenaire.
 
-### 🛡️ Système de Blocage Avancé
-*   **Hiérarchie Admin** : Implémentation d'une sécurité basée sur les rôles (Niveau 1 à 7). Un utilisateur ne peut bloquer qu'un utilisateur de rang inférieur.
-*   **Flexibilité** : Options de blocage **Permanent**, **Temporaire** (7 jours) ou **Personnalisé** (date spécifique).
-*   **Gestion** : Interface dédiée pour visualiser les utilisateurs bloqués, modifier la durée ou lever le blocage.
+### 🛡️ Sécurité & Rôles
+*   **Séparation Stricte** : Un utilisateur standard (Rôle 7) ne peut pas se connecter sur l'interface Admin, et inversement.
+*   **Système de Blocage Avancé** :
+    *   **Hiérarchie Admin** : Implémentation d'une sécurité basée sur les rôles (Niveau 1 à 7). Un utilisateur ne peut bloquer qu'un utilisateur de rang inférieur.
+    *   **Flexibilité** : Options de blocage **Permanent**, **Temporaire** (7 jours) ou **Personnalisé** (date spécifique).
+    *   **Gestion** : Interface dédiée pour visualiser les utilisateurs bloqués, modifier la durée ou lever le blocage.
 
 ### 🚀 Launcher & Stabilité
+*   **Sons de Démarrage** : Sons d'accueil distincts pour l'application Client (`client_start.mp3`) et Admin (`admin_start.mp3`).
 *   **Health Check** : Le launcher vérifie automatiquement la disponibilité de l'API avant de permettre la connexion, évitant les crashs au démarrage.
 *   **Connexion Robuste** : Gestion améliorée des déconnexions et reconnexions, avec nettoyage automatique des ressources.
 
@@ -60,7 +67,7 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Indicateurs Temps Réel** :
         *   Statut "En train d'écrire..." visible par le destinataire.
         *   Mise à jour instantanée du statut du partenaire (En ligne, Occupé, etc.) dans l'en-tête.
-        *   **Ouverture Automatique** : Les fenêtres de chat s'ouvrent automatiquement à la réception d'un message, aussi bien pour les Clients que pour les Admins.
+        *   **Ouverture Automatique** : Les fenêtres de chat s'ouvrent automatiquement à la réception d'un message ou d'un **BUZZ**, aussi bien pour les Clients que pour les Admins.
     *   **Expérience Visuelle** :
         *   Bulles de messages aux couleurs modernes (Bleu Pastel `#E3F2FD` pour l'expéditeur).
         *   Sélecteur de couleurs ergonomique (Popup s'ouvrant vers le haut) avec une palette moderne.

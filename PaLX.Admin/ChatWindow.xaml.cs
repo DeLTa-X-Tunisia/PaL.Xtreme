@@ -22,8 +22,10 @@ namespace PaLX.Admin
         private string _partnerUser;
         private DateTime _lastTypingSent = DateTime.MinValue;
         private System.Media.SoundPlayer? _messageSound;
+        private MediaPlayer _buzzPlayer = new MediaPlayer();
         private bool _isBlocked = false;
         private bool _isBlockedByPartner = false;
+        private bool _isPartnerOnline = false;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
@@ -35,6 +37,8 @@ namespace PaLX.Admin
             // Subscribe to SignalR
             ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
             ApiService.Instance.OnUserTyping += OnUserTyping;
+            ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
+            ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
 
             // Subscribe to Block Events
             ApiService.Instance.OnUserBlocked += OnUserBlocked;
@@ -57,7 +61,112 @@ namespace PaLX.Admin
             {
                 await LoadPartnerInfoAsync();
                 await CheckBlockStatusAsync();
+                CheckBuzzAvailability();
             };
+        }
+
+        private void OnUserStatusChanged(string username, string status)
+        {
+            if (username == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    PartnerStatus.Text = status;
+                    // Update online status tracking
+                    _isPartnerOnline = status == "En ligne";
+                    CheckBuzzAvailability();
+                });
+            }
+        }
+
+        private void CheckBuzzAvailability()
+        {
+            // Buzz is available if partner is online
+            bool isOnline = PartnerStatus.Text == "En ligne";
+            BtnBuzz.Visibility = isOnline ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private async void Buzz_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBlocked || _isBlockedByPartner) return;
+
+            // Play sound locally
+            PlayBuzzSound();
+
+            // Show message locally (Blue)
+            string msg = "======== Vous avez envoyé un BUZZ à " + PartnerName.Text + " ========";
+            string script = $"addStatusMessage('{msg}', 'status-buzz-sent');";
+            await ChatWebView.ExecuteScriptAsync(script);
+
+            // Send to partner
+            await ApiService.Instance.SendBuzzAsync(_partnerUser);
+        }
+
+        private void OnBuzzReceived(string sender)
+        {
+            if (sender == _partnerUser)
+            {
+                TriggerBuzz();
+            }
+        }
+
+        public void TriggerBuzz()
+        {
+            Dispatcher.Invoke(() => 
+            {
+                // Shake Window
+                ShakeWindow();
+
+                // Play Sound
+                PlayBuzzSound();
+
+                // Show message (Orange)
+                string name = string.IsNullOrEmpty(PartnerName.Text) ? _partnerUser : PartnerName.Text;
+                string msg = $"======== {name} vous a envoyé un BUZZ ========";
+                string script = $"addStatusMessage('{msg}', 'status-buzz-received');";
+                ChatWebView.ExecuteScriptAsync(script);
+            });
+        }
+
+        private void PlayBuzzSound()
+        {
+            try
+            {
+                string soundPath = @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\doorbell_1.mp3";
+                if (System.IO.File.Exists(soundPath))
+                {
+                    _buzzPlayer.Open(new Uri(soundPath));
+                    _buzzPlayer.Play();
+                }
+            }
+            catch { }
+        }
+
+        private async void ShakeWindow()
+        {
+            var originalLeft = this.Left;
+            var originalTop = this.Top;
+            var shakeTimer = new DispatcherTimer();
+            shakeTimer.Interval = TimeSpan.FromMilliseconds(50);
+            int shakes = 0;
+            var rnd = new Random();
+
+            shakeTimer.Tick += (s, e) => 
+            {
+                if (shakes < 40) // 2 seconds
+                {
+                    this.Left = originalLeft + rnd.Next(-10, 11);
+                    this.Top = originalTop + rnd.Next(-10, 11);
+                    shakes++;
+                }
+                else
+                {
+                    shakeTimer.Stop();
+                    this.Left = originalLeft;
+                    this.Top = originalTop;
+                }
+            };
+            shakeTimer.Start();
         }
 
         private void OnUserBlocked(string blockedUser)
@@ -408,6 +517,67 @@ namespace PaLX.Admin
             string message = $"{name} est actuellement {status}";
             string script = $"addStatusMessage('{message}', '{cssClass}');";
             ChatWebView.ExecuteScriptAsync(script);
+        }
+
+        private string GetHtmlTemplate()
+        {
+            return @"
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='utf-8'>
+                <style>
+                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; background-color: #f9f9f9; }
+                    .message-container { display: flex; flex-direction: column; margin-bottom: 10px; }
+                    .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
+                    .mine { align-self: flex-end; background-color: #0078D7; color: white; border-bottom-right-radius: 4px; }
+                    .theirs { align-self: flex-start; background-color: #E0E0E0; color: #333; border-bottom-left-radius: 4px; }
+                    .timestamp { font-size: 10px; margin-top: 4px; opacity: 0.7; text-align: right; }
+                    .status-message { text-align: center; font-size: 12px; margin: 15px 0; font-style: italic; padding: 5px; border-radius: 10px; }
+                    .status-online { color: #4CAF50; background-color: #E8F5E9; }
+                    .status-offline { color: #9E9E9E; background-color: #F5F5F5; }
+                    .status-busy { color: #F44336; background-color: #FFEBEE; }
+                    .status-away { color: #FF9800; background-color: #FFF3E0; }
+                    .status-blocked { color: #D32F2F; background-color: #FFCDD2; font-weight: bold; border: 1px solid #EF9A9A; }
+                    
+                    /* BUZZ STYLES */
+                    .status-buzz-sent { color: #2196F3; background-color: #E3F2FD; font-weight: bold; border: 1px solid #90CAF9; animation: pulse 1s; }
+                    .status-buzz-received { color: #FF9800; background-color: #FFF3E0; font-weight: bold; border: 1px solid #FFCC80; animation: shake 0.5s; }
+
+                    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+                    @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
+                </style>
+                <script>
+                    function addMessage(base64Content, isMine, time) {
+                        var content = decodeURIComponent(escape(window.atob(base64Content)));
+                        var container = document.createElement('div');
+                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
+                        
+                        var bubble = document.createElement('div');
+                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
+                        bubble.innerHTML = content;
+                        
+                        var ts = document.createElement('div');
+                        ts.className = 'timestamp';
+                        ts.innerText = time;
+                        
+                        bubble.appendChild(ts);
+                        container.appendChild(bubble);
+                        document.body.appendChild(container);
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+
+                    function addStatusMessage(text, cssClass) {
+                        var div = document.createElement('div');
+                        div.className = 'status-message ' + cssClass;
+                        div.innerText = text;
+                        document.body.appendChild(div);
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+                </script>
+            </head>
+            <body></body>
+            </html>";
         }
 
         private async Task CheckBlockStatusAsync()

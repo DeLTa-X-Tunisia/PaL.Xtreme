@@ -236,11 +236,6 @@
                                                     Click="Accept_Click" Tag="{Binding Username}" ToolTip="Accepter (Ajoute l'utilisateur à votre liste)">
                                                 <TextBlock Text="&#xE10B;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#2ecc71"/>
                                             </Button>
-                                            <!-- Accept & Add -->
-                                            <Button Style="{StaticResource IconButtonStyle}" Width="35" Height="35" Background="#eafaf1" Margin="0,0,5,0"
-                                                    Click="AcceptAdd_Click" Tag="{Binding Username}" ToolTip="Accepter &amp; Ajouter (Amitié mutuelle)">
-                                                <TextBlock Text="&#xE1E2;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#27ae60"/>
-                                            </Button>
                                             <!-- Decline -->
                                             <Button Style="{StaticResource IconButtonStyle}" Width="35" Height="35" Background="#fdedec" Margin="0,0,5,0"
                                                     Click="Decline_Click" Tag="{Binding Username}" ToolTip="Refuser">

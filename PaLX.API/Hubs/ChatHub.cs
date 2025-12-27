@@ -39,6 +39,15 @@ namespace PaLX.API.Hubs
             }
         }
 
+        public async Task SendBuzz(string receiver)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveBuzz", sender);
+            }
+        }
+
         public override async Task OnConnectedAsync()
         {
             var username = Context.UserIdentifier;

@@ -20,6 +20,7 @@ namespace PaLX.Client.Services
         public event Action<string, string>? OnMessageReceived;
         public event Action<string, string>? OnPrivateMessageReceived;
         public event Action<string>? OnUserTyping;
+        public event Action<string>? OnBuzzReceived;
         public event Action<string, string>? OnUserStatusChanged;
         
         // Friend Events
@@ -328,6 +329,11 @@ namespace PaLX.Client.Services
                 OnUserUnblockedBy?.Invoke(blocker);
             });
 
+            _hubConnection.On<string>("ReceiveBuzz", (sender) =>
+            {
+                OnBuzzReceived?.Invoke(sender);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
                 OnConnectionClosed?.Invoke();
@@ -365,6 +371,14 @@ namespace PaLX.Client.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("UserTyping", receiver);
+            }
+        }
+
+        public async Task SendBuzzAsync(string receiver)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendBuzz", receiver);
             }
         }
         

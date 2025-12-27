@@ -9,6 +9,9 @@ using System.Media;
 using PaLX.Admin.Services;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
 namespace PaLX.Admin
 {
@@ -17,10 +20,15 @@ namespace PaLX.Admin
         public string CurrentUsername { get; private set; }
         public string CurrentRole { get; private set; }
 
+        private System.Windows.Threading.DispatcherTimer _refreshTimer;
         private SoundPlayer? _onlineSound;
         private SoundPlayer? _offlineSound;
         private SoundPlayer? _messageSound;
+        private SoundPlayer? _friendRequestSound;
+        private SoundPlayer? _friendAddedSound;
+        private MediaPlayer _startupPlayer = new MediaPlayer();
         private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
+        private ObservableCollection<FriendItem> _friendsCollection = new ObservableCollection<FriendItem>();
 
         // Notification Properties
         public static readonly DependencyProperty NotificationCountProperty =
@@ -47,15 +55,18 @@ namespace PaLX.Admin
             CurrentUsername = username;
             CurrentRole = role;
             
+            PlayStartupSound();
+
             // Set DataContext for bindings
             NotificationButton.DataContext = this;
             
             // Subscribe to SignalR events
             ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
+            ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             
             // Friend Sync
-            ApiService.Instance.OnFriendRequestAccepted += OnFriendUpdate;
+            ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
             ApiService.Instance.OnFriendRemoved += OnFriendUpdate;
             ApiService.Instance.OnFriendRequestReceived += OnFriendRequestReceived;
 
@@ -75,12 +86,27 @@ namespace PaLX.Admin
                 _onlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "online.wav"));
                 _offlineSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "offline.wav"));
                 _messageSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "message.wav"));
+                _friendRequestSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "friend_request.wav"));
+                _friendAddedSound = new SoundPlayer(Path.Combine(baseDir, "Assets", "Sounds", "friend_added.wav"));
                 // Preload
                 _onlineSound.LoadAsync();
                 _offlineSound.LoadAsync();
                 _messageSound.LoadAsync();
+                _friendRequestSound.LoadAsync();
+                _friendAddedSound.LoadAsync();
             }
             catch { /* Ignore sound errors */ }
+
+            FriendsList.ItemsSource = _friendsCollection;
+
+            // Setup Timer
+            _refreshTimer = new System.Windows.Threading.DispatcherTimer();
+            _refreshTimer.Interval = TimeSpan.FromSeconds(5);
+            _refreshTimer.Tick += async (s, e) => 
+            {
+                await LoadFriendsAsync();
+            };
+            _refreshTimer.Start();
 
             LoadStatuses();
             Loaded += async (s, e) => 
@@ -93,6 +119,20 @@ namespace PaLX.Admin
             this.Closing += MainView_Closing;
         }
 
+        private void PlayStartupSound()
+        {
+            try
+            {
+                string soundPath = @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\admin_start.mp3";
+                if (File.Exists(soundPath))
+                {
+                    _startupPlayer.Open(new Uri(soundPath));
+                    _startupPlayer.Play();
+                }
+            }
+            catch { /* Ignore startup sound errors */ }
+        }
+
         private void OnConnectionClosed()
         {
             Dispatcher.Invoke(() =>
@@ -102,6 +142,16 @@ namespace PaLX.Admin
                 
                 // Force Logout logic
                 Logout_Click(null!, null!);
+            });
+        }
+
+        private void OnFriendAdded(string username)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                try { _friendAddedSound?.Play(); } catch { }
+                await LoadFriendsAsync();
+                UpdateFriendRequestsCount();
             });
         }
 
@@ -118,15 +168,13 @@ namespace PaLX.Admin
         {
             Dispatcher.Invoke(() =>
             {
-                if (FriendsList.ItemsSource is List<FriendItem> items)
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+                if (friend != null)
                 {
-                    var friend = items.FirstOrDefault(f => f.Username == username);
-                    if (friend != null)
-                    {
-                        friend.StatusText = "Bloqué";
-                        friend.StatusColor = Brushes.Red;
-                        FriendsList.Items.Refresh();
-                    }
+                    friend.StatusText = "Bloqué";
+                    friend.StatusColor = Brushes.Red;
+                    friend.NameFontWeight = FontWeights.Normal;
+                    // No need to refresh, INotifyPropertyChanged handles it
                 }
             });
         }
@@ -154,47 +202,64 @@ namespace PaLX.Admin
             });
         }
 
+        private void OnBuzzReceived(string sender)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                if (_openChatWindows.ContainsKey(sender))
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                else
+                {
+                    // Open new window and trigger buzz
+                    var chatWindow = new ChatWindow(CurrentUsername, sender);
+                    chatWindow.Closed += (s, args) => _openChatWindows.Remove(sender);
+                    _openChatWindows.Add(sender, chatWindow);
+                    chatWindow.Show();
+                    
+                    // Manually trigger buzz since it missed the event
+                    chatWindow.TriggerBuzz();
+                }
+            });
+        }
+
         private void OnUserStatusChanged(string username, string status)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.Invoke(async () =>
             {
-                if (FriendsList.ItemsSource is List<FriendItem> items)
+                // Determine status value
+                int statusValue = 6;
+                switch (status)
                 {
-                    var friend = items.FirstOrDefault(f => f.Username == username);
-                    if (friend != null)
-                    {
-                        // Update Status
-                        friend.StatusText = status;
-                        friend.StatusColor = GetStatusColor(status);
-                        
-                        int statusValue = 6;
-                        if (status == "En ligne") statusValue = 0;
-                        else if (status == "Occupé") statusValue = 1;
-                        else if (status == "Absent") statusValue = 2;
-                        else if (status == "En appel") statusValue = 3;
-                        else if (status == "Ne pas déranger") statusValue = 4;
-                        
-                        friend.NameFontWeight = statusValue != 6 ? FontWeights.Bold : FontWeights.Normal;
-
-                        // Play Sound
-                        try
-                        {
-                            if (statusValue != 6 && _previousStatuses.ContainsKey(username) && _previousStatuses[username] == 6) 
-                                _onlineSound?.Play();
-                            else if (statusValue == 6) 
-                                _offlineSound?.Play();
-                        }
-                        catch { }
-                        
-                        if (_previousStatuses.ContainsKey(username)) _previousStatuses[username] = statusValue;
-                        else _previousStatuses.Add(username, statusValue);
-
-                        // Re-sort and Refresh
-                        var sortedFriends = items.OrderBy(f => f.StatusText == "Hors ligne").ThenBy(f => f.Name).ToList();
-                        FriendsList.ItemsSource = null;
-                        FriendsList.ItemsSource = sortedFriends;
-                    }
+                    case "En ligne": statusValue = 0; break;
+                    case "Occupé": statusValue = 1; break;
+                    case "Absent": statusValue = 2; break;
+                    case "En appel": statusValue = 3; break;
+                    case "Ne pas déranger": statusValue = 4; break;
+                    default: statusValue = 6; break;
                 }
+
+                // Play sound if status changed or new
+                if (!_previousStatuses.ContainsKey(username) || _previousStatuses[username] != statusValue)
+                {
+                    try
+                    {
+                        if (statusValue == 6) _offlineSound?.Play();
+                        else _onlineSound?.Play();
+                    }
+                    catch { }
+                    _blinkingUntil[username] = DateTime.Now.AddSeconds(5);
+                }
+
+                // Update tracking to prevent overwriting by polling
+                _previousStatuses[username] = statusValue;
+                _lastSignalRUpdate[username] = DateTime.Now;
+                
+                // Trigger refresh to update UI via ObservableCollection logic
+                await LoadFriendsAsync();
             });
         }
 
@@ -217,7 +282,11 @@ namespace PaLX.Admin
 
         private void OnFriendRequestReceived(string username)
         {
-            Dispatcher.Invoke(() => UpdateFriendRequestsCount());
+            Dispatcher.Invoke(() => 
+            {
+                UpdateFriendRequestsCount();
+                try { _friendRequestSound?.Play(); } catch { }
+            });
         }
 
         private async void UpdateFriendRequestsCount()
@@ -256,7 +325,9 @@ namespace PaLX.Admin
 
         private async void MainView_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
         {
+            _refreshTimer.Stop();
             ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
+            ApiService.Instance.OnBuzzReceived -= OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged -= OnUserStatusChanged;
             ApiService.Instance.OnFriendRequestAccepted -= OnFriendUpdate;
             ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
@@ -333,32 +404,72 @@ namespace PaLX.Admin
 
         private Dictionary<string, int> _previousStatuses = new Dictionary<string, int>();
         private Dictionary<string, DateTime> _blinkingUntil = new Dictionary<string, DateTime>();
+        private Dictionary<string, DateTime> _lastSignalRUpdate = new Dictionary<string, DateTime>();
 
         private async Task LoadFriendsAsync()
         {
             var friends = await ApiService.Instance.GetFriendsAsync();
             
-            // Sort: Online (not "Hors ligne") first, Offline last
-            var sortedFriends = friends.OrderBy(f => f.Status == "Hors ligne").ThenBy(f => f.DisplayName);
+            // Sync with ObservableCollection
+            var currentFriends = _friendsCollection.ToList();
+            var newFriendUsernames = friends.Select(f => f.Username).ToHashSet();
 
-            var friendItems = new List<FriendItem>();
+            // Remove deleted friends
+            foreach (var existing in currentFriends)
+            {
+                if (!newFriendUsernames.Contains(existing.Username))
+                {
+                    _friendsCollection.Remove(existing);
+                }
+            }
 
-            foreach (var f in sortedFriends)
+            foreach (var f in friends)
             {
                 bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
                 
-                Brush statusBrush = GetStatusColor(f.Status);
-                int statusValue = f.Status == "Hors ligne" ? 6 : 0; // Simplified for blinking logic
-                if (f.Status == "Occupé") statusValue = 1;
-                else if (f.Status == "Absent") statusValue = 2;
-                else if (f.Status == "En appel") statusValue = 3;
-                else if (f.Status == "Ne pas déranger") statusValue = 4;
+                int effectiveStatusValue = f.Status == "Hors ligne" ? 6 : 0;
+                if (f.Status == "Occupé") effectiveStatusValue = 1;
+                else if (f.Status == "Absent") effectiveStatusValue = 2;
+                else if (f.Status == "En appel") effectiveStatusValue = 3;
+                else if (f.Status == "Ne pas déranger") effectiveStatusValue = 4;
+
+                if (_lastSignalRUpdate.ContainsKey(f.Username) && 
+                    (DateTime.Now - _lastSignalRUpdate[f.Username]).TotalSeconds < 5 &&
+                    _previousStatuses.ContainsKey(f.Username))
+                {
+                    effectiveStatusValue = _previousStatuses[f.Username];
+                }
+
+                string statusText = f.Status;
+                if (effectiveStatusValue != (f.Status == "Hors ligne" ? 6 : (f.Status == "Occupé" ? 1 : (f.Status == "Absent" ? 2 : (f.Status == "En appel" ? 3 : (f.Status == "Ne pas déranger" ? 4 : 0))))))
+                {
+                     switch (effectiveStatusValue)
+                    {
+                        case 0: statusText = "En ligne"; break;
+                        case 1: statusText = "Occupé"; break;
+                        case 2: statusText = "Absent"; break;
+                        case 3: statusText = "En appel"; break;
+                        case 4: statusText = "Ne pas déranger"; break;
+                        default: statusText = "Hors ligne"; break;
+                    }
+                }
+
+                Brush statusBrush = Brushes.Gray;
+                switch (effectiveStatusValue)
+                {
+                    case 0: statusBrush = Brushes.Green; break;
+                    case 1: statusBrush = Brushes.Red; break;
+                    case 2: statusBrush = Brushes.Orange; break;
+                    case 3: statusBrush = Brushes.DarkRed; break;
+                    case 4: statusBrush = Brushes.Purple; break;
+                    default: statusBrush = Brushes.Gray; break;
+                }
 
                 // Check for status change
                 bool isBlinking = false;
                 if (_previousStatuses.ContainsKey(f.Username))
                 {
-                    if (_previousStatuses[f.Username] != statusValue)
+                    if (_previousStatuses[f.Username] != effectiveStatusValue)
                     {
                         // Status changed, set blinking expiration to Now + 5 seconds
                         _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
@@ -366,11 +477,11 @@ namespace PaLX.Admin
                         // Play Sound Effects
                         try
                         {
-                            if (statusValue != 6 && _previousStatuses[f.Username] == 6) // Came Online
+                            if (effectiveStatusValue != 6 && _previousStatuses[f.Username] == 6) // Came Online
                             {
                                 _onlineSound?.Play();
                             }
-                            else if (statusValue == 6) // Went Offline
+                            else if (effectiveStatusValue == 6) // Went Offline
                             {
                                 _offlineSound?.Play();
                             }
@@ -378,7 +489,7 @@ namespace PaLX.Admin
                         catch { /* Ignore playback errors */ }
                     }
                 }
-                _previousStatuses[f.Username] = statusValue;
+                _previousStatuses[f.Username] = effectiveStatusValue;
 
                 // Check if currently blinking
                 if (_blinkingUntil.ContainsKey(f.Username))
@@ -394,7 +505,7 @@ namespace PaLX.Admin
                 }
 
                 // Override if Blocked
-                string displayStatus = f.Status;
+                string displayStatus = statusText;
                 Brush displayColor = statusBrush;
 
                 if (f.IsBlocked)
@@ -403,24 +514,49 @@ namespace PaLX.Admin
                     displayColor = Brushes.Red;
                 }
 
-                friendItems.Add(new FriendItem
+                // Find existing or create new
+                var existingFriend = _friendsCollection.FirstOrDefault(x => x.Username == f.Username);
+                if (existingFriend != null)
                 {
-                    Name = f.DisplayName,
-                    StatusText = displayStatus,
-                    StatusColor = displayColor,
-                    Username = f.Username,
-                    AvatarPath = hasAvatar ? f.AvatarPath : null,
-                    AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
-                    PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
-                    NameFontWeight = statusValue != 6 ? FontWeights.Bold : FontWeights.Normal,
-                    IsBlinking = isBlinking,
-                    IsBlocked = f.IsBlocked,
-                    BlockIcon = f.IsBlocked ? "\xE785" : "\xE72E", // Unlock vs Lock
-                    BlockToolTip = f.IsBlocked ? "Débloquer" : "Bloquer",
-                    BlockOverlayVisibility = f.IsBlocked ? Visibility.Visible : Visibility.Collapsed
-                });
+                    // Update properties
+                    existingFriend.Name = f.DisplayName;
+                    existingFriend.StatusText = displayStatus;
+                    existingFriend.StatusColor = displayColor;
+                    existingFriend.AvatarPath = hasAvatar ? f.AvatarPath : null;
+                    existingFriend.AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed;
+                    existingFriend.PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible;
+                    existingFriend.NameFontWeight = effectiveStatusValue != 6 ? FontWeights.Bold : FontWeights.Normal;
+                    existingFriend.IsBlinking = isBlinking;
+                    existingFriend.IsBlocked = f.IsBlocked;
+                    existingFriend.BlockIcon = f.IsBlocked ? "\xE785" : "\xE72E";
+                    existingFriend.BlockToolTip = f.IsBlocked ? "Débloquer" : "Bloquer";
+                    existingFriend.BlockOverlayVisibility = f.IsBlocked ? Visibility.Visible : Visibility.Collapsed;
+                }
+                else
+                {
+                    _friendsCollection.Add(new FriendItem
+                    {
+                        Name = f.DisplayName,
+                        StatusText = displayStatus,
+                        StatusColor = displayColor,
+                        Username = f.Username,
+                        AvatarPath = hasAvatar ? f.AvatarPath : null,
+                        AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
+                        PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
+                        NameFontWeight = effectiveStatusValue != 6 ? FontWeights.Bold : FontWeights.Normal,
+                        IsBlinking = isBlinking,
+                        IsBlocked = f.IsBlocked,
+                        BlockIcon = f.IsBlocked ? "\xE785" : "\xE72E", // Unlock vs Lock
+                        BlockToolTip = f.IsBlocked ? "Débloquer" : "Bloquer",
+                        BlockOverlayVisibility = f.IsBlocked ? Visibility.Visible : Visibility.Collapsed
+                    });
+                }
             }
-            FriendsList.ItemsSource = friendItems;
+            
+            // Sort logic if needed, but ObservableCollection doesn't support Sort() directly.
+            // We can rely on CollectionViewSource if we set it up, or just re-order the collection if strictly needed.
+            // For now, we'll assume the order from API is roughly correct or acceptable.
+            // If strict sorting is needed, we should use CollectionViewSource in the constructor.
         }
 
         private Brush GetStatusColor(string status)
@@ -602,22 +738,51 @@ private void AddFriend_Click(object sender, RoutedEventArgs e)
         public Brush ColorBrush { get; set; } = Brushes.Gray;
     }
 
-    public class FriendItem
+    public class FriendItem : INotifyPropertyChanged
     {
-        public string Name { get; set; } = "";
-        public string StatusText { get; set; } = "";
-        public Brush StatusColor { get; set; } = Brushes.Gray;
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        private string _name = "";
+        public string Name { get => _name; set { _name = value; OnPropertyChanged(); } }
+
+        private string _statusText = "";
+        public string StatusText { get => _statusText; set { _statusText = value; OnPropertyChanged(); } }
+
+        private Brush _statusColor = Brushes.Gray;
+        public Brush StatusColor { get => _statusColor; set { _statusColor = value; OnPropertyChanged(); } }
+
         public string Username { get; set; } = "";
-        public string? AvatarPath { get; set; }
-        public Visibility AvatarVisibility { get; set; } = Visibility.Collapsed;
-        public Visibility PlaceholderVisibility { get; set; } = Visibility.Visible;
-        public FontWeight NameFontWeight { get; set; } = FontWeights.Normal;
-        public bool IsBlinking { get; set; } = false;
+
+        private string? _avatarPath;
+        public string? AvatarPath { get => _avatarPath; set { _avatarPath = value; OnPropertyChanged(); } }
+
+        private Visibility _avatarVisibility = Visibility.Collapsed;
+        public Visibility AvatarVisibility { get => _avatarVisibility; set { _avatarVisibility = value; OnPropertyChanged(); } }
+
+        private Visibility _placeholderVisibility = Visibility.Visible;
+        public Visibility PlaceholderVisibility { get => _placeholderVisibility; set { _placeholderVisibility = value; OnPropertyChanged(); } }
+
+        private FontWeight _nameFontWeight = FontWeights.Normal;
+        public FontWeight NameFontWeight { get => _nameFontWeight; set { _nameFontWeight = value; OnPropertyChanged(); } }
+
+        private bool _isBlinking = false;
+        public bool IsBlinking { get => _isBlinking; set { _isBlinking = value; OnPropertyChanged(); } }
 
         // New properties for Blocking
-        public bool IsBlocked { get; set; } = false;
-        public string BlockIcon { get; set; } = "\xE72B"; // Default Block Icon
-        public string BlockToolTip { get; set; } = "Bloquer";
-        public Visibility BlockOverlayVisibility { get; set; } = Visibility.Collapsed;
+        private bool _isBlocked = false;
+        public bool IsBlocked { get => _isBlocked; set { _isBlocked = value; OnPropertyChanged(); } }
+
+        private string _blockIcon = "\xE72B";
+        public string BlockIcon { get => _blockIcon; set { _blockIcon = value; OnPropertyChanged(); } }
+
+        private string _blockToolTip = "Bloquer";
+        public string BlockToolTip { get => _blockToolTip; set { _blockToolTip = value; OnPropertyChanged(); } }
+
+        private Visibility _blockOverlayVisibility = Visibility.Collapsed;
+        public Visibility BlockOverlayVisibility { get => _blockOverlayVisibility; set { _blockOverlayVisibility = value; OnPropertyChanged(); } }
     }
 }

@@ -20,6 +20,7 @@ namespace PaLX.Admin.Services
         public event Action<string, string>? OnMessageReceived;
         public event Action<string, string>? OnPrivateMessageReceived;
         public event Action<string>? OnUserTyping;
+        public event Action<string>? OnBuzzReceived;
         public event Action<string, string>? OnUserStatusChanged;
 
         // Friend Events
@@ -45,7 +46,7 @@ namespace PaLX.Admin.Services
         {
             try
             {
-                var model = new { Username = username, Password = password, IpAddress = ip, DeviceName = deviceName, DeviceNumber = deviceNumber };
+                var model = new { Username = username, Password = password, IpAddress = ip, DeviceName = deviceName, DeviceNumber = deviceNumber, IsAdminLogin = true };
                 var response = await _httpClient.PostAsJsonAsync("api/auth/login", model);
                 
                 if (response.IsSuccessStatusCode)
@@ -339,6 +340,11 @@ namespace PaLX.Admin.Services
                 OnUserUnblockedBy?.Invoke(blocker);
             });
 
+            _hubConnection.On<string>("ReceiveBuzz", (sender) =>
+            {
+                OnBuzzReceived?.Invoke(sender);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
                 OnConnectionClosed?.Invoke();
@@ -376,6 +382,14 @@ namespace PaLX.Admin.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("UserTyping", toUser);
+            }
+        }
+
+        public async Task SendBuzzAsync(string receiver)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendBuzz", receiver);
             }
         }
         

@@ -35,7 +35,12 @@ namespace PaLX.API.Services
             // Create Session if info provided
             if (!string.IsNullOrEmpty(model.IpAddress))
             {
-                await CreateSessionAsync(user.Id, model.IpAddress, model.DeviceName, model.DeviceNumber);
+                // If Admin Login, only create session if RoleLevel <= 6 (Admin roles)
+                // Role 7 (User) should NOT appear online if attempting to login to Admin
+                if (!model.IsAdminLogin || user.RoleLevel <= 6)
+                {
+                    await CreateSessionAsync(user.Id, model.IpAddress, model.DeviceName, model.DeviceNumber);
+                }
             }
 
             var token = GenerateJwtToken(user);

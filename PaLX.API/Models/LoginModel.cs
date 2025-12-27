@@ -7,5 +7,6 @@ namespace PaLX.API.Models
         public string? IpAddress { get; set; }
         public string? DeviceName { get; set; }
         public string? DeviceNumber { get; set; }
+        public bool IsAdminLogin { get; set; } = false;
     }
 }
