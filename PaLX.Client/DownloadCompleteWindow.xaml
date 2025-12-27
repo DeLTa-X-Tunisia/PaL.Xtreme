@@ -1,0 +1,54 @@
+<Window x:Class="PaLX.Client.DownloadCompleteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Téléchargement terminé" Height="200" Width="400"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize" WindowStyle="None"
+        Background="Transparent" AllowsTransparency="True">
+
+    <Border CornerRadius="15" Background="White" BorderBrush="#E0E0E0" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="5" Opacity="0.2"/>
+        </Border.Effect>
+
+        <Grid Margin="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
+                <TextBlock Text="✅" FontSize="24" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Fichier enregistré avec succès" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="#333"/>
+            </StackPanel>
+
+            <!-- Content -->
+            <TextBlock Grid.Row="1" Text="👉 Voulez-vous l’ouvrir maintenant ?" 
+                       FontSize="14" Foreground="#666" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,15"/>
+
+            <!-- Buttons -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button x:Name="BtnOpen" Content="Ouvrir" Click="BtnOpen_Click"
+                        Width="100" Height="35" Background="#4CAF50" Foreground="White"
+                        BorderThickness="0" Cursor="Hand" FontSize="14" FontWeight="Medium" Margin="0,0,15,0">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="8"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+
+                <Button x:Name="BtnLater" Content="Plus tard" Click="BtnLater_Click"
+                        Width="100" Height="35" Background="#F5F5F5" Foreground="#666"
+                        BorderThickness="1" BorderBrush="#DDD" Cursor="Hand" FontSize="14">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="8"/>
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

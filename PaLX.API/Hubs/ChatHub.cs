@@ -1,48 +1,16 @@
 using Microsoft.AspNetCore.SignalR;
 using Npgsql;
-using PaLX.API.Services;
 
 namespace PaLX.API.Hubs
 {
     public class ChatHub : Hub
     {
         private readonly string _connectionString;
-        private readonly IFileService _fileService;
 
-        public ChatHub(IConfiguration configuration, IFileService fileService)
+        public ChatHub(IConfiguration configuration)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
-            _fileService = fileService;
-        }
-
-        public async Task SendFileRequest(string receiver, int fileId, string fileName, string fileSize)
-        {
-            var sender = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(sender)) return;
-
-            await Clients.User(receiver).SendAsync("ReceiveFileRequest", sender, fileId, fileName, fileSize);
-        }
-
-        public async Task RespondToFileRequest(int fileId, bool accepted)
-        {
-            var receiver = Context.UserIdentifier;
-            if (string.IsNullOrEmpty(receiver)) return;
-
-            var transfer = await _fileService.GetFileTransferAsync(fileId);
-            if (transfer == null || transfer.ReceiverUsername != receiver) return;
-
-            if (accepted)
-            {
-                await _fileService.UpdateFileStatusAsync(fileId, 1); // Accepted
-                await Clients.User(receiver).SendAsync("FileTransferAccepted", fileId, transfer.FilePath);
-                await Clients.User(transfer.SenderUsername).SendAsync("FileTransferAcceptedNotification", fileId);
-            }
-            else
-            {
-                await _fileService.UpdateFileStatusAsync(fileId, 2); // Declined
-                await Clients.User(transfer.SenderUsername).SendAsync("FileTransferDeclinedNotification", fileId);
-            }
         }
 
         public async Task SendMessage(string user, string message)
@@ -80,6 +48,83 @@ namespace PaLX.API.Hubs
             }
         }
 
+        public async Task SendImageRequest(string receiver, string fileUrl, string fileName, long fileSize)
+        {
+            var sender = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(sender)) return;
+
+            int fileId = 0;
+            // Save to DB
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                var sql = @"
+                    INSERT INTO ""FileTransfers"" (""SenderUsername"", ""ReceiverUsername"", ""FileUrl"", ""FileName"", ""FileSize"", ""Status"", ""Timestamp"")
+                    VALUES (@s, @r, @url, @name, @size, 0, NOW())
+                    RETURNING ""Id""";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("s", sender);
+                cmd.Parameters.AddWithValue("r", receiver);
+                cmd.Parameters.AddWithValue("url", fileUrl);
+                cmd.Parameters.AddWithValue("name", fileName ?? "image.png");
+                cmd.Parameters.AddWithValue("size", fileSize);
+                fileId = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+            }
+
+            // Notify Receiver
+            await Clients.User(receiver).SendAsync("ReceiveImageRequest", fileId, sender, fileName, fileUrl);
+            
+            // Notify Sender (to show pending state)
+            await Clients.Caller.SendAsync("ImageRequestSent", fileId, receiver, fileName, fileUrl);
+        }
+
+        public async Task RespondToImageRequest(int fileId, bool isAccepted)
+        {
+            var responder = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(responder)) return;
+
+            string sender = "";
+            string receiver = "";
+            string fileUrl = "";
+            string fileName = "";
+
+            // Update DB and Get Info
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                
+                // Verify responder is the receiver
+                var checkSql = @"SELECT ""SenderUsername"", ""ReceiverUsername"", ""FileUrl"", ""FileName"" FROM ""FileTransfers"" WHERE ""Id"" = @id";
+                using (var checkCmd = new NpgsqlCommand(checkSql, conn))
+                {
+                    checkCmd.Parameters.AddWithValue("id", fileId);
+                    using var reader = await checkCmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        sender = reader.GetString(0);
+                        receiver = reader.GetString(1);
+                        fileUrl = reader.GetString(2);
+                        fileName = reader.IsDBNull(3) ? "image.png" : reader.GetString(3);
+                    }
+                    else return; // Not found
+                }
+
+                if (receiver != responder) return; // Unauthorized
+
+                var updateSql = @"UPDATE ""FileTransfers"" SET ""Status"" = @st WHERE ""Id"" = @id";
+                using (var updateCmd = new NpgsqlCommand(updateSql, conn))
+                {
+                    updateCmd.Parameters.AddWithValue("st", isAccepted ? 1 : 2);
+                    updateCmd.Parameters.AddWithValue("id", fileId);
+                    await updateCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            // Notify Both
+            await Clients.User(sender).SendAsync("ImageTransferUpdated", fileId, isAccepted, fileUrl);
+            await Clients.User(receiver).SendAsync("ImageTransferUpdated", fileId, isAccepted, fileUrl);
+        }
+
         public override async Task OnConnectedAsync()
         {
             var username = Context.UserIdentifier;
@@ -100,8 +145,44 @@ namespace PaLX.API.Hubs
                     string statusStr = GetStatusString(currentStatus);
                     await Clients.All.SendAsync("UserStatusChanged", username, statusStr);
                 }
+
+                // PUSH OFFLINE MESSAGES
+                await PushOfflineMessagesAsync(username);
             }
             await base.OnConnectedAsync();
+        }
+
+        private async Task PushOfflineMessagesAsync(string username)
+        {
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+
+                // Get Unread Senders
+                var senders = new List<string>();
+                var sql = @"
+                    SELECT DISTINCT ""SenderUsername"" FROM ""Messages"" WHERE LOWER(""ReceiverUsername"") = LOWER(@u) AND ""IsRead"" = false
+                    UNION
+                    SELECT DISTINCT ""SenderUsername"" FROM ""FileTransfers"" WHERE LOWER(""ReceiverUsername"") = LOWER(@u) AND ""IsRead"" = false";
+
+                using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("u", username);
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        senders.Add(reader.GetString(0));
+                    }
+                }
+
+                // Push to Client
+                foreach (var sender in senders)
+                {
+                    await Clients.Caller.SendAsync("ReceivePrivateMessage", sender, "Nouveau message (Offline)");
+                }
+            }
+            catch { }
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)

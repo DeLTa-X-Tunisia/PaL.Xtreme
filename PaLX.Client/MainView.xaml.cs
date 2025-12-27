@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -30,6 +31,7 @@ namespace PaLX.Client
         private MediaPlayer _startupPlayer = new MediaPlayer();
         private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
         private ObservableCollection<Friend> _friendsCollection = new ObservableCollection<Friend>();
+        private ObservableCollection<ConversationItem> _conversationsCollection = new ObservableCollection<ConversationItem>();
 
         // Notification Properties
         public static readonly DependencyProperty NotificationCountProperty =
@@ -48,6 +50,29 @@ namespace PaLX.Client
         {
             get { return (bool)GetValue(HasNotificationsProperty); }
             set { SetValue(HasNotificationsProperty, value); }
+        }
+
+        // Total Unread Messages Property
+        public static readonly DependencyProperty TotalUnreadCountProperty =
+            DependencyProperty.Register("TotalUnreadCount", typeof(int), typeof(MainView), new PropertyMetadata(0));
+
+        public int TotalUnreadCount
+        {
+            get { return (int)GetValue(TotalUnreadCountProperty); }
+            set 
+            { 
+                SetValue(TotalUnreadCountProperty, value); 
+                SetValue(TotalUnreadVisibilityProperty, value > 0 ? Visibility.Visible : Visibility.Collapsed);
+            }
+        }
+
+        public static readonly DependencyProperty TotalUnreadVisibilityProperty =
+            DependencyProperty.Register("TotalUnreadVisibility", typeof(Visibility), typeof(MainView), new PropertyMetadata(Visibility.Collapsed));
+
+        public Visibility TotalUnreadVisibility
+        {
+            get { return (Visibility)GetValue(TotalUnreadVisibilityProperty); }
+            set { SetValue(TotalUnreadVisibilityProperty, value); }
         }
 
         public MainView(string username, string role)
@@ -80,13 +105,16 @@ namespace PaLX.Client
             catch { /* Ignore sound errors */ }
 
             FriendsList.ItemsSource = _friendsCollection;
+            ConversationsList.ItemsSource = _conversationsCollection;
             // Setup Sorting
-            var view = CollectionViewSource.GetDefaultView(_friendsCollection);
+            var view = (ListCollectionView)CollectionViewSource.GetDefaultView(_friendsCollection);
+            view.IsLiveSorting = true;
+            view.LiveSortingProperties.Add("StatusSortOrder");
+            view.LiveSortingProperties.Add("Name");
             view.SortDescriptions.Add(new SortDescription("StatusSortOrder", ListSortDirection.Ascending));
             view.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
 
             LoadUserProfile(username);
-            LoadFriends();
             UpdateFriendRequestsCount();
             
             // Initialize Statuses
@@ -117,6 +145,7 @@ namespace PaLX.Client
             ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
             ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
+            ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
             
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
@@ -133,6 +162,97 @@ namespace PaLX.Client
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
 
             this.Closing += MainView_Closing;
+            
+            InitializeData();
+        }
+
+        private async void InitializeData()
+        {
+            await LoadFriends();
+            CheckUnreadConversations();
+        }
+
+        private async void CheckUnreadConversations()
+        {
+            try
+            {
+                var senders = await ApiService.Instance.GetUnreadConversationsAsync();
+                foreach (var sender in senders)
+                {
+                    await AddOrUpdateConversation(sender, "Nouveau message", DateTime.Now, true);
+                }
+            }
+            catch { }
+        }
+
+        private async Task AddOrUpdateConversation(string username, string lastMessage, DateTime time, bool isUnread)
+        {
+            var existing = _conversationsCollection.FirstOrDefault(c => c.Username == username);
+            if (existing != null)
+            {
+                existing.LastMessage = lastMessage;
+                existing.LastMessageTime = time;
+                if (isUnread) existing.UnreadCount++;
+
+                // Refresh friend status if currently unknown
+                if (!existing.IsFriend)
+                {
+                    var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+                    if (friend != null)
+                    {
+                        existing.DisplayName = friend.Name;
+                        existing.AvatarPath = friend.AvatarPath;
+                        existing.IsFriend = true;
+                    }
+                }
+
+                _conversationsCollection.Move(_conversationsCollection.IndexOf(existing), 0);
+            }
+            else
+            {
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+                var newItem = new ConversationItem
+                {
+                    Username = username,
+                    LastMessage = lastMessage,
+                    LastMessageTime = time,
+                    UnreadCount = isUnread ? 1 : 0
+                };
+
+                if (friend != null)
+                {
+                    newItem.DisplayName = friend.Name;
+                    newItem.AvatarPath = friend.AvatarPath;
+                    newItem.IsFriend = true;
+                }
+                else
+                {
+                    var profile = await ApiService.Instance.GetUserProfileAsync(username);
+                    newItem.DisplayName = profile != null ? $"{profile.LastName} {profile.FirstName}" : username;
+                    newItem.AvatarPath = profile?.AvatarPath;
+                    newItem.IsFriend = false;
+                }
+                
+                _conversationsCollection.Insert(0, newItem);
+            }
+            
+            UpdateTotalUnreadCount();
+        }
+
+        private void UpdateTotalUnreadCount()
+        {
+            TotalUnreadCount = _conversationsCollection.Sum(c => c.UnreadCount);
+        }
+
+        private void ConversationsList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (ConversationsList.SelectedItem is ConversationItem item)
+            {
+                OpenChatWindow(item.Username);
+                // Remove from list when opened (as it is read)
+                _conversationsCollection.Remove(item);
+                UpdateTotalUnreadCount();
+            }
         }
 
         private void PlayStartupSound()
@@ -223,18 +343,59 @@ namespace PaLX.Client
             });
         }
 
+        private void OnImageRequestReceived(int id, string sender, string filename, string url)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                await AddOrUpdateConversation(sender, "📷 Image reçue", DateTime.Now, !isWindowOpen);
+
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                else
+                {
+                    _messageSound?.Play();
+                }
+            });
+        }
+
         private void OnPrivateMessageReceived(string sender, string message)
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Invoke(async () => 
             {
-                if (!_openChatWindows.ContainsKey(sender))
+                // 1. Check if this is an Offline catch-up message
+                if (message == "Nouveau message (Offline)")
                 {
-                    // Show alert or open window?
-                    // For now, just play sound if not open
+                    // Treat as unread notification, do not pop up
+                    await AddOrUpdateConversation(sender, message, DateTime.Now, true);
                     _messageSound?.Play();
-                    
-                    // Optionally open chat window automatically
+                    return;
+                }
+
+                // 2. Real-time message
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                
+                if (!isWindowOpen)
+                {
+                    // Auto-open for real-time messages
                     OpenChatWindow(sender);
+                    isWindowOpen = true;
+                }
+
+                // If window is open, we don't need to add it to the "Discussions" list 
+                // because OpenChatWindow removes it from there.
+                
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                    
+                    _messageSound?.Play();
                 }
             });
         }
@@ -307,6 +468,13 @@ namespace PaLX.Client
 
         private void OpenChatWindow(string partnerUsername)
         {
+            var item = _conversationsCollection.FirstOrDefault(c => c.Username == partnerUsername);
+            if (item != null) 
+            {
+                _conversationsCollection.Remove(item);
+                UpdateTotalUnreadCount();
+            }
+
             if (_openChatWindows.ContainsKey(partnerUsername))
             {
                 var window = _openChatWindows[partnerUsername];
@@ -327,11 +495,16 @@ namespace PaLX.Client
             ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
             ApiService.Instance.OnBuzzReceived -= OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged -= OnUserStatusChanged;
+            ApiService.Instance.OnImageRequestReceived -= OnImageRequestReceived;
             ApiService.Instance.OnFriendRequestAccepted -= OnFriendUpdate;
             ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
             ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
 
-            await ApiService.Instance.DisconnectAsync();
+            try
+            {
+                await ApiService.Instance.DisconnectAsync();
+            }
+            catch { }
         }
 
         private async void StatusCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -357,7 +530,7 @@ namespace PaLX.Client
         private Dictionary<string, DateTime> _blinkingUntil = new Dictionary<string, DateTime>();
         private Dictionary<string, DateTime> _lastSignalRUpdate = new Dictionary<string, DateTime>();
 
-        private async void LoadFriends()
+        private async Task LoadFriends()
         {
             try
             {
@@ -458,6 +631,7 @@ namespace PaLX.Client
                         existingFriend.Name = f.DisplayName;
                         existingFriend.StatusText = statusText;
                         existingFriend.StatusColor = statusBrush;
+                        existingFriend.StatusValue = effectiveStatusValue;
                         existingFriend.AvatarPath = hasAvatar ? f.AvatarPath : null;
                         existingFriend.AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed;
                         existingFriend.PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible;
@@ -478,6 +652,7 @@ namespace PaLX.Client
                             Name = f.DisplayName,
                             StatusText = statusText,
                             StatusColor = statusBrush,
+                            StatusValue = effectiveStatusValue,
                             AvatarPath = hasAvatar ? f.AvatarPath : null,
                             Username = f.Username,
                             AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
@@ -540,6 +715,9 @@ namespace PaLX.Client
         {
             try 
             {
+                // Unsubscribe from connection closed event to prevent loop
+                ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
+
                 // Only attempt network calls if this is a manual logout (sender is Button)
                 if (sender is Button) 
                 {
@@ -755,6 +933,18 @@ namespace PaLX.Client
         private SolidColorBrush _statusColor = Brushes.Gray;
         public SolidColorBrush StatusColor { get => _statusColor; set { _statusColor = value; OnPropertyChanged(); } }
 
+        private int _statusValue = 6;
+        public int StatusValue 
+        { 
+            get => _statusValue; 
+            set 
+            { 
+                _statusValue = value; 
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(StatusSortOrder)); 
+            } 
+        }
+
         private string? _avatarPath;
         public string? AvatarPath { get => _avatarPath; set { _avatarPath = value; OnPropertyChanged(); } }
 
@@ -774,7 +964,16 @@ namespace PaLX.Client
         
         // New properties for Blocking
         private bool _isBlocked = false;
-        public bool IsBlocked { get => _isBlocked; set { _isBlocked = value; OnPropertyChanged(); } }
+        public bool IsBlocked 
+        { 
+            get => _isBlocked; 
+            set 
+            { 
+                _isBlocked = value; 
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(StatusSortOrder)); 
+            } 
+        }
 
         private string _blockIcon = "\xE72B";
         public string BlockIcon { get => _blockIcon; set { _blockIcon = value; OnPropertyChanged(); } }
@@ -790,14 +989,56 @@ namespace PaLX.Client
         {
             get
             {
-                if (IsBlocked) return 10;
-                if (StatusColor == Brushes.Green) return 0;
-                if (StatusColor == Brushes.Red) return 1;
-                if (StatusColor == Brushes.Orange) return 2;
-                if (StatusColor == Brushes.DarkRed) return 3;
-                if (StatusColor == Brushes.Purple) return 4;
-                return 6; // Offline
+                if (IsBlocked) return 2; // Blocked at the very bottom
+                if (StatusValue == 6) return 1; // Offline
+                return 0; // All other statuses (Online, Busy, etc.) are considered "Online" for sorting
             }
         }
+    }
+
+    public class ConversationItem : INotifyPropertyChanged
+    {
+        public event PropertyChangedEventHandler? PropertyChanged;
+        protected void OnPropertyChanged([CallerMemberName] string? name = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        private string _displayName = "";
+        public string DisplayName { get => _displayName; set { _displayName = value; OnPropertyChanged(); } }
+
+        private string _lastMessage = "";
+        public string LastMessage { get => _lastMessage; set { _lastMessage = value; OnPropertyChanged(); } }
+
+        private DateTime _lastMessageTime;
+        public DateTime LastMessageTime { get => _lastMessageTime; set { _lastMessageTime = value; OnPropertyChanged(); } }
+
+        public string TimeDisplay => LastMessageTime.ToString("HH:mm");
+
+        private int _unreadCount = 0;
+        public int UnreadCount 
+        { 
+            get => _unreadCount; 
+            set 
+            { 
+                _unreadCount = value; 
+                OnPropertyChanged(); 
+                OnPropertyChanged(nameof(HasUnread));
+                OnPropertyChanged(nameof(UnreadVisibility));
+            } 
+        }
+
+        public bool HasUnread => UnreadCount > 0;
+        public Visibility UnreadVisibility => UnreadCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        private string? _avatarPath;
+        public string? AvatarPath { get => _avatarPath; set { _avatarPath = value; OnPropertyChanged(); } }
+
+        public string Username { get; set; } = "";
+
+        private bool _isFriend = true;
+        public bool IsFriend { get => _isFriend; set { _isFriend = value; OnPropertyChanged(); } }
+
+        public Visibility UnknownSenderVisibility => !IsFriend ? Visibility.Visible : Visibility.Collapsed;
     }
 }
