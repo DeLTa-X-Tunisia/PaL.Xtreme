@@ -18,10 +18,15 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
     *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
     *   **Disponibilité** : Le bouton BUZZ (icône cloche) n'est actif que si le correspondant est "En ligne".
-*   **Partage de Médias** :
-    *   **Envoi d'Images** : Possibilité d'envoyer des images (JPG, PNG, GIF) directement dans le chat via le bouton trombone.
-    *   **Expérience Utilisateur** : Barre de progression intégrée affichant l'avancement de l'upload en temps réel.
-    *   **Visualisation** : Les images s'affichent directement dans la conversation. Un clic sur l'image l'ouvre en taille réelle dans la visionneuse par défaut du système.
+*   **Partage de Médias Avancé** :
+    *   **Workflow Sécurisé** : Système d'acceptation/refus avant réception. Le destinataire voit une demande avec le nom et la taille du fichier.
+    *   **Feedback Visuel** :
+        *   **Miniatures** : Affichage de vignettes optimisées dans le chat pour ne pas encombrer la conversation.
+        *   **Statut** : L'expéditeur reçoit une notification immédiate (Vert/Rouge) selon que le fichier a été accepté ou refusé.
+    *   **Expérience Utilisateur** :
+        *   **Son de Réception** : Notification sonore lors de la réception d'une demande de fichier.
+        *   **Visualisation** : Clic sur la miniature pour ouvrir l'image en taille réelle.
+    *   **Traçabilité** : Enregistrement de tous les transferts en base de données (Table `FileTransfers`) pour audit et sécurité.
     *   **Sécurité** : Validation stricte des extensions et limite de taille fixée à 5 MB.
 *   **Formatage Riche** : Support complet du **Gras**, *Italique*, <u>Souligné</u> et de la **Couleur** du texte.
 *   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents.

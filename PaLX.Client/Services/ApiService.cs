@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using System.Windows;
+using System.IO;
 
 namespace PaLX.Client.Services
 {
@@ -272,32 +273,38 @@ namespace PaLX.Client.Services
                 {
                     options.AccessTokenProvider = () => Task.FromResult((string?)_authToken);
                 })
+                .WithAutomaticReconnect()
                 .Build();
 
-            _hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
-            {
-                OnMessageReceived?.Invoke(user, message);
-            });
+            _hubConnection.On<string, string>("ReceiveMessage", (user, message) => OnMessageReceived?.Invoke(user, message));
+            _hubConnection.On<string, string>("ReceivePrivateMessage", (user, message) => OnPrivateMessageReceived?.Invoke(user, message));
+            _hubConnection.On<string>("UserTyping", (user) => OnUserTyping?.Invoke(user));
+            _hubConnection.On<string, string>("UserStatusChanged", (username, status) => OnUserStatusChanged?.Invoke(username, status));
+            _hubConnection.On<string>("ReceiveBuzz", (sender) => OnBuzzReceived?.Invoke(sender));
 
-            _hubConnection.On<string, string>("ReceivePrivateMessage", (user, message) =>
-            {
-                OnPrivateMessageReceived?.Invoke(user, message);
-            });
+            _hubConnection.On<string>("FriendRequestReceived", (username) => OnFriendRequestReceived?.Invoke(username));
+            _hubConnection.On<string>("FriendRequestAccepted", (username) => OnFriendRequestAccepted?.Invoke(username));
+            _hubConnection.On<string>("FriendRemoved", (username) => OnFriendRemoved?.Invoke(username));
 
-            _hubConnection.On<string>("UserTyping", (user) =>
-            {
-                OnUserTyping?.Invoke(user);
-            });
+            _hubConnection.On<string>("UserBlocked", (username) => OnUserBlocked?.Invoke(username));
+            _hubConnection.On<string>("UserBlockedBy", (username) => OnUserBlockedBy?.Invoke(username));
+            _hubConnection.On<string>("UserUnblocked", (username) => OnUserUnblocked?.Invoke(username));
+            _hubConnection.On<string>("UserUnblockedBy", (username) => OnUserUnblockedBy?.Invoke(username));
 
-            _hubConnection.On<string, string>("UserStatusChanged", (username, status) =>
-            {
-                OnUserStatusChanged?.Invoke(username, status);
-            });
+            // File Events
+            _hubConnection.On<string, int, string, string>("ReceiveFileRequest", (sender, fileId, fileName, fileSize) => OnFileRequestReceived?.Invoke(sender, fileId, fileName, fileSize));
+            _hubConnection.On<int, string>("FileTransferAccepted", (fileId, url) => OnFileTransferAccepted?.Invoke(fileId, url));
+            _hubConnection.On<int>("FileTransferAcceptedNotification", (fileId) => OnFileTransferAcceptedNotification?.Invoke(fileId));
+            _hubConnection.On<int>("FileTransferDeclinedNotification", (fileId) => OnFileTransferDeclinedNotification?.Invoke(fileId));
 
-            _hubConnection.On<string>("FriendRequestReceived", (username) =>
+            _hubConnection.Closed += (error) => 
             {
-                OnFriendRequestReceived?.Invoke(username);
-            });
+                OnConnectionClosed?.Invoke();
+                return Task.CompletedTask;
+            };
+
+            await _hubConnection.StartAsync();
+        }
 
             _hubConnection.On<string>("FriendRequestAccepted", (username) =>
             {
@@ -382,6 +389,57 @@ namespace PaLX.Client.Services
             }
         }
         
+        public async Task<(string? Url, int Id, string FileName, long FileSize)> UploadImageAsync(string filePath, string receiver, IProgress<int> progress)
+        {
+            try
+            {
+                using (var content = new MultipartFormDataContent())
+                {
+                    var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                    var streamContent = new ProgressableStreamContent(fileStream, 4096, progress);
+                    streamContent.Headers.ContentType = new MediaTypeHeaderValue("image/" + Path.GetExtension(filePath).TrimStart('.'));
+                    content.Add(streamContent, "file", Path.GetFileName(filePath));
+                    content.Add(new StringContent(receiver), "receiver");
+
+                    var response = await _httpClient.PostAsync("api/chat/upload", content);
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                        string url = null;
+                        int id = 0;
+                        string fileName = "";
+                        long fileSize = 0;
+
+                        if (result.TryGetProperty("url", out var urlProp) || result.TryGetProperty("Url", out urlProp))
+                            url = urlProp.GetString();
+                        
+                        if (result.TryGetProperty("id", out var idProp) || result.TryGetProperty("Id", out idProp))
+                            id = idProp.GetInt32();
+
+                        if (result.TryGetProperty("fileName", out var fnProp) || result.TryGetProperty("FileName", out fnProp))
+                            fileName = fnProp.GetString() ?? "";
+
+                        if (result.TryGetProperty("fileSize", out var fsProp) || result.TryGetProperty("FileSize", out fsProp))
+                            fileSize = fsProp.GetInt64();
+
+                        return (url, id, fileName, fileSize);
+                    }
+                    else
+                    {
+                        var error = await response.Content.ReadAsStringAsync();
+                        throw new Exception($"Upload failed: {response.StatusCode} - {error}");
+                    }
+                }
+                return (null, 0, null, 0);
+            }
+            catch (Exception ex)
+            {
+                // Re-throw to be handled by UI
+                throw new Exception($"Erreur upload: {ex.Message}");
+            }
+        }
+
         public async Task DisconnectAsync()
         {
             if (_hubConnection != null)
