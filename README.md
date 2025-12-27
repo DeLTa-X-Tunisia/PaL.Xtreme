@@ -9,7 +9,30 @@ La solution se compose de deux projets principaux :
 *   **PaLX.Client** : L'application destinée aux utilisateurs finaux. Elle permet de se connecter, de gérer son statut, de gérer ses amis et son profil.
 *   **PaLX.Admin** : L'application d'administration. Elle offre les mêmes fonctionnalités sociales que le client, adaptées aux besoins de gestion (rôles 1 à 6), avec une identification visuelle distincte.
 
-## 🚀 Fonctionnalités
+## 🌟 Nouveautés & Améliorations Récentes
+
+Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
+
+### 💬 Chat & Messagerie
+*   **Formatage Riche** : Support complet du **Gras**, *Italique*, <u>Souligné</u> et de la **Couleur** du texte.
+*   **Expérience Fluide** : Indicateur "En train d'écrire...", ouverture automatique des fenêtres de chat, et sons de notification intelligents (actifs uniquement si la fenêtre n'a pas le focus).
+*   **Historique Visuel** : Bulles de messages distinctes et affichage centralisé des changements de statut du partenaire.
+
+### 🛡️ Système de Blocage Avancé
+*   **Hiérarchie Admin** : Implémentation d'une sécurité basée sur les rôles (Niveau 1 à 7). Un utilisateur ne peut bloquer qu'un utilisateur de rang inférieur.
+*   **Flexibilité** : Options de blocage **Permanent**, **Temporaire** (7 jours) ou **Personnalisé** (date spécifique).
+*   **Gestion** : Interface dédiée pour visualiser les utilisateurs bloqués, modifier la durée ou lever le blocage.
+
+### 🚀 Launcher & Stabilité
+*   **Health Check** : Le launcher vérifie automatiquement la disponibilité de l'API avant de permettre la connexion, évitant les crashs au démarrage.
+*   **Connexion Robuste** : Gestion améliorée des déconnexions et reconnexions, avec nettoyage automatique des ressources.
+
+### 👥 UX & Notifications
+*   **Notifications Temps Réel** : Badge rouge sur l'icône d'amis pour les demandes en attente, synchronisé via SignalR (Client & Admin).
+*   **Sécurité des Actions** : Dans la fenêtre d'ajout d'amis, séparation claire entre le bouton "Voir le Profil" (👁️) et "Accepter" (✅) pour éviter les ajouts accidentels.
+*   **Feedback Visuel** : Clignotement des contacts lors des changements de statut et tri automatique de la liste d'amis (En ligne > Hors ligne).
+
+## 🚀 Fonctionnalités Détaillées
 
 *   **Authentification Sécurisée** :
     *   Système de Login et d'Inscription.
