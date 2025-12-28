@@ -13,7 +13,20 @@ La solution se compose de deux projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 💬 Chat & Messagerie
+### �️ Correctifs & Optimisations (Dernière Mise à Jour)
+*   **Persistance Vidéo** : 
+    *   Correction critique assurant que les vidéos envoyées restent visibles et lisibles dans l'historique après reconnexion, aussi bien sur le Client que sur l'Admin.
+    *   Harmonisation de la logique de parsing des fichiers entre les deux plateformes.
+*   **Stabilité Admin** : 
+    *   Résolution du crash systématique lors de la déconnexion (Logout) de l'interface administrateur.
+    *   Amélioration de la gestion de la fermeture des connexions SignalR.
+*   **Qualité du Code** : 
+    *   **Zero Warning** : Recompilation complète de la solution avec résolution de tous les avertissements (CS4014, CS8618, CS8602, etc.).
+    *   **Robustesse** : Ajout de vérifications de nullité et initialisation correcte des propriétés dans les DTOs et Modèles.
+*   **Dépendances** : 
+    *   Ajout et consolidation des packages manquants (`Npgsql`, `BCrypt.Net-Next`) pour assurer la stabilité et la compilation du projet Admin.
+
+### �💬 Chat & Messagerie
 *   **Fonction BUZZ** :
     *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
     *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
