@@ -114,7 +114,7 @@ namespace PaLX.Client
             view.SortDescriptions.Add(new SortDescription("StatusSortOrder", ListSortDirection.Ascending));
             view.SortDescriptions.Add(new SortDescription("Name", ListSortDirection.Ascending));
 
-            LoadUserProfile(username);
+            _ = LoadUserProfile(username);
             UpdateFriendRequestsCount();
             
             // Initialize Statuses
@@ -134,9 +134,9 @@ namespace PaLX.Client
             // Setup Timer
             _refreshTimer = new System.Windows.Threading.DispatcherTimer();
             _refreshTimer.Interval = TimeSpan.FromSeconds(5); // Slower refresh as we use SignalR for messages
-            _refreshTimer.Tick += (s, e) => 
+            _refreshTimer.Tick += async (s, e) => 
             {
-                LoadFriends();
+                await LoadFriends();
                 // CheckForIncomingMessages(); // Handled by SignalR
             };
             _refreshTimer.Start();
@@ -146,6 +146,7 @@ namespace PaLX.Client
             ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
+            ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
             
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
@@ -298,27 +299,27 @@ namespace PaLX.Client
 
         private void OnUserUnblocked(string username)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.Invoke(async () =>
             {
-                LoadFriends();
+                await LoadFriends();
             });
         }
 
         private void OnFriendAdded(string username)
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Invoke(async () => 
             {
                 try { _friendAddedSound?.Play(); } catch { }
-                LoadFriends();
+                await LoadFriends();
                 UpdateFriendRequestsCount();
             });
         }
 
         private void OnFriendRemovedEvent(string username)
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Invoke(async () => 
             {
-                LoadFriends();
+                await LoadFriends();
                 UpdateFriendRequestsCount();
             });
         }
@@ -326,20 +327,20 @@ namespace PaLX.Client
         // Deprecated generic handler
         private void OnFriendUpdate(string username) 
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Invoke(async () => 
             {
-                LoadFriends();
+                await LoadFriends();
                 UpdateFriendRequestsCount();
             });
         }
 
         private void OnFriendRequestReceived(string username)
         {
-            Dispatcher.Invoke(() => 
+            Dispatcher.Invoke(async () => 
             {
                 try { _friendRequestSound?.Play(); } catch { }
                 UpdateFriendRequestsCount();
-                LoadFriends();
+                await LoadFriends();
             });
         }
 
@@ -350,16 +351,44 @@ namespace PaLX.Client
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
                 await AddOrUpdateConversation(sender, "📷 Image reçue", DateTime.Now, !isWindowOpen);
 
+                if (!isWindowOpen)
+                {
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
+                }
+
                 if (isWindowOpen)
                 {
                     var window = _openChatWindows[sender];
                     if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
                     window.Activate();
                 }
-                else
+                
+                _messageSound?.Play();
+            });
+        }
+
+        private void OnVideoRequestReceived(int id, string sender, string filename, string url)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                await AddOrUpdateConversation(sender, "🎥 Vidéo reçue", DateTime.Now, !isWindowOpen);
+
+                if (!isWindowOpen)
                 {
-                    _messageSound?.Play();
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
                 }
+
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                
+                _messageSound?.Play();
             });
         }
 
@@ -426,7 +455,7 @@ namespace PaLX.Client
 
         private void OnUserStatusChanged(string username, string status)
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.Invoke(async () =>
             {
                 // Determine status value
                 int statusValue = 6;
@@ -457,7 +486,7 @@ namespace PaLX.Client
                 _lastSignalRUpdate[username] = DateTime.Now;
 
                 // Trigger refresh to update UI via ObservableCollection logic
-                LoadFriends();
+                await LoadFriends();
             });
         }
 
@@ -676,7 +705,7 @@ namespace PaLX.Client
             }
         }
 
-        private async void LoadUserProfile(string username)
+        private async Task LoadUserProfile(string username)
         {
             try
             {
@@ -760,7 +789,7 @@ namespace PaLX.Client
         private void Profile_Click(object sender, RoutedEventArgs e)
         {
             var userProfiles = new UserProfiles(_username, _role, true);
-            userProfiles.ProfileSaved += () => LoadUserProfile(_username);
+            userProfiles.ProfileSaved += async () => await LoadUserProfile(_username);
             userProfiles.Show();
         }
 
@@ -781,7 +810,7 @@ namespace PaLX.Client
             {
                 _addFriendWindow = new AddFriendWindow(_username);
                 _addFriendWindow.Closed += (s, args) => _addFriendWindow = null;
-                _addFriendWindow.FriendAdded += () => LoadFriends(); // Instant refresh on action
+                _addFriendWindow.FriendAdded += async () => await LoadFriends(); // Instant refresh on action
                 _addFriendWindow.Show();
             }
             else
@@ -833,7 +862,7 @@ namespace PaLX.Client
                     var result = await ApiService.Instance.UnblockUserAsync(username);
                     if (result.Success)
                     {
-                        LoadFriends();
+                        await LoadFriends();
                     }
                     else
                     {
@@ -849,7 +878,7 @@ namespace PaLX.Client
                         var result = await ApiService.Instance.BlockUserAsync(username);
                         if (result.Success)
                         {
-                            LoadFriends();
+                            await LoadFriends();
                         }
                         else
                         {
@@ -868,7 +897,7 @@ namespace PaLX.Client
                 if (confirm.ShowDialog() == true)
                 {
                     await ApiService.Instance.RemoveFriendAsync(username);
-                    LoadFriends();
+                    await LoadFriends();
                 }
             }
         }
@@ -890,9 +919,9 @@ namespace PaLX.Client
             {
                 _addFriendWindow = new AddFriendWindow(_username);
                 _addFriendWindow.Closed += (s, args) => _addFriendWindow = null;
-                _addFriendWindow.FriendAdded += () => 
+                _addFriendWindow.FriendAdded += async () => 
                 {
-                    LoadFriends();
+                    await LoadFriends();
                     UpdateFriendRequestsCount();
                 };
                 _addFriendWindow.SelectReceivedRequestsTab();

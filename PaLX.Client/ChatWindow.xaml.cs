@@ -47,6 +47,11 @@ namespace PaLX.Client
             ApiService.Instance.OnImageRequestSent += OnImageRequestSent;
             ApiService.Instance.OnImageTransferUpdated += OnImageTransferUpdated;
 
+            // Video Events
+            ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
+            ApiService.Instance.OnVideoRequestSent += OnVideoRequestSent;
+            ApiService.Instance.OnVideoTransferUpdated += OnVideoTransferUpdated;
+
             // Load Sound
             try
             {
@@ -86,7 +91,9 @@ namespace PaLX.Client
                     // Play Sound
                     try { _messageSound?.Play(); } catch { }
                     
-                    string script = $"addFileRequest({id}, '{sender}', '{filename}', '{url}', false);";
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addFileRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -98,7 +105,9 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    string script = $"addFileRequest({id}, '{_currentUser}', '{filename}', '{url}', true);";
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addFileRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -132,6 +141,46 @@ namespace PaLX.Client
                 
                 string script1 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, true);";
                 string script2 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, false);";
+                ChatWebView.ExecuteScriptAsync(script1);
+                ChatWebView.ExecuteScriptAsync(script2);
+            });
+        }
+
+        private void OnVideoRequestReceived(int id, string sender, string filename, string url)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    try { _messageSound?.Play(); } catch { }
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addVideoRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnVideoRequestSent(int id, string receiver, string filename, string url)
+        {
+            if (receiver == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addVideoRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnVideoTransferUpdated(int id, bool isAccepted, string url)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                string script1 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, true);";
+                string script2 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, false);";
                 ChatWebView.ExecuteScriptAsync(script1);
                 ChatWebView.ExecuteScriptAsync(script2);
             });
@@ -450,33 +499,45 @@ namespace PaLX.Client
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "Images|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp",
-                Title = "Sélectionner une image"
+                Filter = "Fichiers (*.jpg;*.png;*.mp4;*.avi;...)|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm",
+                Title = "Sélectionner un fichier"
             };
 
             if (openFileDialog.ShowDialog() == true)
             {
                 string filePath = openFileDialog.FileName;
                 var fileInfo = new System.IO.FileInfo(filePath);
+                string ext = fileInfo.Extension.ToLower();
                 
-                string? url = await ApiService.Instance.UploadImageAsync(filePath);
+                bool isVideo = new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm" }.Contains(ext);
 
-                if (!string.IsNullOrEmpty(url))
+                if (isVideo)
                 {
-                    string fullUrl = $"{ApiService.BaseUrl}{url}";
-                    
-                    try
+                    string? url = await ApiService.Instance.UploadVideoAsync(filePath);
+                    if (!string.IsNullOrEmpty(url))
                     {
-                        await ApiService.Instance.SendImageRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length);
+                        string fullUrl = $"{ApiService.BaseUrl}{url}";
+                        try { await ApiService.Instance.SendVideoRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        MessageBox.Show($"Erreur lors de l'envoi de la demande de transfert: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                        MessageBox.Show("Échec du téléchargement de la vidéo.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
                 else
                 {
-                    MessageBox.Show("Échec du téléchargement de l'image.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    string? url = await ApiService.Instance.UploadImageAsync(filePath);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string fullUrl = $"{ApiService.BaseUrl}{url}";
+                        try { await ApiService.Instance.SendImageRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Échec du téléchargement de l'image.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
                 }
             }
         }
@@ -587,6 +648,76 @@ namespace PaLX.Client
                                 bool accepted = bool.Parse(data["accepted"]);
                                 await ApiService.Instance.RespondToImageRequestAsync(id, accepted);
                             }
+                            else if (type == "openVideo" && data.ContainsKey("url"))
+                            {
+                                try 
+                                {
+                                    string url = data["url"];
+                                    string ext = System.IO.Path.GetExtension(url);
+                                    if (string.IsNullOrEmpty(ext)) ext = ".mp4";
+                                    string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"PaLX_Video_{Guid.NewGuid()}{ext}");
+                                    
+                                    using (var client = new HttpClient())
+                                    {
+                                        var bytes = await client.GetByteArrayAsync(url);
+                                        await System.IO.File.WriteAllBytesAsync(tempFile, bytes);
+                                    }
+
+                                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                    {
+                                        FileName = tempFile,
+                                        UseShellExecute = true
+                                    });
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Impossible d'ouvrir la vidéo : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }
+                            else if (type == "saveVideo" && data.ContainsKey("url"))
+                            {
+                                try
+                                {
+                                    string url = data["url"];
+                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "video.mp4";
+                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
+
+                                    int count = 1;
+                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                                    string extension = System.IO.Path.GetExtension(filePath);
+                                    while (System.IO.File.Exists(filePath))
+                                    {
+                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
+                                    }
+
+                                    using (var client = new HttpClient())
+                                    {
+                                        var bytes = await client.GetByteArrayAsync(url);
+                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
+                                    }
+
+                                    var dialog = new DownloadCompleteWindow();
+                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
+                                    {
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                        {
+                                            FileName = filePath,
+                                            UseShellExecute = true
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }
+                            else if (type == "respondVideo" && data.ContainsKey("id") && data.ContainsKey("accepted"))
+                            {
+                                int id = int.Parse(data["id"]);
+                                bool accepted = bool.Parse(data["accepted"]);
+                                await ApiService.Instance.RespondToVideoRequestAsync(id, accepted);
+                            }
                         }
                     }
                     catch { }
@@ -673,6 +804,12 @@ namespace PaLX.Client
         }
 
         function addFileRequest(id, sender, filename, url, isMine, status) {
+            var ext = filename.split('.').pop().toLowerCase();
+            if (['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0) {
+                addVideoRequest(id, sender, filename, url, isMine, status);
+                return;
+            }
+
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
@@ -749,6 +886,91 @@ namespace PaLX.Client
             window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
         }
 
+        function addVideoRequest(id, sender, filename, url, isMine, status) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
+            msgDiv.id = 'video-' + id;
+
+            let innerHtml = '';
+            // Video Player HTML (Hidden initially for receiver)
+            const videoPlayer = `
+                <div style=""max-width:300px; border-radius:8px; overflow:hidden; background:black;"">
+                    <video controls width=""100%"" preload=""metadata"">
+                        <source src=""${url}"" type=""video/mp4"">
+                        Votre navigateur ne supporte pas la lecture vidéo.
+                    </video>
+                </div>`;
+
+            // Request Card HTML
+            const requestCard = `
+                <div class=""bubble file-request"" style=""background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%); color:white;"">
+                    <div style=""font-weight:bold; margin-bottom:10px; display:flex; align-items:center; gap:8px;"">
+                        <span style=""font-size:20px;"">🎥</span> 
+                        <span style=""word-break:break-all;"">${filename}</span>
+                    </div>
+                    <div id=""v-actions-${id}"" class=""file-actions"" style=""margin-top:10px;"">
+                        <button class=""btn-accept"" style=""background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.5);"" onclick=""respondVideo(${id}, true)"">Accepter</button>
+                        <button class=""btn-decline"" style=""background:rgba(255,255,255,0.1); color:#ffcccc; border:1px solid rgba(255,0,0,0.3);"" onclick=""respondVideo(${id}, false)"">Refuser</button>
+                    </div>
+                </div>`;
+
+            if (isMine) {
+                innerHtml = `
+                    <div class=""bubble"" style=""padding:5px;"">
+                        ${videoPlayer}
+                        <div id=""v-status-${id}"" style=""font-size:11px; color:#666; margin-top:5px; text-align:right;"">En attente...</div>
+                    </div>`;
+            } else {
+                innerHtml = `
+                    <div id=""v-req-${id}"">
+                        ${requestCard}
+                    </div>
+                    <div id=""v-content-${id}"" style=""display:none; margin-top:5px;"">
+                        <div class=""bubble"" style=""padding:5px;"">
+                            ${videoPlayer}
+                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
+                        </div>
+                    </div>`;
+            }
+
+            msgDiv.innerHTML = innerHtml;
+            container.appendChild(msgDiv);
+            
+            if (status !== undefined && status !== 0) {
+                updateVideoStatus(id, status === 1, isMine);
+            }
+
+            scrollToBottom();
+        }
+
+        function updateVideoStatus(id, isAccepted, isMine) {
+            if (isMine) {
+                const statusDiv = document.getElementById('v-status-' + id);
+                if (statusDiv) {
+                    if (isAccepted) {
+                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Vidéo acceptée</span>';
+                    } else {
+                        statusDiv.innerHTML = '<span class=""file-status-declined"">Vidéo refusée</span>';
+                    }
+                }
+            } else {
+                const reqDiv = document.getElementById('v-req-' + id);
+                const contentDiv = document.getElementById('v-content-' + id);
+                
+                if (isAccepted) {
+                    if (reqDiv) reqDiv.style.display = 'none';
+                    if (contentDiv) contentDiv.style.display = 'block';
+                } else {
+                    if (reqDiv) reqDiv.innerHTML = '<div class=""bubble"" style=""color:#F44336; font-style:italic;"">Vidéo refusée</div>';
+                }
+            }
+        }
+
+        function respondVideo(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
+        }
+
         function clearChat() {
             document.getElementById('chat-container').innerHTML = '';
         }
@@ -801,7 +1023,10 @@ namespace PaLX.Client
                                 int status = int.Parse(statusStr);
                                 bool isMine = msg.Sender == _currentUser;
                                 
-                                string script = $"addFileRequest({id}, '{msg.Sender}', '{filename}', '{url}', {(isMine ? "true" : "false")}, {status});";
+                                string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                                string safeFilename = filename.Replace("'", "\\'");
+                                
+                                string script = $"addFileRequest({id}, '{msg.Sender}', '{safeFilename}', '{safeUrl}', {(isMine ? "true" : "false")}, {status});";
                                 await ChatWebView.ExecuteScriptAsync(script);
                                 continue;
                             }
@@ -818,7 +1043,11 @@ namespace PaLX.Client
                                 string url = data.Substring(secondColon + 1);
                                 int id = int.Parse(idStr);
                                 bool isMine = msg.Sender == _currentUser;
-                                string script = $"addFileRequest({id}, '{msg.Sender}', '{filename}', '{url}', {(isMine ? "true" : "false")}, 0);";
+                                
+                                string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                                string safeFilename = filename.Replace("'", "\\'");
+
+                                string script = $"addFileRequest({id}, '{msg.Sender}', '{safeFilename}', '{safeUrl}', {(isMine ? "true" : "false")}, 0);";
                                 await ChatWebView.ExecuteScriptAsync(script);
                                 continue;
                             }
@@ -940,6 +1169,52 @@ namespace PaLX.Client
                         div.className = 'status-message ' + cssClass;
                         div.innerText = text;
                         document.body.appendChild(div);
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+
+                    function addFileRequest(id, sender, filename, url, isMine, status) {
+                        var container = document.createElement('div');
+                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
+                        
+                        var bubble = document.createElement('div');
+                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
+                        
+                        var ext = filename.split('.').pop().toLowerCase();
+                        var isVideo = ['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0;
+                        var icon = isVideo ? '🎥' : '📷';
+                        var typeLabel = isVideo ? 'Vidéo' : 'Image';
+                        
+                        var html = '<div style=""display:flex; align-items:center; gap:10px;"">';
+                        html += '<div style=""font-size:24px;"">' + icon + '</div>';
+                        html += '<div><div style=""font-weight:bold;"">' + filename + '</div>';
+                        html += '<div style=""font-size:11px; opacity:0.7;"">' + typeLabel + '</div>';
+                        
+                        if (status === 0) { // Pending
+                            html += '<div style=""margin-top:5px; font-size:12px; font-style:italic;"">En attente...</div>';
+                            if (!isMine) {
+                                html += '<div style=""margin-top:8px; display:flex; gap:5px;"">';
+                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'acceptFile\', id:' + id + ', sender:\'' + sender + '\'}))"" style=""background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Accepter</button>';
+                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'declineFile\', id:' + id + ', sender:\'' + sender + '\'}))"" style=""background:#F44336; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Refuser</button>';
+                                html += '</div>';
+                            }
+                        } else if (status === 1) { // Accepted
+                            html += '<div style=""margin-top:5px; font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
+                            if (url) {
+                                var safeUrl = url.replace(/\\/g, '\\\\');
+                                html += '<div style=""margin-top:8px; display:flex; gap:5px;"">';
+                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'openImage\', url:\'' + safeUrl + '\'}))"" style=""background:#2196F3; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Voir</button>';
+                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'saveImage\', url:\'' + safeUrl + '\', filename:\'' + filename + '\'}))"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Enregistrer</button>';
+                                html += '</div>';
+                            }
+                        } else if (status === 2) { // Declined
+                            html += '<div style=""margin-top:5px; font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
+                        }
+                        
+                        html += '</div></div>';
+                        bubble.innerHTML = html;
+                        
+                        container.appendChild(bubble);
+                        document.body.appendChild(container);
                         window.scrollTo(0, document.body.scrollHeight);
                     }
                 </script>
