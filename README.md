@@ -13,8 +13,12 @@ La solution se compose de deux projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### �️ Correctifs & Optimisations (Dernière Mise à Jour)
-*   **Persistance Vidéo** : 
+### �️ Correctifs & Optimisations (Dernière Mise à Jour)*   **Interface & UX** :
+    *   **Déconnexion Moderne** : Remplacement des alertes système intrusives par une fenêtre de déconnexion dédiée, élégante et transparente (`DisconnectionWindow`), offrant une expérience plus professionnelle lors de la perte de connexion.
+    *   **Blocage Utilisateur** : Correction de la mise à jour visuelle immédiate (icône et voile gris) lors du blocage/déblocage d'un contact.
+*   **Transfert de Fichiers** :
+    *   **Synchronisation** : Correction de la logique de mise à jour des statuts de transfert (progression, succès) assurant que l'expéditeur et le destinataire voient le même état.
+    *   **Sauvegarde Vidéo** : Réparation de la fonctionnalité "Enregistrer sous" pour les vidéos reçues, permettant de les sauvegarder localement via le menu contextuel.*   **Persistance Vidéo** : 
     *   Correction critique assurant que les vidéos envoyées restent visibles et lisibles dans l'historique après reconnexion, aussi bien sur le Client que sur l'Admin.
     *   Harmonisation de la logique de parsing des fichiers entre les deux plateformes.
 *   **Stabilité Admin** : 

@@ -163,3 +163,7 @@ _Scaffolding.xml
 *.tmp
 *.temp
 *.swp
+
+# User Uploads
+PaLX.API/wwwroot/uploads/*
+!PaLX.API/wwwroot/uploads/.gitkeep

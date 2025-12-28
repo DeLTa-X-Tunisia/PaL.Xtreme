@@ -91,6 +91,7 @@ namespace PaLX.Admin
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
             ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
+            ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
             
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
@@ -257,11 +258,9 @@ namespace PaLX.Admin
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
-                var maintenance = new MaintenanceWindow();
-                maintenance.ShowDialog();
-                
-                // Force Logout logic
+                // Force Logout logic immediately
                 Logout_Click(null!, null!);
+                new DisconnectionWindow().Show();
             });
         }
 
@@ -291,17 +290,31 @@ namespace PaLX.Admin
                 var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
                 if (friend != null)
                 {
+                    friend.IsBlocked = true;
+                    friend.BlockIcon = "\xE785";
+                    friend.BlockToolTip = "Débloquer";
+                    friend.BlockOverlayVisibility = Visibility.Visible;
                     friend.StatusText = "Bloqué";
                     friend.StatusColor = Brushes.Red;
                     friend.NameFontWeight = FontWeights.Normal;
-                    // No need to refresh, INotifyPropertyChanged handles it
                 }
             });
         }
 
         private void OnUserUnblocked(string username)
         {
-             Dispatcher.Invoke(async () => await LoadFriendsAsync());
+            Dispatcher.Invoke(async () =>
+            {
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+                if (friend != null)
+                {
+                    friend.IsBlocked = false;
+                    friend.BlockIcon = "\xE72E";
+                    friend.BlockToolTip = "Bloquer";
+                    friend.BlockOverlayVisibility = Visibility.Collapsed;
+                }
+                await LoadFriendsAsync();
+            });
         }
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)
@@ -334,6 +347,30 @@ namespace PaLX.Admin
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
                 await AddOrUpdateConversation(sender, "🎥 Vidéo reçue", DateTime.Now, !isWindowOpen);
+
+                if (!isWindowOpen)
+                {
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
+                }
+
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                
+                _messageSound?.Play();
+            });
+        }
+
+        private void OnFileRequestReceived(int id, string sender, string filename, string url)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                await AddOrUpdateConversation(sender, "📄 Fichier reçu", DateTime.Now, !isWindowOpen);
 
                 if (!isWindowOpen)
                 {
@@ -883,8 +920,7 @@ private void AddFriend_Click(object sender, RoutedEventArgs e)
             if (sender is Button btn && btn.Tag is string username)
             {
                 // Check current status
-                var friends = FriendsList.ItemsSource as List<FriendItem>;
-                var friend = friends?.FirstOrDefault(f => f.Username == username);
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
                 bool isBlocked = friend?.IsBlocked ?? false;
 
                 if (isBlocked)

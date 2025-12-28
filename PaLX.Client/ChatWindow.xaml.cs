@@ -52,6 +52,11 @@ namespace PaLX.Client
             ApiService.Instance.OnVideoRequestSent += OnVideoRequestSent;
             ApiService.Instance.OnVideoTransferUpdated += OnVideoTransferUpdated;
 
+            // File Events
+            ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
+            ApiService.Instance.OnFileRequestSent += OnFileRequestSent;
+            ApiService.Instance.OnFileTransferUpdated += OnFileTransferUpdated;
+
             // Load Sound
             try
             {
@@ -181,6 +186,46 @@ namespace PaLX.Client
             {
                 string script1 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, true);";
                 string script2 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, false);";
+                ChatWebView.ExecuteScriptAsync(script1);
+                ChatWebView.ExecuteScriptAsync(script2);
+            });
+        }
+
+        private void OnFileRequestReceived(int id, string sender, string filename, string url)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    try { _messageSound?.Play(); } catch { }
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addGenericFileRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnFileRequestSent(int id, string receiver, string filename, string url)
+        {
+            if (receiver == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addGenericFileRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnFileTransferUpdated(int id, bool isAccepted, string url)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                string script1 = $"updateGenericFileStatus({id}, {isAccepted.ToString().ToLower()}, true);";
+                string script2 = $"updateGenericFileStatus({id}, {isAccepted.ToString().ToLower()}, false);";
                 ChatWebView.ExecuteScriptAsync(script1);
                 ChatWebView.ExecuteScriptAsync(script2);
             });
@@ -499,7 +544,7 @@ namespace PaLX.Client
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "Fichiers (*.jpg;*.png;*.mp4;*.avi;...)|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm",
+                Filter = "Tous les fichiers supportés|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm;*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.zip;*.rar",
                 Title = "Sélectionner un fichier"
             };
 
@@ -510,6 +555,7 @@ namespace PaLX.Client
                 string ext = fileInfo.Extension.ToLower();
                 
                 bool isVideo = new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm" }.Contains(ext);
+                bool isImage = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" }.Contains(ext);
 
                 if (isVideo)
                 {
@@ -525,7 +571,7 @@ namespace PaLX.Client
                         MessageBox.Show("Échec du téléchargement de la vidéo.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
-                else
+                else if (isImage)
                 {
                     string? url = await ApiService.Instance.UploadImageAsync(filePath);
                     if (!string.IsNullOrEmpty(url))
@@ -537,6 +583,21 @@ namespace PaLX.Client
                     else
                     {
                         MessageBox.Show("Échec du téléchargement de l'image.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else
+                {
+                    // Generic File
+                    string? url = await ApiService.Instance.UploadFileAsync(filePath);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string fullUrl = $"{ApiService.BaseUrl}{url}";
+                        try { await ApiService.Instance.SendFileRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Échec du téléchargement du fichier.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
             }
@@ -718,6 +779,12 @@ namespace PaLX.Client
                                 bool accepted = bool.Parse(data["accepted"]);
                                 await ApiService.Instance.RespondToVideoRequestAsync(id, accepted);
                             }
+                            else if (type == "respondFile" && data.ContainsKey("id") && data.ContainsKey("accepted"))
+                            {
+                                int id = int.Parse(data["id"]);
+                                bool accepted = bool.Parse(data["accepted"]);
+                                await ApiService.Instance.RespondToFileRequestAsync(id, accepted);
+                            }
                         }
                     }
                     catch { }
@@ -809,6 +876,10 @@ namespace PaLX.Client
                 addVideoRequest(id, sender, filename, url, isMine, status);
                 return;
             }
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(ext) < 0) {
+                addGenericFileRequest(id, sender, filename, url, isMine, status);
+                return;
+            }
 
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
@@ -892,6 +963,9 @@ namespace PaLX.Client
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'video-' + id;
 
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
+            var safeFilename = filename.replace(/'/g, '\\\'');
+
             let innerHtml = '';
             // Video Player HTML (Hidden initially for receiver)
             const videoPlayer = `
@@ -929,7 +1003,7 @@ namespace PaLX.Client
                     <div id=""v-content-${id}"" style=""display:none; margin-top:5px;"">
                         <div class=""bubble"" style=""padding:5px;"">
                             ${videoPlayer}
-                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
+                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveVideo('${safeUrl}', '${safeFilename}')"">💾 Enregistrer sous...</div>
                         </div>
                     </div>`;
             }
@@ -969,6 +1043,92 @@ namespace PaLX.Client
 
         function respondVideo(id, accepted) {
             window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
+        }
+
+        function saveVideo(url, filename) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: url, filename: filename}));
+        }
+
+        function addGenericFileRequest(id, sender, filename, url, isMine, status) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
+            msgDiv.id = 'file-' + id;
+
+            var icon = '📄';
+            var ext = filename.split('.').pop().toLowerCase();
+            if (['zip', 'rar', '7z'].indexOf(ext) >= 0) icon = '📦';
+            else if (['pdf'].indexOf(ext) >= 0) icon = '📕';
+            else if (['doc', 'docx'].indexOf(ext) >= 0) icon = '📘';
+            else if (['xls', 'xlsx'].indexOf(ext) >= 0) icon = '📗';
+            else if (['ppt', 'pptx'].indexOf(ext) >= 0) icon = '📙';
+            else if (['txt'].indexOf(ext) >= 0) icon = '📝';
+            else if (['mp3', 'wav', 'ogg'].indexOf(ext) >= 0) icon = '🎵';
+
+            let innerHtml = '';
+            if (isMine) {
+                innerHtml = `
+                    <div class=""bubble"">
+                        <div style=""display:flex; align-items:center; gap:10px;"">
+                            <div style=""font-size:24px;"">${icon}</div>
+                            <div>
+                                <div style=""font-weight:bold;"">${filename}</div>
+                                <div id=""status-${id}"" style=""font-size:11px; color:#666;"">En attente...</div>
+                            </div>
+                        </div>
+                    </div>`;
+            } else {
+                innerHtml = `
+                    <div class=""bubble file-request"">
+                        <div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">
+                            <span style=""font-size:24px;"">${icon}</span> <span>${filename}</span>
+                        </div>
+                        <div id=""actions-${id}"" class=""file-actions"">
+                            <button class=""btn-accept"" onclick=""respondFile(${id}, true)"">Accepter</button>
+                            <button class=""btn-decline"" onclick=""respondFile(${id}, false)"">Refuser</button>
+                        </div>
+                        <div id=""content-${id}"" style=""display:none; margin-top:10px;"">
+                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
+                        </div>
+                    </div>`;
+            }
+
+            msgDiv.innerHTML = innerHtml;
+            container.appendChild(msgDiv);
+            
+            if (status !== undefined && status !== 0) {
+                updateGenericFileStatus(id, status === 1, isMine);
+            }
+
+            scrollToBottom();
+        }
+
+        function updateGenericFileStatus(id, isAccepted, isMine) {
+            if (isMine) {
+                const statusDiv = document.getElementById('status-' + id);
+                if (statusDiv) {
+                    if (isAccepted) {
+                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Fichier accepté</span>';
+                    } else {
+                        statusDiv.innerHTML = '<span class=""file-status-declined"">Fichier refusé</span>';
+                    }
+                }
+            } else {
+                const actionsDiv = document.getElementById('actions-' + id);
+                const contentDiv = document.getElementById('content-' + id);
+                if (actionsDiv) actionsDiv.style.display = 'none';
+                
+                if (isAccepted) {
+                    if (contentDiv) contentDiv.style.display = 'block';
+                } else {
+                    const bubble = document.querySelector(`#file-${id} .bubble`);
+                    if(bubble) bubble.innerHTML = '<div style=""color:#F44336; font-style:italic;"">Fichier refusé</div>';
+                }
+            }
+        }
+
+        function respondFile(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
         }
 
         function clearChat() {
@@ -1145,6 +1305,22 @@ namespace PaLX.Client
                     @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
                 </style>
                 <script>
+                    function saveFile(url, filename) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: url, filename: filename}));
+                    }
+                    
+                    function openImage(url) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: url}));
+                    }
+                    
+                    function saveVideo(url, filename) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: url, filename: filename}));
+                    }
+
+                    function respondFile(id, accepted) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
+                    }
+
                     function addMessage(base64Content, isMine, time) {
                         var content = decodeURIComponent(escape(window.atob(base64Content)));
                         var container = document.createElement('div');
@@ -1152,6 +1328,14 @@ namespace PaLX.Client
                         
                         var bubble = document.createElement('div');
                         bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
+                        
+                        // Legacy Image Support
+                        if (content.startsWith('[IMAGE]')) {
+                            var url = content.substring(7);
+                            var safeUrl = url.replace(/'/g, ""\\'"");
+                            content = '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />';
+                        }
+                        
                         bubble.innerHTML = content;
                         
                         var ts = document.createElement('div');
@@ -1172,17 +1356,104 @@ namespace PaLX.Client
                         window.scrollTo(0, document.body.scrollHeight);
                     }
 
+                    function addGenericFileRequest(id, sender, filename, url, isMine, status) {
+                        var container = document.createElement('div');
+                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
+                        
+                        var bubble = document.createElement('div');
+                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
+                        bubble.id = 'f-bubble-' + id;
+                        
+                        var icon = '📄';
+                        var ext = filename.split('.').pop().toLowerCase();
+                        if (['zip', 'rar'].indexOf(ext) >= 0) icon = '📦';
+                        else if (['pdf'].indexOf(ext) >= 0) icon = '📕';
+                        else if (['doc', 'docx'].indexOf(ext) >= 0) icon = '📘';
+                        else if (['xls', 'xlsx'].indexOf(ext) >= 0) icon = '📗';
+                        else if (['ppt', 'pptx'].indexOf(ext) >= 0) icon = '📙';
+                        else if (['txt'].indexOf(ext) >= 0) icon = '📝';
+                        
+                        var html = '<div style=""display:flex; align-items:center; gap:10px;"">';
+                        html += '<div style=""font-size:24px;"">' + icon + '</div>';
+                        html += '<div><div style=""font-weight:bold;"">' + filename + '</div>';
+                        html += '<div style=""font-size:11px; opacity:0.7;"">Fichier ' + ext.toUpperCase() + '</div>';
+                        
+                        // Status Area
+                        html += '<div id=""f-status-' + id + '"" style=""margin-top:5px;"">';
+                        
+                        if (status === undefined || status === 0) { // Pending
+                            html += '<div id=""f-req-' + id + '"" style=""font-size:12px; font-style:italic;"">En attente...</div>';
+                            if (!isMine) {
+                                html += '<div id=""f-actions-' + id + '"" style=""margin-top:8px; display:flex; gap:5px;"">';
+                                html += '<button onclick=""respondFile(' + id + ', true)"" style=""background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Accepter</button>';
+                                html += '<button onclick=""respondFile(' + id + ', false)"" style=""background:#F44336; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Refuser</button>';
+                                html += '</div>';
+                            }
+                        } else if (status === 1) { // Accepted
+                            html += '<div style=""font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
+                        } else if (status === 2) { // Declined
+                            html += '<div style=""font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
+                        }
+                        html += '</div>'; // End Status Area
+
+                        // Content Area (Download Button) - Hidden if pending
+                        var displayStyle = (status === 1) ? 'block' : 'none';
+                        html += '<div id=""f-content-' + id + '"" style=""display:' + displayStyle + '; margin-top:8px;"">';
+                        if (url) {
+                            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
+                            var safeFilename = filename.replace(/'/g, '\\\'');
+                            html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;"">💾 Enregistrer</button>';
+                        }
+                        html += '</div>';
+
+                        html += '</div></div>';
+                        bubble.innerHTML = html;
+                        
+                        container.appendChild(bubble);
+                        document.body.appendChild(container);
+                        window.scrollTo(0, document.body.scrollHeight);
+                    }
+
+                    function updateGenericFileStatus(id, isAccepted) {
+                        var bubble = document.getElementById('f-bubble-' + id);
+                        var isMine = bubble && bubble.classList.contains('mine');
+                        
+                        var statusDiv = document.getElementById('f-status-' + id);
+                        var contentDiv = document.getElementById('f-content-' + id);
+                        var actionsDiv = document.getElementById('f-actions-' + id);
+                        var reqDiv = document.getElementById('f-req-' + id);
+
+                        if (statusDiv) {
+                            if (isAccepted) {
+                                statusDiv.innerHTML = '<div style=""font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
+                                if (contentDiv) contentDiv.style.display = 'block';
+                            } else {
+                                statusDiv.innerHTML = '<div style=""font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
+                                if (actionsDiv) actionsDiv.style.display = 'none';
+                                if (reqDiv) reqDiv.style.display = 'none';
+                            }
+                        }
+                    }
+
                     function addFileRequest(id, sender, filename, url, isMine, status) {
+                        var ext = filename.split('.').pop().toLowerCase();
+                        if (['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0) {
+                            addVideoRequest(id, sender, filename, url, isMine, status);
+                            return;
+                        }
+                        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(ext) < 0) {
+                            addGenericFileRequest(id, sender, filename, url, isMine, status);
+                            return;
+                        }
+
                         var container = document.createElement('div');
                         container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
                         
                         var bubble = document.createElement('div');
                         bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
                         
-                        var ext = filename.split('.').pop().toLowerCase();
-                        var isVideo = ['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0;
-                        var icon = isVideo ? '🎥' : '📷';
-                        var typeLabel = isVideo ? 'Vidéo' : 'Image';
+                        var icon = '📷';
+                        var typeLabel = 'Image';
                         
                         var html = '<div style=""display:flex; align-items:center; gap:10px;"">';
                         html += '<div style=""font-size:24px;"">' + icon + '</div>';
@@ -1200,10 +1471,11 @@ namespace PaLX.Client
                         } else if (status === 1) { // Accepted
                             html += '<div style=""margin-top:5px; font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
                             if (url) {
-                                var safeUrl = url.replace(/\\/g, '\\\\');
+                                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
+                                var safeFilename = filename.replace(/'/g, '\\\'');
                                 html += '<div style=""margin-top:8px; display:flex; gap:5px;"">';
-                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'openImage\', url:\'' + safeUrl + '\'}))"" style=""background:#2196F3; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Voir</button>';
-                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'saveImage\', url:\'' + safeUrl + '\', filename:\'' + filename + '\'}))"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Enregistrer</button>';
+                                html += '<button onclick=""openImage(\'' + safeUrl + '\')"" style=""background:#2196F3; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Voir</button>';
+                                html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Enregistrer</button>';
                                 html += '</div>';
                             }
                         } else if (status === 2) { // Declined

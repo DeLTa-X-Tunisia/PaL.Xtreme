@@ -34,6 +34,11 @@ namespace PaLX.Admin.Services
         public event Action<int, string, string, string>? OnVideoRequestSent; // id, receiver, filename, url
         public event Action<int, bool, string>? OnVideoTransferUpdated; // id, isAccepted, url
 
+        // File Transfer Events
+        public event Action<int, string, string, string>? OnFileRequestReceived; // id, sender, filename, url
+        public event Action<int, string, string, string>? OnFileRequestSent; // id, receiver, filename, url
+        public event Action<int, bool, string>? OnFileTransferUpdated; // id, isAccepted, url
+
         // Friend Events
         public event Action<string>? OnFriendRequestReceived;
         public event Action<string>? OnFriendRequestAccepted;
@@ -425,6 +430,21 @@ namespace PaLX.Admin.Services
                 OnVideoTransferUpdated?.Invoke(id, isAccepted, url);
             });
 
+            _hubConnection.On<int, string, string, string>("ReceiveFileRequest", (id, sender, filename, url) =>
+            {
+                OnFileRequestReceived?.Invoke(id, sender, filename, url);
+            });
+
+            _hubConnection.On<int, string, string, string>("FileRequestSent", (id, receiver, filename, url) =>
+            {
+                OnFileRequestSent?.Invoke(id, receiver, filename, url);
+            });
+
+            _hubConnection.On<int, bool, string>("FileTransferUpdated", (id, isAccepted, url) =>
+            {
+                OnFileTransferUpdated?.Invoke(id, isAccepted, url);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
                 if (!_isIntentionalDisconnect)
@@ -531,6 +551,48 @@ namespace PaLX.Admin.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("RespondToVideoRequest", fileId, isAccepted);
+            }
+        }
+
+        public async Task<string?> UploadFileAsync(string filePath)
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(File.OpenRead(filePath));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                content.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                var response = await _httpClient.PostAsync("api/upload/file", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("url", out var urlProperty))
+                    {
+                        return urlProperty.GetString();
+                    }
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task SendFileRequestAsync(string receiver, string fileUrl, string fileName, long fileSize)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendFileRequest", receiver, fileUrl, fileName, fileSize);
+            }
+        }
+
+        public async Task RespondToFileRequestAsync(int fileId, bool isAccepted)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("RespondToFileRequest", fileId, isAccepted);
             }
         }
 

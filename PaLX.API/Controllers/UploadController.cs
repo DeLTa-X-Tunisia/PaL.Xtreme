@@ -76,5 +76,39 @@ namespace PaLX.API.Controllers
             var url = $"/uploads/{fileName}";
             return Ok(new { Url = url });
         }
+
+        [HttpPost("file")]
+        public async Task<IActionResult> UploadFile(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("Aucun fichier fourni.");
+
+            // Validate extension
+            var allowedExtensions = new[] { 
+                ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", 
+                ".zip", ".rar", ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".mp4" 
+            };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest("Format de fichier non supporté ou interdit.");
+
+            // Ensure directory exists
+            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads");
+            if (!Directory.Exists(uploadsPath))
+                Directory.CreateDirectory(uploadsPath);
+
+            // Generate unique filename
+            var fileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(uploadsPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Return URL
+            var url = $"/uploads/{fileName}";
+            return Ok(new { Url = url });
+        }
     }
 }

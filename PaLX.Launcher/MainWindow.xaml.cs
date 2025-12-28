@@ -75,7 +75,8 @@ public partial class MainWindow : Window
                 Arguments = "run",
                 WorkingDirectory = apiPath,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
             };
 
             try
@@ -202,7 +203,8 @@ public partial class MainWindow : Window
             Arguments = "run",
             WorkingDirectory = projectPath,
             UseShellExecute = false,
-            CreateNoWindow = true
+            CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden
         };
 
         try
