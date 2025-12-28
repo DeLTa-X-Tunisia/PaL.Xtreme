@@ -19,15 +19,29 @@ namespace PaLX.Admin
 
         private async void LoadBlockedUsers()
         {
-            var users = await ApiService.Instance.GetBlockedUsersAsync();
-            foreach (var u in users)
+            try
             {
-                if (string.IsNullOrEmpty(u.AvatarPath) || !File.Exists(u.AvatarPath))
+                var users = await ApiService.Instance.GetBlockedUsersAsync();
+                foreach (var u in users)
                 {
-                    u.AvatarPath = null;
+                    try
+                    {
+                        if (string.IsNullOrEmpty(u.AvatarPath) || !File.Exists(u.AvatarPath))
+                        {
+                            u.AvatarPath = null;
+                        }
+                    }
+                    catch
+                    {
+                        u.AvatarPath = null;
+                    }
                 }
+                BlockedList.ItemsSource = users;
             }
-            BlockedList.ItemsSource = users;
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erreur lors du chargement des utilisateurs bloqués : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
 
         private async void Unblock_Click(object sender, RoutedEventArgs e)

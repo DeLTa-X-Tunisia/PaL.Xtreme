@@ -34,6 +34,11 @@ namespace PaLX.Admin.Services
         public event Action<int, string, string, string>? OnVideoRequestSent; // id, receiver, filename, url
         public event Action<int, bool, string>? OnVideoTransferUpdated; // id, isAccepted, url
 
+        // Audio Transfer Events
+        public event Action<int, string, string, string>? OnAudioRequestReceived; // id, sender, filename, url
+        public event Action<int, string, string, string>? OnAudioRequestSent; // id, receiver, filename, url
+        public event Action<int, bool, string>? OnAudioTransferUpdated; // id, isAccepted, url
+
         // File Transfer Events
         public event Action<int, string, string, string>? OnFileRequestReceived; // id, sender, filename, url
         public event Action<int, string, string, string>? OnFileRequestSent; // id, receiver, filename, url
@@ -205,11 +210,13 @@ namespace PaLX.Admin.Services
 
         public async Task<List<BlockedUserDto>> GetBlockedUsersAsync()
         {
-            try
+            var response = await _httpClient.GetAsync("api/user/blocked");
+            if (!response.IsSuccessStatusCode)
             {
-                return await _httpClient.GetFromJsonAsync<List<BlockedUserDto>>("api/user/blocked") ?? new List<BlockedUserDto>();
+                var content = await response.Content.ReadAsStringAsync();
+                throw new Exception(content);
             }
-            catch { return new List<BlockedUserDto>(); }
+            return await response.Content.ReadFromJsonAsync<List<BlockedUserDto>>() ?? new List<BlockedUserDto>();
         }
 
         public async Task<List<ChatMessageDto>> GetChatHistoryAsync(string partner)
@@ -430,6 +437,21 @@ namespace PaLX.Admin.Services
                 OnVideoTransferUpdated?.Invoke(id, isAccepted, url);
             });
 
+            _hubConnection.On<int, string, string, string>("ReceiveAudioRequest", (id, sender, filename, url) =>
+            {
+                OnAudioRequestReceived?.Invoke(id, sender, filename, url);
+            });
+
+            _hubConnection.On<int, string, string, string>("AudioRequestSent", (id, receiver, filename, url) =>
+            {
+                OnAudioRequestSent?.Invoke(id, receiver, filename, url);
+            });
+
+            _hubConnection.On<int, bool, string>("AudioTransferUpdated", (id, isAccepted, url) =>
+            {
+                OnAudioTransferUpdated?.Invoke(id, isAccepted, url);
+            });
+
             _hubConnection.On<int, string, string, string>("ReceiveFileRequest", (id, sender, filename, url) =>
             {
                 OnFileRequestReceived?.Invoke(id, sender, filename, url);
@@ -551,6 +573,48 @@ namespace PaLX.Admin.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("RespondToVideoRequest", fileId, isAccepted);
+            }
+        }
+
+        public async Task<string?> UploadAudioAsync(string filePath)
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(File.OpenRead(filePath));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
+                content.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                var response = await _httpClient.PostAsync("api/upload/audio", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("url", out var urlProperty))
+                    {
+                        return urlProperty.GetString();
+                    }
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task SendAudioRequestAsync(string receiver, string fileUrl, string fileName, long fileSize)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendAudioRequest", receiver, fileUrl, fileName, fileSize);
+            }
+        }
+
+        public async Task RespondToAudioRequestAsync(int fileId, bool isAccepted)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("RespondToAudioRequest", fileId, isAccepted);
             }
         }
 

@@ -283,19 +283,19 @@ namespace PaLX.API.Services
 
             var sql = @"
                 SELECT u.""Username"", 
-                       COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
+                       p.""LastName"",
+                       p.""FirstName"",
                        p.""AvatarPath"", 
                        b.""BlockType"", 
                        b.""EndDate"", 
                        b.""Reason"",
-                       r.""Name"" as RoleName
+                       r.""RoleName"" as RoleName
                 FROM ""BlockedUsers"" b
-                JOIN ""Users"" blocker ON b.""BlockerId"" = blocker.""Id""
                 JOIN ""Users"" u ON b.""BlockedId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
-                JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
-                JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
-                WHERE blocker.""Username"" = @u";
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
+                WHERE b.""BlockerId"" = (SELECT ""Id"" FROM ""Users"" WHERE LOWER(""Username"") = LOWER(@u))";
 
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("u", username);
@@ -303,15 +303,22 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                string usernameDb = reader.GetString(0);
+                string? lastName = reader.IsDBNull(1) ? null : reader.GetString(1);
+                string? firstName = reader.IsDBNull(2) ? null : reader.GetString(2);
+                string displayName = (!string.IsNullOrEmpty(lastName) && !string.IsNullOrEmpty(firstName)) 
+                                     ? $"{lastName} {firstName}" 
+                                     : usernameDb;
+
                 list.Add(new BlockedUserDto
                 {
-                    Username = reader.GetString(0),
-                    DisplayName = reader.GetString(1),
-                    AvatarPath = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    BlockType = reader.GetInt32(3),
-                    EndDate = reader.IsDBNull(4) ? null : reader.GetDateTime(4),
-                    Reason = reader.IsDBNull(5) ? null : reader.GetString(5),
-                    Role = reader.GetString(6)
+                    Username = usernameDb,
+                    DisplayName = displayName,
+                    AvatarPath = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    BlockType = reader.IsDBNull(4) ? 0 : reader.GetInt32(4),
+                    EndDate = reader.IsDBNull(5) ? null : reader.GetDateTime(5),
+                    Reason = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    Role = reader.IsDBNull(7) ? "Utilisateur" : reader.GetString(7)
                 });
             }
             return list;

@@ -121,8 +121,15 @@ namespace PaLX.API.Controllers
             var username = User.FindFirst(ClaimTypes.Name)?.Value;
             if (string.IsNullOrEmpty(username)) return Unauthorized();
 
-            var blockedUsers = await _userService.GetBlockedUsersAsync(username);
-            return Ok(blockedUsers);
+            try
+            {
+                var blockedUsers = await _userService.GetBlockedUsersAsync(username);
+                return Ok(blockedUsers);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message, stackTrace = ex.StackTrace });
+            }
         }
 
         [Authorize]

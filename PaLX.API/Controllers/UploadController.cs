@@ -77,6 +77,37 @@ namespace PaLX.API.Controllers
             return Ok(new { Url = url });
         }
 
+        [HttpPost("audio")]
+        public async Task<IActionResult> UploadAudio(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest("Aucun fichier fourni.");
+
+            // Validate extension
+            var allowedExtensions = new[] { ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".wma", ".flac" };
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest("Format de fichier non supporté.");
+
+            // Ensure directory exists
+            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads");
+            if (!Directory.Exists(uploadsPath))
+                Directory.CreateDirectory(uploadsPath);
+
+            // Generate unique filename
+            var fileName = $"{Guid.NewGuid()}{extension}";
+            var filePath = Path.Combine(uploadsPath, fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // Return URL
+            var url = $"/uploads/{fileName}";
+            return Ok(new { Url = url });
+        }
+
         [HttpPost("file")]
         public async Task<IActionResult> UploadFile(IFormFile file)
         {

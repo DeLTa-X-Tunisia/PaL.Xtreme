@@ -51,7 +51,7 @@
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="15,0">
                                 <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="16"/>
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Age, StringFormat='{}{0} ans'}" FontSize="12" Foreground="#7f8c8d" Margin="0,0,10,0"/>
+                                    <TextBlock Text="{Binding Role}" FontSize="12" Foreground="#7f8c8d" Margin="0,0,10,0"/>
                                     <TextBlock Text="{Binding BlockPeriodDisplay}" FontSize="12" Foreground="#e74c3c" FontWeight="SemiBold"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding Reason}" FontSize="12" Foreground="#95a5a6" FontStyle="Italic" TextTrimming="CharacterEllipsis"/>

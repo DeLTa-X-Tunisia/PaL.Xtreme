@@ -91,6 +91,7 @@ namespace PaLX.Admin
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
             ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
+            ApiService.Instance.OnAudioRequestReceived += OnAudioRequestReceived;
             ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
             
             // Friend Sync
@@ -347,6 +348,30 @@ namespace PaLX.Admin
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
                 await AddOrUpdateConversation(sender, "🎥 Vidéo reçue", DateTime.Now, !isWindowOpen);
+
+                if (!isWindowOpen)
+                {
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
+                }
+
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                
+                _messageSound?.Play();
+            });
+        }
+
+        private void OnAudioRequestReceived(int id, string sender, string filename, string url)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                await AddOrUpdateConversation(sender, "🎵 Audio reçu", DateTime.Now, !isWindowOpen);
 
                 if (!isWindowOpen)
                 {

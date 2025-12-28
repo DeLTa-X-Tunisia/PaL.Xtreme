@@ -52,6 +52,11 @@ namespace PaLX.Client
             ApiService.Instance.OnVideoRequestSent += OnVideoRequestSent;
             ApiService.Instance.OnVideoTransferUpdated += OnVideoTransferUpdated;
 
+            // Audio Events
+            ApiService.Instance.OnAudioRequestReceived += OnAudioRequestReceived;
+            ApiService.Instance.OnAudioRequestSent += OnAudioRequestSent;
+            ApiService.Instance.OnAudioTransferUpdated += OnAudioTransferUpdated;
+
             // File Events
             ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
             ApiService.Instance.OnFileRequestSent += OnFileRequestSent;
@@ -191,6 +196,46 @@ namespace PaLX.Client
             });
         }
 
+        private void OnAudioRequestReceived(int id, string sender, string filename, string url)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    try { _messageSound?.Play(); } catch { }
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addAudioRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnAudioRequestSent(int id, string receiver, string filename, string url)
+        {
+            if (receiver == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string script = $"addAudioRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
+                    ChatWebView.ExecuteScriptAsync(script);
+                });
+            }
+        }
+
+        private void OnAudioTransferUpdated(int id, bool isAccepted, string url)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                string script1 = $"updateAudioStatus({id}, {isAccepted.ToString().ToLower()}, true);";
+                string script2 = $"updateAudioStatus({id}, {isAccepted.ToString().ToLower()}, false);";
+                ChatWebView.ExecuteScriptAsync(script1);
+                ChatWebView.ExecuteScriptAsync(script2);
+            });
+        }
+
         private void OnFileRequestReceived(int id, string sender, string filename, string url)
         {
             if (sender == _partnerUser)
@@ -241,6 +286,33 @@ namespace PaLX.Client
                     // Update online status tracking
                     _isPartnerOnline = status == "En ligne";
                     CheckBuzzAvailability();
+
+                    // Add status message to chat
+                    string cssClass = "status-offline";
+                    string displayName = PartnerName.Text; // Use Display Name
+                    string message = $"Ton ami {displayName} est passé en {status}";
+
+                    switch (status)
+                    {
+                        case "En ligne": 
+                            cssClass = "status-online"; 
+                            message = $"Ton ami {displayName} est de retour En ligne";
+                            break;
+                        case "Occupé": 
+                        case "En appel":
+                        case "Ne pas déranger":
+                            cssClass = "status-busy"; 
+                            break;
+                        case "Absent": 
+                            cssClass = "status-away"; 
+                            break;
+                        default: // Hors ligne
+                            cssClass = "status-offline"; 
+                            break;
+                    }
+
+                    string script = $"addStatusMessage('{message}', '{cssClass}');";
+                    ChatWebView.ExecuteScriptAsync(script);
                 });
             }
         }
@@ -345,8 +417,13 @@ namespace PaLX.Client
                     _isBlocked = true;
                     UpdateBlockUi();
 
-                    string msg = $"Vous avez bloqué {PartnerName.Text} – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
+                    string html = $@"
+                        <div style='font-size: 20px;'>🔒</div>
+                        <div>
+                            <div style='font-size: 14px;'>Vous avez bloqué {PartnerName.Text}</div>
+                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Blocage permanent • {DateTime.Now:HH:mm}</div>
+                        </div>";
+                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-blocked');";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -361,8 +438,13 @@ namespace PaLX.Client
                     _isBlockedByPartner = true;
                     UpdateBlockUi();
 
-                    string msg = $"{PartnerName.Text} vous a bloqué – Blocage PERMANENT – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                    string script = $"addStatusMessage('{msg}', 'status-blocked');";
+                    string html = $@"
+                        <div style='font-size: 20px;'>🔒</div>
+                        <div>
+                            <div style='font-size: 14px;'>{PartnerName.Text} vous a bloqué</div>
+                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Blocage permanent • {DateTime.Now:HH:mm}</div>
+                        </div>";
+                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-blocked');";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -377,8 +459,13 @@ namespace PaLX.Client
                     _isBlocked = false;
                     UpdateBlockUi();
 
-                    string msg = $"Vous avez débloqué {PartnerName.Text} – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                    string script = $"addStatusMessage('{msg}', 'status-unblocked');";
+                    string html = $@"
+                        <div style='font-size: 20px;'>🔓</div>
+                        <div>
+                            <div style='font-size: 14px;'>Vous avez débloqué {PartnerName.Text}</div>
+                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Accès rétabli • {DateTime.Now:HH:mm}</div>
+                        </div>";
+                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-unblocked');";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -393,8 +480,13 @@ namespace PaLX.Client
                     _isBlockedByPartner = false;
                     UpdateBlockUi();
 
-                    string msg = $"{PartnerName.Text} vous a débloqué – {DateTime.Now:dd/MM/yyyy HH:mm}";
-                    string script = $"addStatusMessage('{msg}', 'status-unblocked');";
+                    string html = $@"
+                        <div style='font-size: 20px;'>🔓</div>
+                        <div>
+                            <div style='font-size: 14px;'>{PartnerName.Text} vous a débloqué</div>
+                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Accès rétabli • {DateTime.Now:HH:mm}</div>
+                        </div>";
+                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-unblocked');";
                     ChatWebView.ExecuteScriptAsync(script);
                 });
             }
@@ -544,7 +636,7 @@ namespace PaLX.Client
         {
             var openFileDialog = new Microsoft.Win32.OpenFileDialog
             {
-                Filter = "Tous les fichiers supportés|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm;*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.zip;*.rar",
+                Filter = "Tous les fichiers supportés|*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.mp4;*.avi;*.mov;*.wmv;*.mkv;*.webm;*.mp3;*.wav;*.ogg;*.m4a;*.aac;*.wma;*.flac;*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.ppt;*.pptx;*.txt;*.zip;*.rar",
                 Title = "Sélectionner un fichier"
             };
 
@@ -556,6 +648,7 @@ namespace PaLX.Client
                 
                 bool isVideo = new[] { ".mp4", ".avi", ".mov", ".wmv", ".mkv", ".webm" }.Contains(ext);
                 bool isImage = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" }.Contains(ext);
+                bool isAudio = new[] { ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".wma", ".flac" }.Contains(ext);
 
                 if (isVideo)
                 {
@@ -569,6 +662,20 @@ namespace PaLX.Client
                     else
                     {
                         MessageBox.Show("Échec du téléchargement de la vidéo.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+                else if (isAudio)
+                {
+                    string? url = await ApiService.Instance.UploadAudioAsync(filePath);
+                    if (!string.IsNullOrEmpty(url))
+                    {
+                        string fullUrl = $"{ApiService.BaseUrl}{url}";
+                        try { await ApiService.Instance.SendAudioRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Échec du téléchargement de l'audio.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                     }
                 }
                 else if (isImage)
@@ -779,6 +886,50 @@ namespace PaLX.Client
                                 bool accepted = bool.Parse(data["accepted"]);
                                 await ApiService.Instance.RespondToVideoRequestAsync(id, accepted);
                             }
+                            else if (type == "respondAudio" && data.ContainsKey("id") && data.ContainsKey("accepted"))
+                            {
+                                int id = int.Parse(data["id"]);
+                                bool accepted = bool.Parse(data["accepted"]);
+                                await ApiService.Instance.RespondToAudioRequestAsync(id, accepted);
+                            }
+                            else if (type == "saveAudio" && data.ContainsKey("url"))
+                            {
+                                try
+                                {
+                                    string url = data["url"];
+                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "audio.mp3";
+                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
+
+                                    int count = 1;
+                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
+                                    string extension = System.IO.Path.GetExtension(filePath);
+                                    while (System.IO.File.Exists(filePath))
+                                    {
+                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
+                                    }
+
+                                    using (var client = new HttpClient())
+                                    {
+                                        var bytes = await client.GetByteArrayAsync(url);
+                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
+                                    }
+
+                                    var dialog = new DownloadCompleteWindow();
+                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
+                                    {
+                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                        {
+                                            FileName = filePath,
+                                            UseShellExecute = true
+                                        });
+                                    }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                                }
+                            }
                             else if (type == "respondFile" && data.ContainsKey("id") && data.ContainsKey("accepted"))
                             {
                                 int id = int.Parse(data["id"]);
@@ -807,8 +958,37 @@ namespace PaLX.Client
         .status-busy { color: #F44336; }
         .status-away { color: #FF9800; }
         .status-offline { color: #9E9E9E; }
-        .status-blocked { color: #D32F2F; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #D32F2F; padding: 10px; border-radius: 8px; background-color: #FFEBEE; }
-        .status-unblocked { color: #4CAF50; font-weight: bold; font-size: 14px; margin-top: 20px; margin-bottom: 20px; border: 2px solid #4CAF50; padding: 10px; border-radius: 8px; background-color: #E8F5E9; }
+        .status-blocked { 
+            color: #D32F2F; 
+            background: linear-gradient(to right, rgba(255, 235, 238, 0.95), rgba(255, 255, 255, 0.8));
+            border-left: 4px solid #D32F2F;
+            padding: 12px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: 'Segoe UI Semibold', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(211, 47, 47, 0.1);
+            animation: slideIn 0.4s ease-out;
+            text-align: left;
+        }
+        .status-unblocked { 
+            color: #2E7D32; 
+            background: linear-gradient(to right, rgba(232, 245, 233, 0.95), rgba(255, 255, 255, 0.8));
+            border-left: 4px solid #2E7D32;
+            padding: 12px 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-family: 'Segoe UI Semibold', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
+            animation: slideIn 0.4s ease-out;
+            text-align: left;
+        }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
         .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
         
         /* File Transfer Styles */
@@ -833,11 +1013,11 @@ namespace PaLX.Client
             window.scrollTo(0, document.body.scrollHeight);
         }
 
-        function addStatusMessage(text, statusClass) {
+        function addStatusMessage(htmlContent, statusClass) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = 'status-message ' + statusClass;
-            msgDiv.innerText = text;
+            msgDiv.innerHTML = htmlContent;
             container.appendChild(msgDiv);
             scrollToBottom();
         }
@@ -874,6 +1054,10 @@ namespace PaLX.Client
             var ext = filename.split('.').pop().toLowerCase();
             if (['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0) {
                 addVideoRequest(id, sender, filename, url, isMine, status);
+                return;
+            }
+            if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'wma', 'flac'].indexOf(ext) >= 0) {
+                addAudioRequest(id, sender, filename, url, isMine, status);
                 return;
             }
             if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(ext) < 0) {
@@ -1047,6 +1231,98 @@ namespace PaLX.Client
 
         function saveVideo(url, filename) {
             window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: url, filename: filename}));
+        }
+
+        function addAudioRequest(id, sender, filename, url, isMine, status) {
+            const container = document.getElementById('chat-container');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
+            msgDiv.id = 'audio-' + id;
+
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
+            var safeFilename = filename.replace(/'/g, '\\\'');
+
+            let innerHtml = '';
+            // Audio Player HTML
+            const audioPlayer = `
+                <div style=""width:250px; border-radius:20px; background:#f1f1f1; padding:5px;"">
+                    <audio controls style=""width:100%; height:30px;"">
+                        <source src=""${url}"" type=""audio/mpeg"">
+                        Votre navigateur ne supporte pas l'audio.
+                    </audio>
+                </div>`;
+
+            // Request Card HTML
+            const requestCard = `
+                <div class=""bubble file-request"" style=""background: linear-gradient(135deg, #1DB954 0%, #191414 100%); color:white;"">
+                    <div style=""font-weight:bold; margin-bottom:10px; display:flex; align-items:center; gap:8px;"">
+                        <span style=""font-size:20px;"">🎵</span> 
+                        <span style=""word-break:break-all;"">${filename}</span>
+                    </div>
+                    <div id=""a-actions-${id}"" class=""file-actions"" style=""margin-top:10px;"">
+                        <button class=""btn-accept"" style=""background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.5);"" onclick=""respondAudio(${id}, true)"">Accepter</button>
+                        <button class=""btn-decline"" style=""background:rgba(255,255,255,0.1); color:#ffcccc; border:1px solid rgba(255,0,0,0.3);"" onclick=""respondAudio(${id}, false)"">Refuser</button>
+                    </div>
+                </div>`;
+
+            if (isMine) {
+                innerHtml = `
+                    <div class=""bubble"" style=""padding:5px;"">
+                        ${audioPlayer}
+                        <div id=""a-status-${id}"" style=""font-size:11px; color:#666; margin-top:5px; text-align:right;"">En attente...</div>
+                    </div>`;
+            } else {
+                innerHtml = `
+                    <div id=""a-req-${id}"">
+                        ${requestCard}
+                    </div>
+                    <div id=""a-content-${id}"" style=""display:none; margin-top:5px;"">
+                        <div class=""bubble"" style=""padding:5px;"">
+                            ${audioPlayer}
+                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveAudio('${safeUrl}', '${safeFilename}')"">💾 Enregistrer sous...</div>
+                        </div>
+                    </div>`;
+            }
+
+            msgDiv.innerHTML = innerHtml;
+            container.appendChild(msgDiv);
+            
+            if (status !== undefined && status !== 0) {
+                updateAudioStatus(id, status === 1, isMine);
+            }
+
+            scrollToBottom();
+        }
+
+        function updateAudioStatus(id, isAccepted, isMine) {
+            if (isMine) {
+                const statusDiv = document.getElementById('a-status-' + id);
+                if (statusDiv) {
+                    if (isAccepted) {
+                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Audio accepté</span>';
+                    } else {
+                        statusDiv.innerHTML = '<span class=""file-status-declined"">Audio refusé</span>';
+                    }
+                }
+            } else {
+                const reqDiv = document.getElementById('a-req-' + id);
+                const contentDiv = document.getElementById('a-content-' + id);
+                
+                if (isAccepted) {
+                    if (reqDiv) reqDiv.style.display = 'none';
+                    if (contentDiv) contentDiv.style.display = 'block';
+                } else {
+                    if (reqDiv) reqDiv.innerHTML = '<div class=""bubble"" style=""color:#F44336; font-style:italic;"">Audio refusé</div>';
+                }
+            }
+        }
+
+        function respondAudio(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondAudio', id: id.toString(), accepted: accepted.toString()}));
+        }
+
+        function saveAudio(url, filename) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'saveAudio', url: url, filename: filename}));
         }
 
         function addGenericFileRequest(id, sender, filename, url, isMine, status) {

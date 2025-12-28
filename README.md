@@ -13,7 +13,12 @@ La solution se compose de deux projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### �️ Correctifs & Optimisations (Dernière Mise à Jour)*   **Interface & UX** :
+### 🛠️ Correctifs & Optimisations (Dernière Mise à Jour)
+*   **Gestion des Utilisateurs Bloqués** :
+    *   **Correction Critique** : Résolution du bug affichant une liste vide dans la fenêtre "Utilisateurs bloqués".
+    *   **Robustesse SQL** : Amélioration de la requête pour gérer les données manquantes (NULL) et ignorer la casse lors de la recherche.
+    *   **Diagnostic** : Remplacement des erreurs génériques (500) par des messages d'erreur détaillés pour faciliter le débogage.
+*   **Interface & UX** :
     *   **Déconnexion Moderne** : Remplacement des alertes système intrusives par une fenêtre de déconnexion dédiée, élégante et transparente (`DisconnectionWindow`), offrant une expérience plus professionnelle lors de la perte de connexion.
     *   **Blocage Utilisateur** : Correction de la mise à jour visuelle immédiate (icône et voile gris) lors du blocage/déblocage d'un contact.
 *   **Transfert de Fichiers** :
@@ -30,8 +35,14 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 *   **Dépendances** : 
     *   Ajout et consolidation des packages manquants (`Npgsql`, `BCrypt.Net-Next`) pour assurer la stabilité et la compilation du projet Admin.
 
-### �💬 Chat & Messagerie
-*   **Fonction BUZZ** :
+### �💬 Chat & Messagerie*   **Messages Audio (Nouveau)** :
+    *   **Enregistrement Intégré** : Possibilité d'enregistrer des messages vocaux directement depuis la fenêtre de chat (bouton micro).
+    *   **Lecteur Audio** : Lecteur intégré avec barre de progression, bouton Play/Pause et durée.
+    *   **Envoi Fluide** : Upload automatique et affichage immédiat dans la conversation.
+*   **Améliorations Visuelles** :
+    *   **Séparateur de Nouveaux Messages** : Une ligne "Nouveaux messages" apparaît clairement pour séparer l'historique des messages non lus.
+    *   **Horodatage Intelligent** : Affichage des dates (ex: "Aujourd'hui", "Hier") pour grouper les messages par jour.
+    *   **Messages Système** : Design distinct pour les notifications système (ex: blocage, transfert de fichiers).*   **Fonction BUZZ** :
     *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
     *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
     *   **Disponibilité** : Le bouton BUZZ (icône cloche) n'est actif que si le correspondant est "En ligne".
