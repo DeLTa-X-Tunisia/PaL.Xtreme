@@ -451,7 +451,7 @@ namespace PaLX.Client
             });
         }
 
-        private void OnPrivateMessageReceived(string sender, string message)
+        private void OnPrivateMessageReceived(string sender, string message, int id)
         {
             Dispatcher.Invoke(async () => 
             {

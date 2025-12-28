@@ -15,7 +15,24 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
+### 🛡️ Gestion Avancée du Statut "Ne pas déranger" (DND)
+*   **Matrice de Rôles Stricte** : Implémentation d'une logique de permission hiérarchique pour le statut DND.
+    *   Un utilisateur en mode DND bloque par défaut tous les messages entrants.
+    *   **Exception Hiérarchique** : Un utilisateur peut contourner le blocage DND d'un autre utilisateur **uniquement** si son rôle est supérieur ou égal (ex: ServerMaster peut écrire à tout le monde, ServerAdmin peut écrire aux utilisateurs mais pas aux SuperAdmins en DND).
+    *   **Exception Conversationnelle** : Si l'utilisateur en DND initie lui-même la conversation, le blocage est levé temporairement pour permettre la réponse.
+*   **Feedback Visuel** :
+    *   Zone de saisie désactivée et message d'avertissement rouge explicite : *"User est en mode == NE PAS DÉRANGER == veuillez respecter ça et réessayer plus tard."*
+    *   Mise à jour en temps réel si le statut change pendant la conversation.
+
+### 🧹 Interface "Effacer l'historique" Moderne
+*   **Refonte UI** : Remplacement des boîtes de dialogue système (style Windows 2000) par une fenêtre modale personnalisée (`ClearHistoryWindow`).
+*   **Design** : Interface sombre, élégante, sans bordures système, cohérente avec le reste de l'application.
+
 ### 🛠️ Correctifs & Optimisations (Dernière Mise à Jour)
+*   **Admin Chat Fixes** :
+    *   **Smileys** : Correction de l'affichage des smileys dans l'interface Admin (décodage correct des balises `[smiley:...]`).
+    *   **Transfert de Fichiers** : Réparation des boutons "Accepter" et "Refuser" pour les images, vidéos et fichiers dans le chat Admin.
+    *   **Cohérence** : Alignement complet du comportement et du rendu visuel entre le Client et l'Admin.
 *   **Gestion des Utilisateurs Bloqués** :
     *   **Correction Critique** : Résolution du bug affichant une liste vide dans la fenêtre "Utilisateurs bloqués".
     *   **Robustesse SQL** : Amélioration de la requête pour gérer les données manquantes (NULL) et ignorer la casse lors de la recherche.
@@ -25,9 +42,10 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Blocage Utilisateur** : Correction de la mise à jour visuelle immédiate (icône et voile gris) lors du blocage/déblocage d'un contact.
 *   **Transfert de Fichiers** :
     *   **Synchronisation** : Correction de la logique de mise à jour des statuts de transfert (progression, succès) assurant que l'expéditeur et le destinataire voient le même état.
-    *   **Sauvegarde Vidéo** : Réparation de la fonctionnalité "Enregistrer sous" pour les vidéos reçues, permettant de les sauvegarder localement via le menu contextuel.*   **Persistance Vidéo** : 
-    *   Correction critique assurant que les vidéos envoyées restent visibles et lisibles dans l'historique après reconnexion, aussi bien sur le Client que sur l'Admin.
-    *   Harmonisation de la logique de parsing des fichiers entre les deux plateformes.
+    *   **Sauvegarde Vidéo** : Réparation de la fonctionnalité "Enregistrer sous" pour les vidéos reçues, permettant de les sauvegarder localement via le menu contextuel.
+    *   **Persistance Vidéo** : 
+        *   Correction critique assurant que les vidéos envoyées restent visibles et lisibles dans l'historique après reconnexion, aussi bien sur le Client que sur l'Admin.
+        *   Harmonisation de la logique de parsing des fichiers entre les deux plateformes.
 *   **Stabilité Admin** : 
     *   Résolution du crash systématique lors de la déconnexion (Logout) de l'interface administrateur.
     *   Amélioration de la gestion de la fermeture des connexions SignalR.
@@ -37,14 +55,16 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 *   **Dépendances** : 
     *   Ajout et consolidation des packages manquants (`Npgsql`, `BCrypt.Net-Next`) pour assurer la stabilité et la compilation du projet Admin.
 
-### �💬 Chat & Messagerie*   **Messages Audio (Nouveau)** :
+### 💬 Chat & Messagerie
+*   **Messages Audio (Nouveau)** :
     *   **Enregistrement Intégré** : Possibilité d'enregistrer des messages vocaux directement depuis la fenêtre de chat (bouton micro).
     *   **Lecteur Audio** : Lecteur intégré avec barre de progression, bouton Play/Pause et durée.
     *   **Envoi Fluide** : Upload automatique et affichage immédiat dans la conversation.
 *   **Améliorations Visuelles** :
     *   **Séparateur de Nouveaux Messages** : Une ligne "Nouveaux messages" apparaît clairement pour séparer l'historique des messages non lus.
     *   **Horodatage Intelligent** : Affichage des dates (ex: "Aujourd'hui", "Hier") pour grouper les messages par jour.
-    *   **Messages Système** : Design distinct pour les notifications système (ex: blocage, transfert de fichiers).*   **Fonction BUZZ** :
+    *   **Messages Système** : Design distinct pour les notifications système (ex: blocage, transfert de fichiers).
+*   **Fonction BUZZ** :
     *   **Signal d'Appel** : Envoi d'un signal sonore et visuel (tremblement de fenêtre) pour attirer l'attention du correspondant.
     *   **Ouverture Automatique** : Si le destinataire reçoit un BUZZ alors que sa fenêtre de chat est fermée, celle-ci s'ouvre automatiquement pour garantir la réception de l'alerte.
     *   **Disponibilité** : Le bouton BUZZ (icône cloche) n'est actif que si le correspondant est "En ligne".

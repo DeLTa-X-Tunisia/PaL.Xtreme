@@ -155,12 +155,15 @@ namespace PaLX.API.Services
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
                        COALESCE(p.""AvatarPath"", '') as AvatarPath,
                        COALESCE(s.""DisplayedStatus"", 6) as StatusInt,
-                       CASE WHEN b.""Id"" IS NOT NULL THEN TRUE ELSE FALSE END as IsBlocked
+                       CASE WHEN b.""Id"" IS NOT NULL THEN TRUE ELSE FALSE END as IsBlocked,
+                       COALESCE(r.""RoleLevel"", 7) as RoleLevel
                 FROM ""Friendships"" f
                 JOIN ""Users"" u ON (f.""RequesterId"" = u.""Id"" OR f.""ReceiverId"" = u.""Id"")
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 LEFT JOIN ""UserSessions"" s ON u.""Id"" = s.""UserId"" AND s.""DéconnectéLe"" IS NULL
                 LEFT JOIN ""BlockedUsers"" b ON b.""BlockerId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @me) AND b.""BlockedId"" = u.""Id""
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
                 WHERE (f.""RequesterId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @me) OR 
                        f.""ReceiverId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @me))
                   AND u.""Username"" != @me
@@ -174,6 +177,7 @@ namespace PaLX.API.Services
             {
                 int statusInt = reader.GetInt32(4);
                 bool isBlocked = reader.GetBoolean(5);
+                int roleLevel = reader.GetInt32(6);
                 
                 string statusStr = statusInt switch
                 {
@@ -193,7 +197,8 @@ namespace PaLX.API.Services
                     AvatarPath = reader.GetString(3),
                     Status = statusStr,
                     StatusValue = statusInt,
-                    IsBlocked = isBlocked
+                    IsBlocked = isBlocked,
+                    RoleLevel = roleLevel
                 });
             }
 
@@ -333,13 +338,13 @@ namespace PaLX.API.Services
             var sql = @"
                 SELECT ""Id"", ""SenderUsername"", ""ReceiverUsername"", ""Content"", ""Timestamp"", ""IsRead""
                 FROM ""Messages""
-                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2))
-                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1))
+                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2) AND ""DeletedBySender"" = FALSE)
+                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1) AND ""DeletedByReceiver"" = FALSE)
                 UNION ALL
                 SELECT ""Id"", ""SenderUsername"", ""ReceiverUsername"", '[FILE_REQUEST:' || ""Id"" || ':' || ""FileName"" || ':' || ""FileUrl"" || ':' || ""Status"" || ']', ""Timestamp"", (""Status"" != 0)
                 FROM ""FileTransfers""
-                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2))
-                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1))
+                WHERE (LOWER(""SenderUsername"") = LOWER(@u1) AND LOWER(""ReceiverUsername"") = LOWER(@u2) AND ""DeletedBySender"" = FALSE)
+                   OR (LOWER(""SenderUsername"") = LOWER(@u2) AND LOWER(""ReceiverUsername"") = LOWER(@u1) AND ""DeletedByReceiver"" = FALSE)
                 ORDER BY ""Timestamp"" ASC";
 
             using var cmd = new NpgsqlCommand(sql, conn);

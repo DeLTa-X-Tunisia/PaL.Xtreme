@@ -134,6 +134,9 @@
                         <Button Style="{StaticResource IconButtonStyle}" Content="&#xE717;" ToolTip="Appel Audio" Margin="0,0,4,0"/>
                         <Button Style="{StaticResource IconButtonStyle}" Content="&#xE714;" ToolTip="Appel Vidéo" Margin="0,0,8,0"/>
                         
+                        <!-- Clear History Button -->
+                        <Button Click="ClearHistory_Click" Style="{StaticResource IconButtonStyle}" Content="&#xE74D;" ToolTip="Effacer l'historique" Margin="0,0,8,0"/>
+
                         <!-- Block Button (Red Dot) -->
                         <Button x:Name="BlockButton" Click="Block_Click" Style="{StaticResource IconButtonStyle}" ToolTip="Bloquer cet utilisateur" Margin="0,0,8,0">
                             <Border x:Name="BlockIndicator" Width="12" Height="12" CornerRadius="6" Background="#F44336" BorderBrush="White" BorderThickness="1">
@@ -265,7 +268,7 @@
                                 
                                 <!-- Audio Message Button -->
                                 <Button x:Name="AudioButton" Grid.Column="1" Style="{StaticResource IconButtonStyle}" 
-                                        Width="30" Height="30" Margin="0,0,2,0" ToolTip="Message Audio">
+                                        Width="30" Height="30" Margin="0,0,2,0" ToolTip="Message Audio" Click="AudioButton_Click">
                                     <Path Data="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z" 
                                           Fill="#FF4081" Stretch="Uniform" Width="14" Height="14"/>
                                 </Button>

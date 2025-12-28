@@ -18,11 +18,16 @@ namespace PaLX.Admin.Services
         private string _authToken = string.Empty;
         public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
 
+        public int CurrentUserRoleLevel { get; private set; } = 7; // Default to User
+
         public event Action<string, string>? OnMessageReceived;
-        public event Action<string, string>? OnPrivateMessageReceived;
+        public event Action<string, string, int>? OnPrivateMessageReceived;
+        public event Action<int>? OnAudioListened;
         public event Action<string>? OnUserTyping;
         public event Action<string>? OnBuzzReceived;
         public event Action<string, string>? OnUserStatusChanged;
+        public event Action<string>? OnChatCleared;
+        public event Action<string>? OnPartnerLeft;
 
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
@@ -76,6 +81,7 @@ namespace PaLX.Admin.Services
                     if (result != null && !string.IsNullOrEmpty(result.Token))
                     {
                         _authToken = result.Token;
+                        CurrentUserRoleLevel = result.RoleLevel;
                         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
                         return (result, false);
                     }
@@ -352,9 +358,14 @@ namespace PaLX.Admin.Services
                 OnMessageReceived?.Invoke(user, message);
             });
 
-            _hubConnection.On<string, string>("ReceivePrivateMessage", (user, message) =>
+            _hubConnection.On<string, string, int>("ReceivePrivateMessage", (user, message, id) =>
             {
-                OnPrivateMessageReceived?.Invoke(user, message);
+                OnPrivateMessageReceived?.Invoke(user, message, id);
+            });
+
+            _hubConnection.On<int>("AudioListened", (id) =>
+            {
+                OnAudioListened?.Invoke(id);
             });
 
             _hubConnection.On<string>("UserTyping", (user) =>
@@ -467,6 +478,16 @@ namespace PaLX.Admin.Services
                 OnFileTransferUpdated?.Invoke(id, isAccepted, url);
             });
 
+            _hubConnection.On<string>("ChatCleared", (partnerUser) =>
+            {
+                OnChatCleared?.Invoke(partnerUser);
+            });
+
+            _hubConnection.On<string>("PartnerLeft", (partnerUser) =>
+            {
+                OnPartnerLeft?.Invoke(partnerUser);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
                 if (!_isIntentionalDisconnect)
@@ -510,11 +531,35 @@ namespace PaLX.Admin.Services
             }
         }
 
+        public async Task ClearChatHistoryAsync(string partnerUser)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("ClearConversation", partnerUser);
+            }
+        }
+
+        public async Task LeaveChatAsync(string partnerUser)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("LeaveChat", partnerUser);
+            }
+        }
+
         public async Task SendBuzzAsync(string receiver)
         {
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("SendBuzz", receiver);
+            }
+        }
+
+        public async Task MarkAudioListenedAsync(int messageId)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("MarkAudioListened", messageId);
             }
         }
 
@@ -707,6 +752,7 @@ namespace PaLX.Admin.Services
         public string Country { get; set; } = string.Empty;
         public int Age { get; set; }
         public bool IsBlocked { get; set; }
+        public int RoleLevel { get; set; }
     }
 
     public class UserProfileDto

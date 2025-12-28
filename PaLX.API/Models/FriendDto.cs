@@ -18,5 +18,6 @@ namespace PaLX.API.Models
         public int Age { get; set; }
         public int FriendshipStatus => StatusValue; // Alias for Admin UI
         public bool IsBlocked { get; set; }
+        public int RoleLevel { get; set; }
     }
 }

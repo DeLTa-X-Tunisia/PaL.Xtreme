@@ -43,6 +43,13 @@ namespace PaLX.API.Services
                         ALTER TABLE ""FileTransfers"" ADD COLUMN IF NOT EXISTS ""FileName"" TEXT;
                         ALTER TABLE ""FileTransfers"" ADD COLUMN IF NOT EXISTS ""Timestamp"" TIMESTAMP DEFAULT NOW();
                         ALTER TABLE ""FileTransfers"" ADD COLUMN IF NOT EXISTS ""IsRead"" BOOLEAN DEFAULT FALSE;
+                        
+                        -- Soft Delete Columns
+                        ALTER TABLE ""Messages"" ADD COLUMN IF NOT EXISTS ""DeletedBySender"" BOOLEAN DEFAULT FALSE;
+                        ALTER TABLE ""Messages"" ADD COLUMN IF NOT EXISTS ""DeletedByReceiver"" BOOLEAN DEFAULT FALSE;
+                        
+                        ALTER TABLE ""FileTransfers"" ADD COLUMN IF NOT EXISTS ""DeletedBySender"" BOOLEAN DEFAULT FALSE;
+                        ALTER TABLE ""FileTransfers"" ADD COLUMN IF NOT EXISTS ""DeletedByReceiver"" BOOLEAN DEFAULT FALSE;
                     ";
                     using var cmdAlter = new NpgsqlCommand(alterTableSql, conn);
                     await cmdAlter.ExecuteNonQueryAsync(cancellationToken);

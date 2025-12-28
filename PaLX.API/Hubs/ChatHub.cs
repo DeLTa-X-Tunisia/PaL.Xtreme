@@ -24,10 +24,12 @@ namespace PaLX.API.Hubs
             if (string.IsNullOrEmpty(sender)) return;
 
             // Save to DB
-            await SaveMessageAsync(sender, receiver, message);
+            var msgId = await SaveMessageAsync(sender, receiver, message);
 
             // Send to Receiver
-            await Clients.User(receiver).SendAsync("ReceivePrivateMessage", sender, message);
+            await Clients.User(receiver).SendAsync("ReceivePrivateMessage", sender, message, msgId);
+            // Send back to Sender to confirm ID (optional but good for consistency)
+            // await Clients.Caller.SendAsync("MessageSent", msgId); 
         }
 
         public async Task UserTyping(string receiver)
@@ -488,20 +490,116 @@ namespace PaLX.API.Hubs
             await Clients.User(receiver).SendAsync("FileTransferUpdated", fileId, isAccepted, fileUrl);
         }
 
-        private async Task SaveMessageAsync(string sender, string receiver, string content)
+        public async Task MarkAudioListened(int messageId)
+        {
+            var sender = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(sender)) return;
+
+            // Find the message to get the original sender
+            string originalSender = "";
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                var sql = @"SELECT ""SenderUsername"" FROM ""Messages"" WHERE ""Id"" = @id";
+                using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("id", messageId);
+                    var result = await cmd.ExecuteScalarAsync();
+                    if (result != null)
+                    {
+                        originalSender = result.ToString();
+                    }
+                }
+            }
+
+            if (!string.IsNullOrEmpty(originalSender))
+            {
+                await Clients.User(originalSender).SendAsync("AudioListened", messageId);
+            }
+        }
+
+        public async Task ClearConversation(string partnerUser)
+        {
+            var currentUser = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(currentUser)) return;
+
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Soft Delete Messages
+            // 1. Messages I sent: Set DeletedBySender = true
+            var sqlSent = @"
+                UPDATE ""Messages"" SET ""DeletedBySender"" = TRUE
+                WHERE ""SenderUsername"" = @me AND ""ReceiverUsername"" = @partner";
+            
+            // 2. Messages I received: Set DeletedByReceiver = true
+            var sqlReceived = @"
+                UPDATE ""Messages"" SET ""DeletedByReceiver"" = TRUE
+                WHERE ""SenderUsername"" = @partner AND ""ReceiverUsername"" = @me";
+
+            using (var cmd = new NpgsqlCommand(sqlSent, conn))
+            {
+                cmd.Parameters.AddWithValue("me", currentUser);
+                cmd.Parameters.AddWithValue("partner", partnerUser);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            using (var cmd = new NpgsqlCommand(sqlReceived, conn))
+            {
+                cmd.Parameters.AddWithValue("me", currentUser);
+                cmd.Parameters.AddWithValue("partner", partnerUser);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // Soft Delete File Transfers
+            var sqlFilesSent = @"
+                UPDATE ""FileTransfers"" SET ""DeletedBySender"" = TRUE
+                WHERE ""SenderUsername"" = @me AND ""ReceiverUsername"" = @partner";
+            
+            var sqlFilesReceived = @"
+                UPDATE ""FileTransfers"" SET ""DeletedByReceiver"" = TRUE
+                WHERE ""SenderUsername"" = @partner AND ""ReceiverUsername"" = @me";
+            
+            using (var cmdFiles = new NpgsqlCommand(sqlFilesSent, conn))
+            {
+                cmdFiles.Parameters.AddWithValue("me", currentUser);
+                cmdFiles.Parameters.AddWithValue("partner", partnerUser);
+                await cmdFiles.ExecuteNonQueryAsync();
+            }
+            using (var cmdFiles = new NpgsqlCommand(sqlFilesReceived, conn))
+            {
+                cmdFiles.Parameters.AddWithValue("me", currentUser);
+                cmdFiles.Parameters.AddWithValue("partner", partnerUser);
+                await cmdFiles.ExecuteNonQueryAsync();
+            }
+
+            // Notify caller ONLY
+            await Clients.Caller.SendAsync("ChatCleared", partnerUser);
+        }
+
+        public async Task LeaveChat(string partnerUser)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(partnerUser).SendAsync("PartnerLeft", sender);
+            }
+        }
+
+        private async Task<int> SaveMessageAsync(string sender, string receiver, string content)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
             var sql = @"
                 INSERT INTO ""Messages"" (""SenderUsername"", ""ReceiverUsername"", ""Content"", ""Timestamp"", ""IsRead"")
-                VALUES (@s, @r, @c, NOW(), FALSE)";
+                VALUES (@s, @r, @c, NOW(), FALSE)
+                RETURNING ""Id""";
 
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("s", sender);
             cmd.Parameters.AddWithValue("r", receiver);
             cmd.Parameters.AddWithValue("c", content);
-            await cmd.ExecuteNonQueryAsync();
+            return (int)(await cmd.ExecuteScalarAsync() ?? 0);
         }
     }
 }

@@ -27,6 +27,15 @@ namespace PaLX.Client
         private bool _isBlockedByPartner = false;
         private int _lastMessageId = 0;
         private bool _isPartnerOnline = false;
+        private int _partnerStatus = 6; // Default Offline
+        private bool _dndOverride = false;
+        private int _partnerRoleLevel = 7; // Default to User
+        
+        // Audio Recording
+        private AudioRecorder _audioRecorder = new AudioRecorder();
+        private bool _isRecording = false;
+        private DispatcherTimer _recordingTimer;
+        private int _recordingSeconds = 0;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
@@ -35,10 +44,16 @@ namespace PaLX.Client
             _currentUserDisplayName = currentUser; // Default
             _partnerUser = partnerUser;
 
+            // Init Timer
+            _recordingTimer = new DispatcherTimer();
+            _recordingTimer.Interval = TimeSpan.FromSeconds(1);
+            _recordingTimer.Tick += RecordingTimer_Tick;
+
             Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
             // Subscribe to SignalR
             ApiService.Instance.OnPrivateMessageReceived += OnPrivateMessageReceived;
+            ApiService.Instance.OnAudioListened += OnAudioListened;
             ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             
@@ -82,6 +97,10 @@ namespace PaLX.Client
             ApiService.Instance.OnUserUnblocked += OnUserUnblocked;
             ApiService.Instance.OnUserUnblockedBy += OnUserUnblockedBy;
 
+            // Chat Cleared
+            ApiService.Instance.OnChatCleared += OnChatCleared;
+            ApiService.Instance.OnPartnerLeft += OnPartnerLeft;
+
             // Initial Load
             Loaded += async (s, e) => 
             {
@@ -89,6 +108,23 @@ namespace PaLX.Client
                 await LoadPartnerInfo();
                 await CheckBlockStatusAsync();
                 CheckBuzzAvailability();
+                UpdateDndState();
+            };
+
+            Closing += async (s, e) =>
+            {
+                await ApiService.Instance.LeaveChatAsync(_partnerUser);
+                ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
+                ApiService.Instance.OnAudioListened -= OnAudioListened;
+                ApiService.Instance.OnBuzzReceived -= OnBuzzReceived;
+                ApiService.Instance.OnUserStatusChanged -= OnUserStatusChanged;
+                ApiService.Instance.OnUserTyping -= OnUserTyping;
+                ApiService.Instance.OnUserBlocked -= OnUserBlocked;
+                ApiService.Instance.OnUserBlockedBy -= OnUserBlockedBy;
+                ApiService.Instance.OnUserUnblocked -= OnUserUnblocked;
+                ApiService.Instance.OnUserUnblockedBy -= OnUserUnblockedBy;
+                ApiService.Instance.OnChatCleared -= OnChatCleared;
+                ApiService.Instance.OnPartnerLeft -= OnPartnerLeft;
             };
         }
 
@@ -286,6 +322,18 @@ namespace PaLX.Client
                     // Update online status tracking
                     _isPartnerOnline = status == "En ligne";
                     CheckBuzzAvailability();
+
+                    // Update partner status int for DND logic
+                    _partnerStatus = status switch
+                    {
+                        "En ligne" => 0,
+                        "Occupé" => 1,
+                        "Absent" => 2,
+                        "En appel" => 3,
+                        "Ne pas déranger" => 4,
+                        _ => 6
+                    };
+                    UpdateDndState();
 
                     // Add status message to chat
                     string cssClass = "status-offline";
@@ -533,6 +581,65 @@ namespace PaLX.Client
             }
         }
 
+        private void OnPartnerLeft(string partnerUser)
+        {
+            if (partnerUser == _partnerUser)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    _dndOverride = false;
+                    UpdateDndState();
+                });
+            }
+        }
+
+        private bool CanBypassDND()
+        {
+            int myRole = ApiService.Instance.CurrentUserRoleLevel;
+            int partnerRole = _partnerRoleLevel;
+
+            // User (7) can never bypass DND
+            if (myRole == 7) return false;
+
+            // Higher or equal role (lower number) can bypass
+            return myRole <= partnerRole;
+        }
+
+        private void UpdateDndState()
+        {
+            // Status 4 = Ne pas déranger
+            // Block if DND AND No Override AND Cannot Bypass
+            if (_partnerStatus == 4 && !_dndOverride && !CanBypassDND())
+            {
+                MessageInput.IsEnabled = false;
+                SendButton.IsEnabled = false;
+                AttachmentButton.IsEnabled = false;
+                AudioButton.IsEnabled = false;
+                EmojiButton.IsEnabled = false;
+                
+                // Show DND Message
+                TypingIndicator.Visibility = Visibility.Visible;
+                TypingIndicator.Text = $"{PartnerName.Text} est en mode == NE PAS DÉRANGER == veuillez respecter ça et réessayer plus tard.";
+                TypingIndicator.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#F44336"));
+                TypingIndicator.FontWeight = FontWeights.Bold;
+            }
+            else
+            {
+                if (!_isBlocked && !_isBlockedByPartner)
+                {
+                    MessageInput.IsEnabled = true;
+                    SendButton.IsEnabled = true;
+                    AttachmentButton.IsEnabled = true;
+                    AudioButton.IsEnabled = true;
+                    EmojiButton.IsEnabled = true;
+                    
+                    TypingIndicator.Visibility = Visibility.Collapsed;
+                    TypingIndicator.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#888888"));
+                    TypingIndicator.FontWeight = FontWeights.Normal;
+                }
+            }
+        }
+
         private void OnUserTyping(string user)
         {
             if (user == _partnerUser)
@@ -552,6 +659,29 @@ namespace PaLX.Client
                     };
                     timer.Start();
                 });
+            }
+        }
+
+        private void OnChatCleared(string partnerUser)
+        {
+            if (partnerUser == _partnerUser || partnerUser == _currentUser)
+            {
+                Dispatcher.Invoke(async () =>
+                {
+                    await ChatWebView.ExecuteScriptAsync("clearChat();");
+                });
+            }
+        }
+
+        private async void ClearHistory_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new ClearHistoryWindow();
+            dialog.Owner = this;
+            dialog.ShowDialog();
+
+            if (dialog.IsConfirmed)
+            {
+                await ApiService.Instance.ClearChatHistoryAsync(_partnerUser);
             }
         }
 
@@ -591,17 +721,35 @@ namespace PaLX.Client
                 var statusColor = GetStatusColor(friend.Status);
                 PartnerStatus.Foreground = statusColor;
                 StatusIndicator.Fill = statusColor;
+                
+                _partnerRoleLevel = friend.RoleLevel;
+
+                // Map string status to int for DND check
+                _partnerStatus = friend.Status switch
+                {
+                    "En ligne" => 0,
+                    "Occupé" => 1,
+                    "Absent" => 2,
+                    "En appel" => 3,
+                    "Ne pas déranger" => 4,
+                    _ => 6
+                };
             }
         }
 
-        private void OnPrivateMessageReceived(string sender, string message)
+        private void OnPrivateMessageReceived(string sender, string message, int id)
         {
             if (sender == _partnerUser)
             {
                 Dispatcher.Invoke(async () => 
                 {
+                    // If partner writes to us, DND override is activated
+                    _dndOverride = true;
+                    UpdateDndState();
+
                     var msg = new ChatMessage 
                     { 
+                        Id = id,
                         Content = message, 
                         IsMine = false, 
                         Timestamp = DateTime.Now 
@@ -618,6 +766,92 @@ namespace PaLX.Client
                         await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
                     }
                 });
+            }
+        }
+
+        private void OnAudioListened(int messageId)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                ChatWebView.CoreWebView2.PostWebMessageAsJson($"{{\"type\": \"audioListened\", \"id\": {messageId}}}");
+            });
+        }
+
+        private void RecordingTimer_Tick(object sender, EventArgs e)
+        {
+            _recordingSeconds++;
+            if (_recordingSeconds >= 180) // 3 minutes
+            {
+                StopRecordingAndSend();
+            }
+            else
+            {
+                AudioButton.ToolTip = $"Enregistrement... {TimeSpan.FromSeconds(_recordingSeconds):mm\\:ss}";
+            }
+        }
+
+        private void AudioButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_isRecording)
+            {
+                // Start Recording
+                _isRecording = true;
+                _recordingSeconds = 0;
+                _audioRecorder.StartRecording();
+                _recordingTimer.Start();
+                
+                // Visual Feedback
+                AudioButton.Background = new SolidColorBrush(Color.FromRgb(255, 82, 82)); // Red
+                AudioButton.ToolTip = "Enregistrement en cours... (Cliquer pour arrêter)";
+            }
+            else
+            {
+                StopRecordingAndSend();
+            }
+        }
+
+        private async void StopRecordingAndSend()
+        {
+            if (!_isRecording) return;
+
+            _isRecording = false;
+            _recordingTimer.Stop();
+            string filePath = _audioRecorder.StopRecording();
+            
+            // Reset UI
+            AudioButton.Background = Brushes.Transparent;
+            AudioButton.ToolTip = "Message Audio";
+
+            if (System.IO.File.Exists(filePath))
+            {
+                // Upload
+                string url = await ApiService.Instance.UploadAudioAsync(filePath);
+                if (!string.IsNullOrEmpty(url))
+                {
+                    // Ensure Absolute URL
+                    if (!url.StartsWith("http"))
+                    {
+                        url = ApiService.BaseUrl + (url.StartsWith("/") ? "" : "/") + url;
+                    }
+
+                    // Send Message
+                    string content = $"[AUDIO_MSG]{url}|{_recordingSeconds}";
+                    await ApiService.Instance.SendPrivateMessageAsync(_partnerUser, content);
+                    
+                    // Add to UI immediately (Sender side)
+                    // Note: We don't have the ID yet, so we can't track read receipt for this specific instance until refresh
+                    // But that's fine for the sender view initially.
+                    var msg = new ChatMessage 
+                    { 
+                        Content = content, 
+                        IsMine = true, 
+                        Timestamp = DateTime.Now 
+                    };
+                    AppendMessageToUi(msg);
+                }
+                
+                // Cleanup
+                try { System.IO.File.Delete(filePath); } catch { }
             }
         }
 
@@ -892,6 +1126,11 @@ namespace PaLX.Client
                                 bool accepted = bool.Parse(data["accepted"]);
                                 await ApiService.Instance.RespondToAudioRequestAsync(id, accepted);
                             }
+                            else if (type == "audioPlayed" && data.ContainsKey("id"))
+                            {
+                                int id = int.Parse(data["id"]);
+                                await ApiService.Instance.MarkAudioListenedAsync(id);
+                            }
                             else if (type == "saveAudio" && data.ContainsKey("url"))
                             {
                                 try
@@ -996,7 +1235,7 @@ namespace PaLX.Client
         .file-actions { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
         .btn-accept { background-color: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
         .btn-decline { background-color: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .file-thumb { max-width: 200px; max-height: 200px; border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: opacity 0.2s; }
+        .file-thumb { width: 200px; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: opacity 0.2s; background: #f0f0f0; }
         .file-thumb:hover { opacity: 0.8; }
         .file-status-accepted { color: #4CAF50; font-weight: bold; font-size: 12px; margin-top: 5px; }
         .file-status-declined { color: #F44336; font-weight: bold; font-size: 12px; margin-top: 5px; }
@@ -1013,6 +1252,25 @@ namespace PaLX.Client
             window.scrollTo(0, document.body.scrollHeight);
         }
 
+        function smartScroll() {
+            // Only scroll if we are near the bottom (user hasn't scrolled up to read history)
+            const isAtBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 250);
+            if (isAtBottom) {
+                scrollToBottom();
+            }
+        }
+
+        window.chrome.webview.addEventListener('message', event => {
+            const data = event.data;
+            if (data.type === 'audioListened') {
+                const id = data.id;
+                const readIndicator = document.getElementById('audio-read-' + id);
+                if (readIndicator) {
+                    readIndicator.style.display = 'block';
+                }
+            }
+        });
+
         function addStatusMessage(htmlContent, statusClass) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
@@ -1022,10 +1280,55 @@ namespace PaLX.Client
             scrollToBottom();
         }
 
-        function addMessage(contentBase64, isMine, time) {
+        function playAudio(btn) {
+            var container = btn.parentElement;
+            var audio = container.querySelector('audio');
+            var allAudios = document.getElementsByTagName('audio');
+            
+            // Stop others
+            for(var i=0; i<allAudios.length; i++) {
+                if(allAudios[i] !== audio) {
+                    allAudios[i].pause();
+                    var otherBtn = allAudios[i].parentElement.querySelector('button');
+                    if(otherBtn) otherBtn.innerHTML = '▶';
+                }
+            }
+
+            if (audio.paused) {
+                audio.play();
+                btn.innerHTML = '⏸';
+            } else {
+                audio.pause();
+                btn.innerHTML = '▶';
+            }
+        }
+
+        function resetAudio(audio) {
+            var btn = audio.parentElement.querySelector('button');
+            btn.innerHTML = '▶';
+            audio.parentElement.querySelector('.progress').style.width = '0%';
+        }
+
+        function updateProgress(audio) {
+            var percent = (audio.currentTime / audio.duration) * 100;
+            audio.parentElement.querySelector('.progress').style.width = percent + '%';
+        }
+
+        function notifyPlayed(audio) {
+            // Find message ID if possible, or just notify generic
+            // We need the message ID to be passed in addMessage if we want to track specific messages
+            // But addMessage currently doesn't take ID.
+            // However, we can try to find the parent message div ID if it was set.
+            // But addMessage creates a div without ID usually.
+            // Wait, I updated OnPrivateMessageReceived to pass ID, but addMessage signature is (content, isMine, time).
+            // I should update addMessage signature to (content, isMine, time, id).
+        }
+
+        function addMessage(contentBase64, isMine, time, id) {
             const container = document.getElementById('chat-container');
             const msgDiv = document.createElement('div');
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
+            if (id) msgDiv.id = 'msg-' + id;
             
             let content = '';
             try { content = decodeURIComponent(escape(atob(contentBase64))); } catch (e) { content = atob(contentBase64); }
@@ -1037,6 +1340,32 @@ namespace PaLX.Client
                 var url = content.substring(7);
                 content = `<img src=""${url}"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />`;
             }
+            // Audio Message Support
+            else if (content.startsWith('[AUDIO_MSG]')) {
+                var parts = content.substring(11).split('|');
+                var url = parts[0];
+                var duration = parts.length > 1 ? parts[1] : '0';
+                
+                var sec = parseInt(duration);
+                var min = Math.floor(sec / 60);
+                var s = sec % 60;
+                var timeStr = min + ':' + (s < 10 ? '0' + s : s);
+
+                content = `
+                    <div class=""audio-msg"" data-src=""${url}"" style=""display:flex; align-items:center; gap:10px; min-width:200px;"">
+                        <button onclick=""playAudio(this)"" style=""background:none; border:none; cursor:pointer; font-size:24px; color:${isMine ? 'white' : '#333'}; outline:none;"">▶</button>
+                        <div style=""flex-grow:1; height:4px; background:${isMine ? 'rgba(255,255,255,0.3)' : '#ddd'}; border-radius:2px; position:relative;"">
+                            <div class=""progress"" style=""width:0%; height:100%; background:${isMine ? 'white' : '#2196F3'}; border-radius:2px;""></div>
+                        </div>
+                        <span style=""font-size:11px; min-width:30px;"">${timeStr}</span>
+                        <audio src=""${url}"" onended=""resetAudio(this)"" ontimeupdate=""updateProgress(this)"" onplay=""notifyPlayed(this, ${id})"" preload=""metadata""></audio>
+                    </div>`;
+                
+                // Add read receipt indicator for audio
+                if (isMine) {
+                     content += `<div id=""audio-read-${id}"" style=""font-size:10px; text-align:right; opacity:0.7; display:none;"">✅ Écouté</div>`;
+                }
+            }
 
             msgDiv.innerHTML = `<div class=""bubble"">${content}<div class=""timestamp"">${time}</div></div>`;
             container.appendChild(msgDiv);
@@ -1046,7 +1375,13 @@ namespace PaLX.Client
             // Ensure scroll after images load
             const images = msgDiv.getElementsByTagName('img');
             for(let img of images) {
-                img.onload = scrollToBottom;
+                img.onload = smartScroll;
+            }
+        }
+
+        function notifyPlayed(audio, id) {
+            if (id) {
+                window.chrome.webview.postMessage(JSON.stringify({type: 'audioPlayed', id: id}));
             }
         }
 
@@ -1107,7 +1442,7 @@ namespace PaLX.Client
             // Ensure scroll after images load
             const images = msgDiv.getElementsByTagName('img');
             for(let img of images) {
-                img.onload = scrollToBottom;
+                img.onload = smartScroll;
             }
         }
 
@@ -1153,8 +1488,8 @@ namespace PaLX.Client
             let innerHtml = '';
             // Video Player HTML (Hidden initially for receiver)
             const videoPlayer = `
-                <div style=""max-width:300px; border-radius:8px; overflow:hidden; background:black;"">
-                    <video controls width=""100%"" preload=""metadata"">
+                <div style=""width:300px; height:200px; border-radius:8px; overflow:hidden; background:black;"">
+                    <video controls width=""100%"" height=""100%"" preload=""metadata"">
                         <source src=""${url}"" type=""video/mp4"">
                         Votre navigateur ne supporte pas la lecture vidéo.
                     </video>
@@ -1831,7 +2166,7 @@ namespace PaLX.Client
             // Encode content to Base64 to preserve HTML and avoid JS syntax errors
             string base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(msg.Content));
             string time = msg.Timestamp.ToString("HH:mm");
-            string script = $"addMessage('{base64Content}', {(msg.IsMine ? "true" : "false")}, '{time}');";
+            string script = $"addMessage('{base64Content}', {(msg.IsMine ? "true" : "false")}, '{time}', {msg.Id});";
             ChatWebView.ExecuteScriptAsync(script);
         }
 
@@ -2118,6 +2453,7 @@ namespace PaLX.Client
 
     public class ChatMessage
     {
+        public int Id { get; set; }
         public string Content { get; set; } = "";
         public bool IsMine { get; set; }
         public DateTime Timestamp { get; set; }
