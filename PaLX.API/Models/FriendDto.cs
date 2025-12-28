@@ -7,7 +7,7 @@ namespace PaLX.API.Models
         public string DisplayName { get; set; } = string.Empty; // Name + Surname
         public string Status { get; set; } = "Hors ligne";
         public int StatusValue { get; set; } // For UI logic (Online status or Friendship status)
-        public string AvatarPath { get; set; } = string.Empty;
+        public string? AvatarPath { get; set; }
         public int UnreadCount { get; set; }
         public string LastMessage { get; set; } = string.Empty;
         public DateTime LastMessageTime { get; set; }

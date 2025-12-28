@@ -29,6 +29,11 @@ namespace PaLX.Client.Services
         public event Action<int, string, string, string>? OnImageRequestSent; // id, receiver, filename, url
         public event Action<int, bool, string>? OnImageTransferUpdated; // id, isAccepted, url
 
+        // Video Transfer Events
+        public event Action<int, string, string, string>? OnVideoRequestReceived; // id, sender, filename, url
+        public event Action<int, string, string, string>? OnVideoRequestSent; // id, receiver, filename, url
+        public event Action<int, bool, string>? OnVideoTransferUpdated; // id, isAccepted, url
+
         // Friend Events
         public event Action<string>? OnFriendRequestReceived;
         public event Action<string>? OnFriendRequestAccepted;
@@ -394,6 +399,21 @@ namespace PaLX.Client.Services
                 OnImageTransferUpdated?.Invoke(id, isAccepted, url);
             });
 
+            _hubConnection.On<int, string, string, string>("ReceiveVideoRequest", (id, sender, filename, url) =>
+            {
+                OnVideoRequestReceived?.Invoke(id, sender, filename, url);
+            });
+
+            _hubConnection.On<int, string, string, string>("VideoRequestSent", (id, receiver, filename, url) =>
+            {
+                OnVideoRequestSent?.Invoke(id, receiver, filename, url);
+            });
+
+            _hubConnection.On<int, bool, string>("VideoTransferUpdated", (id, isAccepted, url) =>
+            {
+                OnVideoTransferUpdated?.Invoke(id, isAccepted, url);
+            });
+
             _hubConnection.Closed += async (error) =>
             {
                 if (!_isIntentionalDisconnect)
@@ -458,6 +478,48 @@ namespace PaLX.Client.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("RespondToImageRequest", fileId, isAccepted);
+            }
+        }
+
+        public async Task<string?> UploadVideoAsync(string filePath)
+        {
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(File.OpenRead(filePath));
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
+                content.Add(fileContent, "file", Path.GetFileName(filePath));
+
+                var response = await _httpClient.PostAsync("api/upload/video", content);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("url", out var urlProperty))
+                    {
+                        return urlProperty.GetString();
+                    }
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task SendVideoRequestAsync(string receiver, string fileUrl, string fileName, long fileSize)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendVideoRequest", receiver, fileUrl, fileName, fileSize);
+            }
+        }
+
+        public async Task RespondToVideoRequestAsync(int fileId, bool isAccepted)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("RespondToVideoRequest", fileId, isAccepted);
             }
         }
         

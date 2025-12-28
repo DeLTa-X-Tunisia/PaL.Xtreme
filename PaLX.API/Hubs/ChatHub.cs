@@ -251,6 +251,85 @@ namespace PaLX.API.Hubs
             catch { /* Ignore DB errors during signalr events */ }
         }
 
+        public async Task SendVideoRequest(string receiver, string fileUrl, string fileName, long fileSize)
+        {
+            var sender = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(sender)) return;
+
+            int fileId = 0;
+            // Save to DB (Reuse FileTransfers table)
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                var sql = @"
+                    INSERT INTO ""FileTransfers"" (""SenderUsername"", ""ReceiverUsername"", ""FileUrl"", ""FileName"", ""FileSize"", ""Status"", ""Timestamp"")
+                    VALUES (@s, @r, @url, @name, @size, 0, NOW())
+                    RETURNING ""Id""";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("s", sender);
+                cmd.Parameters.AddWithValue("r", receiver);
+                cmd.Parameters.AddWithValue("url", fileUrl);
+                cmd.Parameters.AddWithValue("name", fileName ?? "video.mp4");
+                cmd.Parameters.AddWithValue("size", fileSize);
+                fileId = (int)(await cmd.ExecuteScalarAsync() ?? 0);
+            }
+
+            // Notify Receiver
+            await Clients.User(receiver).SendAsync("ReceiveVideoRequest", fileId, sender, fileName, fileUrl);
+            
+            // Notify Sender
+            await Clients.Caller.SendAsync("VideoRequestSent", fileId, receiver, fileName, fileUrl);
+        }
+
+        public async Task RespondToVideoRequest(int fileId, bool isAccepted)
+        {
+            var responder = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(responder)) return;
+
+            string sender = "";
+            string receiver = "";
+            string fileUrl = "";
+            string fileName = "";
+
+            // Update DB and Get Info
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                await conn.OpenAsync();
+                
+                // Verify responder is the receiver
+                var checkSql = @"SELECT ""SenderUsername"", ""ReceiverUsername"", ""FileUrl"", ""FileName"" FROM ""FileTransfers"" WHERE ""Id"" = @id";
+                using (var checkCmd = new NpgsqlCommand(checkSql, conn))
+                {
+                    checkCmd.Parameters.AddWithValue("id", fileId);
+                    using (var reader = await checkCmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            sender = reader.GetString(0);
+                            receiver = reader.GetString(1);
+                            fileUrl = reader.GetString(2);
+                            fileName = reader.GetString(3);
+                        }
+                    }
+                }
+
+                if (receiver != responder) return; // Unauthorized
+
+                // Update Status
+                var updateSql = @"UPDATE ""FileTransfers"" SET ""Status"" = @status WHERE ""Id"" = @id";
+                using (var updateCmd = new NpgsqlCommand(updateSql, conn))
+                {
+                    updateCmd.Parameters.AddWithValue("status", isAccepted ? 1 : 2);
+                    updateCmd.Parameters.AddWithValue("id", fileId);
+                    await updateCmd.ExecuteNonQueryAsync();
+                }
+            }
+
+            // Notify Both Parties
+            await Clients.User(sender).SendAsync("VideoTransferUpdated", fileId, isAccepted, fileUrl);
+            await Clients.User(receiver).SendAsync("VideoTransferUpdated", fileId, isAccepted, fileUrl);
+        }
+
         private async Task SaveMessageAsync(string sender, string receiver, string content)
         {
             using var conn = new NpgsqlConnection(_connectionString);

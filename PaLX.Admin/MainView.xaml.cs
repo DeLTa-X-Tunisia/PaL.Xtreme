@@ -90,6 +90,7 @@ namespace PaLX.Admin
             ApiService.Instance.OnBuzzReceived += OnBuzzReceived;
             ApiService.Instance.OnUserStatusChanged += OnUserStatusChanged;
             ApiService.Instance.OnImageRequestReceived += OnImageRequestReceived;
+            ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
             
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
@@ -310,16 +311,44 @@ namespace PaLX.Admin
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
                 await AddOrUpdateConversation(sender, "📷 Image reçue", DateTime.Now, !isWindowOpen);
 
+                if (!isWindowOpen)
+                {
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
+                }
+
                 if (isWindowOpen)
                 {
                     var window = _openChatWindows[sender];
                     if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
                     window.Activate();
                 }
-                else
+                
+                _messageSound?.Play();
+            });
+        }
+
+        private void OnVideoRequestReceived(int id, string sender, string filename, string url)
+        {
+            Dispatcher.Invoke(async () => 
+            {
+                bool isWindowOpen = _openChatWindows.ContainsKey(sender);
+                await AddOrUpdateConversation(sender, "🎥 Vidéo reçue", DateTime.Now, !isWindowOpen);
+
+                if (!isWindowOpen)
                 {
-                    _messageSound?.Play();
+                    OpenChatWindow(sender);
+                    isWindowOpen = true;
                 }
+
+                if (isWindowOpen)
+                {
+                    var window = _openChatWindows[sender];
+                    if (window.WindowState == WindowState.Minimized) window.WindowState = WindowState.Normal;
+                    window.Activate();
+                }
+                
+                _messageSound?.Play();
             });
         }
 
@@ -744,6 +773,9 @@ namespace PaLX.Admin
             {
                 // Unsubscribe from connection closed event to prevent loop
                 ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
+                
+                // Unsubscribe from Closing event to prevent double disconnect
+                this.Closing -= MainView_Closing;
 
                 // Only attempt network calls if this is a manual logout (sender is Button)
                 if (sender is Button)
