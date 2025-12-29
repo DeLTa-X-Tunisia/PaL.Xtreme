@@ -108,6 +108,12 @@ namespace PaLX.Admin
             // System Events
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
 
+            // Subscribe to Voice Call
+            if (ApiService.Instance.VoiceService != null)
+            {
+                ApiService.Instance.VoiceService.OnIncomingCall += OnIncomingCall;
+            }
+
             // Load Sounds
             try
             {
@@ -214,7 +220,15 @@ namespace PaLX.Admin
                 else
                 {
                     var profile = await ApiService.Instance.GetUserProfileAsync(username);
-                    newItem.DisplayName = profile != null ? $"{profile.LastName} {profile.FirstName}" : username;
+                    if (profile != null)
+                    {
+                        string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
+                        newItem.DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
+                    }
+                    else
+                    {
+                        newItem.DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(username.ToLower());
+                    }
                     newItem.AvatarPath = profile?.AvatarPath;
                     newItem.IsFriend = false;
                 }
@@ -621,6 +635,15 @@ namespace PaLX.Admin
             {
                 UsernameText.Text = username;
             }
+        }
+
+        private void OnIncomingCall(string sender)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                var callWindow = new VoiceCallWindow(ApiService.Instance.VoiceService!, sender, true);
+                callWindow.Show();
+            });
         }
 
         private void LoadStatuses()

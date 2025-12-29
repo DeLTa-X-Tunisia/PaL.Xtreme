@@ -28,7 +28,16 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 *   **Refonte UI** : Remplacement des boîtes de dialogue système (style Windows 2000) par une fenêtre modale personnalisée (`ClearHistoryWindow`).
 *   **Design** : Interface sombre, élégante, sans bordures système, cohérente avec le reste de l'application.
 
-### 🛠️ Correctifs & Optimisations (Dernière Mise à Jour)
+### 🎨 UX & Polish Visuel (Dernière Mise à Jour)
+*   **Formatage des Noms** :
+    *   **Standardisation** : Affichage systématique des noms au format "Prénom Nom" (Title Case) dans toute l'application (Listes d'amis, Fenêtres d'appel, Chat, Notifications).
+    *   **Suppression des IDs techniques** : Remplacement des identifiants bruts (ex: `admin1`) par des noms d'affichage professionnels.
+*   **Expérience de Chat** :
+    *   **Scroll Automatique Intelligent** : Le chat défile désormais automatiquement et proprement vers le bas lors de la réception de fichiers (images, vidéos, audio), garantissant que les boutons d'action sont immédiatement visibles.
+    *   **Visibilité** : Ajustement des marges (padding) pour éviter que le dernier message ne soit coupé.
+    *   **Interactivité** : Correction complète des boutons "Accepter / Refuser" pour tous les types de fichiers dans l'interface Admin, avec synchronisation temps réel.
+
+### 🛠️ Correctifs & Optimisations
 *   **Admin Chat Fixes** :
     *   **Smileys** : Correction de l'affichage des smileys dans l'interface Admin (décodage correct des balises `[smiley:...]`).
     *   **Transfert de Fichiers** : Réparation des boutons "Accepter" et "Refuser" pour les images, vidéos et fichiers dans le chat Admin.

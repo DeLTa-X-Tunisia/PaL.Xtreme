@@ -37,6 +37,9 @@ namespace PaLX.Client
         private DispatcherTimer _recordingTimer;
         private int _recordingSeconds = 0;
 
+        // Voice Call
+        private VoiceCallService _voiceService;
+
         public ChatWindow(string currentUser, string partnerUser)
         {
             InitializeComponent();
@@ -48,6 +51,10 @@ namespace PaLX.Client
             _recordingTimer = new DispatcherTimer();
             _recordingTimer.Interval = TimeSpan.FromSeconds(1);
             _recordingTimer.Tick += RecordingTimer_Tick;
+
+            // Init Voice Service
+            _voiceService = ApiService.Instance.VoiceService!;
+            // Incoming call handled by MainView
 
             Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
@@ -113,6 +120,7 @@ namespace PaLX.Client
 
             Closing += async (s, e) =>
             {
+                try { _audioRecorder.CancelRecording(); } catch { }
                 await ApiService.Instance.LeaveChatAsync(_partnerUser);
                 ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
                 ApiService.Instance.OnAudioListened -= OnAudioListened;
@@ -126,6 +134,31 @@ namespace PaLX.Client
                 ApiService.Instance.OnChatCleared -= OnChatCleared;
                 ApiService.Instance.OnPartnerLeft -= OnPartnerLeft;
             };
+        }
+
+        private void OnIncomingCall(string sender)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    var win = new VoiceCallWindow(_voiceService, sender, true);
+                    win.Show();
+                });
+            }
+        }
+
+        private void AudioCall_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                MessageBox.Show("Impossible d'appeler cet utilisateur.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            var win = new VoiceCallWindow(_voiceService, _partnerUser, false);
+            win.Show();
+            _voiceService.RequestCall(_partnerUser);
         }
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)
@@ -695,7 +728,8 @@ namespace PaLX.Client
             var profile = await ApiService.Instance.GetUserProfileAsync(_partnerUser);
             if (profile != null)
             {
-                PartnerName.Text = $"{profile.LastName} {profile.FirstName}";
+                string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
+                PartnerName.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
                 
                 // Set Avatar
                 if (!string.IsNullOrEmpty(profile.AvatarPath) && System.IO.File.Exists(profile.AvatarPath))
@@ -709,7 +743,7 @@ namespace PaLX.Client
             }
             else
             {
-                PartnerName.Text = _partnerUser;
+                PartnerName.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(_partnerUser.ToLower());
             }
 
             // Get Status from Friends list (as Profile doesn't have status)
@@ -1338,7 +1372,10 @@ namespace PaLX.Client
             // Legacy Image Support
             if (content.startsWith('[IMAGE]')) {
                 var url = content.substring(7);
-                content = `<img src=""${url}"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />`;
+                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+                content = '<div style=""position:relative; display:inline-block;"">' +
+                          '<img src=""' + url + '"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: \'openImage\', url: \'' + safeUrl + '\'}))"" />' +
+                          '</div>';
             }
             // Audio Message Support
             else if (content.startsWith('[AUDIO_MSG]')) {
@@ -1482,8 +1519,8 @@ namespace PaLX.Client
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'video-' + id;
 
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
-            var safeFilename = filename.replace(/'/g, '\\\'');
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+            var safeFilename = filename.replace(/'/g, ""\\\\'"");
 
             let innerHtml = '';
             // Video Player HTML (Hidden initially for receiver)
@@ -1534,7 +1571,7 @@ namespace PaLX.Client
                 updateVideoStatus(id, status === 1, isMine);
             }
 
-            scrollToBottom();
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
         }
 
         function updateVideoStatus(id, isAccepted, isMine) {
@@ -1574,8 +1611,8 @@ namespace PaLX.Client
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'audio-' + id;
 
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
-            var safeFilename = filename.replace(/'/g, '\\\'');
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+            var safeFilename = filename.replace(/'/g, ""\\\\'"");
 
             let innerHtml = '';
             // Audio Player HTML
@@ -1626,7 +1663,7 @@ namespace PaLX.Client
                 updateAudioStatus(id, status === 1, isMine);
             }
 
-            scrollToBottom();
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
         }
 
         function updateAudioStatus(id, isAccepted, isMine) {
@@ -1666,6 +1703,9 @@ namespace PaLX.Client
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'file-' + id;
 
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+            var safeFilename = filename.replace(/'/g, ""\\\\'"");
+
             var icon = '📄';
             var ext = filename.split('.').pop().toLowerCase();
             if (['zip', 'rar', '7z'].indexOf(ext) >= 0) icon = '📦';
@@ -1699,7 +1739,7 @@ namespace PaLX.Client
                             <button class=""btn-decline"" onclick=""respondFile(${id}, false)"">Refuser</button>
                         </div>
                         <div id=""content-${id}"" style=""display:none; margin-top:10px;"">
-                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
+                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${safeUrl}', filename: '${safeFilename}'}))"">💾 Enregistrer sous...</div>
                         </div>
                     </div>`;
             }
@@ -1895,7 +1935,7 @@ namespace PaLX.Client
             <head>
                 <meta charset='utf-8'>
                 <style>
-                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; background-color: #f9f9f9; }
+                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; padding-bottom: 20px; background-color: #f9f9f9; }
                     .message-container { display: flex; flex-direction: column; margin-bottom: 10px; }
                     .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
                     .mine { align-self: flex-end; background-color: #0078D7; color: white; border-bottom-right-radius: 4px; }
@@ -1932,6 +1972,18 @@ namespace PaLX.Client
                         window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
                     }
 
+                    function respondImage(id, accepted) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
+                    }
+
+                    function respondVideo(id, accepted) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
+                    }
+
+                    function respondAudio(id, accepted) {
+                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondAudio', id: id.toString(), accepted: accepted.toString()}));
+                    }
+
                     function addMessage(base64Content, isMine, time) {
                         var content = decodeURIComponent(escape(window.atob(base64Content)));
                         var container = document.createElement('div');
@@ -1943,7 +1995,7 @@ namespace PaLX.Client
                         // Legacy Image Support
                         if (content.startsWith('[IMAGE]')) {
                             var url = content.substring(7);
-                            var safeUrl = url.replace(/'/g, ""\\'"");
+                            var safeUrl = url.replace(/'/g, ""\\\\'"");
                             content = '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />';
                         }
                         
@@ -1956,7 +2008,7 @@ namespace PaLX.Client
                         bubble.appendChild(ts);
                         container.appendChild(bubble);
                         document.body.appendChild(container);
-                        window.scrollTo(0, document.body.scrollHeight);
+                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
                     }
 
                     function addStatusMessage(text, cssClass) {
@@ -2011,8 +2063,8 @@ namespace PaLX.Client
                         var displayStyle = (status === 1) ? 'block' : 'none';
                         html += '<div id=""f-content-' + id + '"" style=""display:' + displayStyle + '; margin-top:8px;"">';
                         if (url) {
-                            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
-                            var safeFilename = filename.replace(/'/g, '\\\'');
+                            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+                            var safeFilename = filename.replace(/'/g, ""\\\\'"");
                             html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;"">💾 Enregistrer</button>';
                         }
                         html += '</div>';
@@ -2022,7 +2074,7 @@ namespace PaLX.Client
                         
                         container.appendChild(bubble);
                         document.body.appendChild(container);
-                        window.scrollTo(0, document.body.scrollHeight);
+                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
                     }
 
                     function updateGenericFileStatus(id, isAccepted) {
@@ -2098,7 +2150,7 @@ namespace PaLX.Client
                         
                         container.appendChild(bubble);
                         document.body.appendChild(container);
-                        window.scrollTo(0, document.body.scrollHeight);
+                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
                     }
                 </script>
             </head>

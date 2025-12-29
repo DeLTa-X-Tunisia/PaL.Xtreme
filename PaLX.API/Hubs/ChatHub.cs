@@ -601,5 +601,70 @@ namespace PaLX.API.Hubs
             cmd.Parameters.AddWithValue("c", content);
             return (int)(await cmd.ExecuteScalarAsync() ?? 0);
         }
+
+        // --- Voice Call Signaling ---
+
+        public async Task RequestCall(string receiver)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("IncomingCallRequest", sender);
+            }
+        }
+
+        public async Task AcceptCall(string caller)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(caller).SendAsync("CallAccepted", sender);
+            }
+        }
+
+        public async Task DeclineCall(string caller)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(caller).SendAsync("CallDeclined", sender);
+            }
+        }
+
+        public async Task SendOffer(string receiver, string sdp, string type)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveOffer", sender, sdp, type);
+            }
+        }
+
+        public async Task SendAnswer(string receiver, string sdp, string type)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveAnswer", sender, sdp, type);
+            }
+        }
+
+        public async Task SendIceCandidate(string receiver, string candidate, int sdpMlineIndex, string sdpMid)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveIceCandidate", sender, candidate, sdpMlineIndex, sdpMid);
+            }
+        }
+
+        public async Task EndCall(string receiver)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("CallEnded", sender);
+            }
+        }
     }
 }

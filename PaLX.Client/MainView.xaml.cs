@@ -149,6 +149,12 @@ namespace PaLX.Client
             ApiService.Instance.OnVideoRequestReceived += OnVideoRequestReceived;
             ApiService.Instance.OnAudioRequestReceived += OnAudioRequestReceived;
             ApiService.Instance.OnFileRequestReceived += OnFileRequestReceived;
+
+            // Subscribe to Voice Call
+            if (ApiService.Instance.VoiceService != null)
+            {
+                ApiService.Instance.VoiceService.OnIncomingCall += OnIncomingCall;
+            }
             
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
@@ -231,7 +237,15 @@ namespace PaLX.Client
                 else
                 {
                     var profile = await ApiService.Instance.GetUserProfileAsync(username);
-                    newItem.DisplayName = profile != null ? $"{profile.LastName} {profile.FirstName}" : username;
+                    if (profile != null)
+                    {
+                        string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
+                        newItem.DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
+                    }
+                    else
+                    {
+                        newItem.DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(username.ToLower());
+                    }
                     newItem.AvatarPath = profile?.AvatarPath;
                     newItem.IsFriend = false;
                 }
@@ -256,6 +270,15 @@ namespace PaLX.Client
                 _conversationsCollection.Remove(item);
                 UpdateTotalUnreadCount();
             }
+        }
+
+        private void OnIncomingCall(string sender)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                var callWindow = new VoiceCallWindow(ApiService.Instance.VoiceService!, sender, true);
+                callWindow.Show();
+            });
         }
 
         private void PlayStartupSound()

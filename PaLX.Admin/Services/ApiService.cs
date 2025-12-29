@@ -63,6 +63,9 @@ namespace PaLX.Admin.Services
         // System Events
         public event Action? OnConnectionClosed;
 
+        public HubConnection? GetHubConnection() => _hubConnection;
+        public VoiceCallService? VoiceService { get; private set; }
+
         private ApiService()
         {
             _httpClient = new HttpClient { BaseAddress = new Uri(BaseUrl) };
@@ -352,6 +355,8 @@ namespace PaLX.Admin.Services
                     options.AccessTokenProvider = () => Task.FromResult((string?)_authToken);
                 })
                 .Build();
+
+            VoiceService = new VoiceCallService(_hubConnection);
 
             _hubConnection.On<string, string>("ReceiveMessage", (user, message) =>
             {

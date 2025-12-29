@@ -23,7 +23,8 @@ namespace PaLX.Client
             var profile = await ApiService.Instance.GetUserProfileAsync(_username);
             if (profile != null)
             {
-                DisplayNameText.Text = $"{profile.LastName} {profile.FirstName}";
+                string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
+                DisplayNameText.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
                 UsernameText.Text = $"@{_username}";
                 GenderText.Text = string.IsNullOrEmpty(profile.Gender) ? "Non spécifié" : profile.Gender;
                 CountryText.Text = string.IsNullOrEmpty(profile.Country) ? "Non spécifié" : profile.Country;

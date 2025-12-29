@@ -189,11 +189,14 @@ namespace PaLX.API.Services
                     _ => "Hors ligne"
                 };
 
+                string rawDisplayName = reader.GetString(2);
+                string displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(rawDisplayName.ToLower());
+
                 friends.Add(new FriendDto
                 {
                     Id = reader.GetInt32(0),
                     Username = reader.GetString(1),
-                    DisplayName = reader.GetString(2),
+                    DisplayName = displayName,
                     AvatarPath = reader.GetString(3),
                     Status = statusStr,
                     StatusValue = statusInt,
@@ -511,7 +514,7 @@ namespace PaLX.API.Services
                 requests.Add(new FriendDto
                 {
                     Username = reader.GetString(0),
-                    DisplayName = reader.GetString(1),
+                    DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(1).ToLower()),
                     AvatarPath = reader.IsDBNull(2) ? null : reader.GetString(2),
                     StatusValue = 0 // Pending
                 });

@@ -37,6 +37,9 @@ namespace PaLX.Admin
         private DispatcherTimer _recordingTimer;
         private int _recordingSeconds = 0;
 
+        // Voice Call
+        private VoiceCallService _voiceService;
+
         public ChatWindow(string currentUser, string partnerUser)
         {
             InitializeComponent();
@@ -48,6 +51,10 @@ namespace PaLX.Admin
             _recordingTimer = new DispatcherTimer();
             _recordingTimer.Interval = TimeSpan.FromSeconds(1);
             _recordingTimer.Tick += RecordingTimer_Tick;
+
+            // Init Voice Service
+            _voiceService = ApiService.Instance.VoiceService!;
+            // Incoming call handled by MainView
 
             Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
@@ -123,6 +130,31 @@ namespace PaLX.Admin
                 ApiService.Instance.OnChatCleared -= OnChatCleared;
                 ApiService.Instance.OnPartnerLeft -= OnPartnerLeft;
             };
+        }
+
+        private void OnIncomingCall(string sender)
+        {
+            if (sender == _partnerUser)
+            {
+                Dispatcher.Invoke(() => 
+                {
+                    var win = new VoiceCallWindow(_voiceService, sender, true);
+                    win.Show();
+                });
+            }
+        }
+
+        private void AudioCall_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                MessageBox.Show("Impossible d'appeler cet utilisateur.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            
+            var win = new VoiceCallWindow(_voiceService, _partnerUser, false);
+            win.Show();
+            _voiceService.RequestCall(_partnerUser);
         }
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)
@@ -565,7 +597,8 @@ namespace PaLX.Admin
             var profile = await ApiService.Instance.GetUserProfileAsync(_partnerUser);
             if (profile != null)
             {
-                PartnerName.Text = $"{profile.LastName} {profile.FirstName}";
+                string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
+                PartnerName.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
                 
                 // Set Avatar
                 if (!string.IsNullOrEmpty(profile.AvatarPath) && System.IO.File.Exists(profile.AvatarPath))
@@ -579,7 +612,7 @@ namespace PaLX.Admin
             }
             else
             {
-                PartnerName.Text = _partnerUser;
+                PartnerName.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(_partnerUser.ToLower());
             }
 
             // Get Status from Friends list (as Profile doesn't have status)
@@ -1160,7 +1193,7 @@ namespace PaLX.Admin
 <html>
 <head>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; margin: 0; padding: 10px; overflow-x: hidden; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; margin: 0; padding: 10px; padding-bottom: 20px; overflow-x: hidden; }
         .message { display: flex; margin-bottom: 10px; animation: fadeIn 0.3s ease; }
         .message.mine { justify-content: flex-end; }
         .bubble { max-width: 75%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
@@ -1261,6 +1294,18 @@ namespace PaLX.Admin
             window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
         }
 
+        function respondImage(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
+        }
+
+        function respondVideo(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
+        }
+
+        function respondAudio(id, accepted) {
+            window.chrome.webview.postMessage(JSON.stringify({type: 'respondAudio', id: id.toString(), accepted: accepted.toString()}));
+        }
+
         function playAudio(btn) {
             var container = btn.parentElement;
             var audio = container.querySelector('audio');
@@ -1317,7 +1362,9 @@ namespace PaLX.Admin
             if (content.startsWith('[IMAGE]')) {
                 var url = content.substring(7);
                 var safeUrl = url.replace(/'/g, ""\\'"");
-                content = '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />';
+                content = '<div style=""position:relative; display:inline-block;"">' +
+                          '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />' +
+                          '</div>';
             }
             // Audio Message Support
             else if (content.startsWith('[AUDIO_MSG]')) {
@@ -1409,9 +1456,11 @@ namespace PaLX.Admin
             var displayStyle = (status === 1) ? 'block' : 'none';
             html += '<div id=""f-content-' + id + '"" style=""display:' + displayStyle + '; margin-top:8px;"">';
             if (url) {
-                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\'"");
-                var safeFilename = filename.replace(/'/g, ""\\'"");
-                html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;"">💾 Enregistrer</button>';
+                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+                var safeFilename = filename.replace(/'/g, ""\\\\'"");
+                html += '<div style=""display:flex; gap:5px;"">';
+                html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; flex-grow:1;"">💾 Enregistrer</button>';
+                html += '</div>';
             }
             html += '</div>';
 
@@ -1419,7 +1468,7 @@ namespace PaLX.Admin
             msgDiv.innerHTML = html;
             
             container.appendChild(msgDiv);
-            window.scrollTo(0, document.body.scrollHeight);
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
         }
 
         function updateGenericFileStatus(id, isAccepted) {
@@ -1453,8 +1502,8 @@ namespace PaLX.Admin
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'video-' + id;
 
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\'"");
-            var safeFilename = filename.replace(/'/g, ""\\'"");
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+            var safeFilename = filename.replace(/'/g, ""\\\\'"");
 
             let innerHtml = '';
             // Video Player HTML
@@ -1489,7 +1538,9 @@ namespace PaLX.Admin
                     '<div id=""v-content-' + id + '"" style=""display:none; margin-top:5px;"">' +
                         '<div class=""bubble"" style=""padding:5px;"">' +
                             videoPlayer +
-                            '<div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveVideo(\'' + safeUrl + '\', \'' + safeFilename + '\')"">💾 Enregistrer sous...</div>' +
+                            '<div style=""display:flex; justify-content:space-between; margin-top:5px;"">' +
+                                '<div class=""download-link"" onclick=""saveVideo(\'' + safeUrl + '\', \'' + safeFilename + '\')"">💾 Enregistrer sous...</div>' +
+                            '</div>' +
                         '</div>' +
                     '</div>';
             }
@@ -1501,7 +1552,7 @@ namespace PaLX.Admin
                 updateVideoStatus(id, status === 1, isMine);
             }
 
-            window.scrollTo(0, document.body.scrollHeight);
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
         }
 
         function updateVideoStatus(id, isAccepted, isMine) {
@@ -1533,8 +1584,8 @@ namespace PaLX.Admin
             msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
             msgDiv.id = 'audio-' + id;
 
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
-            var safeFilename = filename.replace(/'/g, '\\\'');
+            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
+            var safeFilename = filename.replace(/'/g, ""\\\\'"");
 
             let innerHtml = '';
             // Audio Player HTML
@@ -1569,7 +1620,9 @@ namespace PaLX.Admin
                     '<div id=""a-content-' + id + '"" style=""display:none; margin-top:5px;"">' +
                         '<div class=""bubble"" style=""padding:5px;"">' +
                             audioPlayer +
-                            '<div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveAudio(\'' + safeUrl + '\', \'' + safeFilename + '\')"">💾 Enregistrer sous...</div>' +
+                            '<div style=""display:flex; justify-content:space-between; margin-top:5px;"">' +
+                                '<div class=""download-link"" onclick=""saveAudio(\'' + safeUrl + '\', \'' + safeFilename + '\')"">💾 Enregistrer sous...</div>' +
+                            '</div>' +
                         '</div>' +
                     '</div>';
             }
@@ -1581,7 +1634,7 @@ namespace PaLX.Admin
                 updateAudioStatus(id, status === 1, isMine);
             }
 
-            window.scrollTo(0, document.body.scrollHeight);
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
         }
 
         function updateAudioStatus(id, isAccepted, isMine) {
@@ -1672,15 +1725,19 @@ namespace PaLX.Admin
                         '<div id=""status-' + id + '"" style=""font-size:11px; color:#666; margin-top:5px;"">En attente...</div>' +
                     '</div>';
             } else {
-                innerHtml = '<div class=""bubble file-request"">' +
-                        '<div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">' +
-                            '<span style=""font-size:16px;"">📷</span> <span>' + filename + '</span>' +
+                innerHtml = '<div id=""req-' + id + '"">' +
+                        '<div class=""bubble file-request"">' +
+                            '<div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">' +
+                                '<span style=""font-size:16px;"">📷</span> <span>' + filename + '</span>' +
+                            '</div>' +
+                            '<div id=""actions-' + id + '"" class=""file-actions"">' +
+                                '<button class=""btn-accept"" onclick=""respondImage(' + id + ', true)"">Accepter</button>' +
+                                '<button class=""btn-decline"" onclick=""respondImage(' + id + ', false)"">Refuser</button>' +
+                            '</div>' +
                         '</div>' +
-                        '<div id=""actions-' + id + '"" class=""file-actions"">' +
-                            '<button class=""btn-accept"" onclick=""respondImage(' + id + ', true)"">Accepter</button>' +
-                            '<button class=""btn-decline"" onclick=""respondImage(' + id + ', false)"">Refuser</button>' +
-                        '</div>' +
-                        '<div id=""content-' + id + '"" style=""display:none; margin-top:10px;"">' +
+                    '</div>' +
+                    '<div id=""content-' + id + '"" style=""display:none; margin-top:5px;"">' +
+                        '<div class=""bubble"">' +
                             '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />' +
                             '<div class=""download-link"" onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"">💾 Enregistrer sous...</div>' +
                         '</div>' +
@@ -1694,7 +1751,7 @@ namespace PaLX.Admin
                 updateFileStatus(id, status === 1, isMine);
             }
 
-            scrollToBottom();
+            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
             
             const images = msgDiv.getElementsByTagName('img');
             for(let img of images) {

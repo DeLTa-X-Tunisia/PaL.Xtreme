@@ -64,6 +64,9 @@ namespace PaLX.Client.Services
         public event Action<string>? OnChatCleared;
         public event Action<string>? OnPartnerLeft;
 
+        public HubConnection? GetHubConnection() => _hubConnection;
+        public VoiceCallService? VoiceService { get; private set; }
+
         private ApiService()
         {
             _httpClient = new HttpClient { BaseAddress = new Uri(BaseUrl) };
@@ -342,6 +345,8 @@ namespace PaLX.Client.Services
                     options.AccessTokenProvider = () => Task.FromResult((string?)_authToken);
                 })
                 .Build();
+
+            VoiceService = new VoiceCallService(_hubConnection);
 
             _hubConnection.On<string>("ChatCleared", (partnerUser) =>
             {
@@ -697,6 +702,15 @@ namespace PaLX.Client.Services
         
         public async Task DisconnectAsync()
         {
+            if (VoiceService != null)
+            {
+                try
+                {
+                    VoiceService.EndCall();
+                }
+                catch { }
+            }
+
             if (_hubConnection != null)
             {
                 _isIntentionalDisconnect = true;
