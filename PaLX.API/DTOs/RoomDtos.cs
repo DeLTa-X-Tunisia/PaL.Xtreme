@@ -28,6 +28,8 @@ namespace PaLX.API.DTOs
         public bool IsPrivate { get; set; }
         public bool Is18Plus { get; set; }
         public int SubscriptionLevel { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class RoomMemberDto
@@ -44,6 +46,7 @@ namespace PaLX.API.DTOs
         public bool HasHandRaised { get; set; }
         public bool IsCamOn { get; set; }
         public bool IsMicOn { get; set; }
+        public string Gender { get; set; } = "Unknown";
     }
 
     public class RoomMessageDto
@@ -64,5 +67,13 @@ namespace PaLX.API.DTOs
     {
         public int RoomId { get; set; }
         public string? Password { get; set; }
+    }
+
+    public class RoomCategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string Icon { get; set; } = string.Empty;
     }
 }

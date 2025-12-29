@@ -173,6 +173,15 @@ namespace PaLX.Client
             this.Closing += MainView_Closing;
             
             InitializeData();
+
+            // Debug Visibility
+            this.Loaded += (s, e) => 
+            {
+                // MessageBox.Show($"RoomsButton Visibility: {RoomsButton.Visibility}");
+                RoomsButton.Visibility = Visibility.Visible;
+                RoomsTab.Visibility = Visibility.Visible;
+                // MessageBox.Show("DEBUG: RoomsButton forced to Visible");
+            };
         }
 
         private async void InitializeData()

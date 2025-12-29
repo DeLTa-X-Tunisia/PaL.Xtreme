@@ -20,6 +20,7 @@ namespace PaLX.Client.Services
         public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
         
         public string CurrentUsername { get; private set; } = string.Empty;
+        public int CurrentUserId { get; private set; }
         public int CurrentUserRoleLevel { get; private set; } = 7; // Default to User
 
         public event Action<string, string>? OnMessageReceived;
@@ -94,6 +95,7 @@ namespace PaLX.Client.Services
                     {
                         _authToken = result.Token;
                         CurrentUsername = username;
+                        CurrentUserId = result.UserId;
                         CurrentUserRoleLevel = result.RoleLevel;
                         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
                         return (result, false);
@@ -776,10 +778,59 @@ namespace PaLX.Client.Services
             var error = await response.Content.ReadAsStringAsync();
             throw new Exception(error);
         }
+
+        public async Task DeleteRoomAsync(int roomId)
+        {
+            var response = await _httpClient.DeleteAsync($"api/room/{roomId}");
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                throw new Exception(error);
+            }
+        }
+
+        public async Task<RoomDto?> UpdateRoomAsync(int roomId, CreateRoomDto dto)
+        {
+            try
+            {
+                var response = await _httpClient.PutAsJsonAsync($"api/room/{roomId}", dto);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadFromJsonAsync<RoomDto>();
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public async Task<bool> ToggleRoomVisibilityAsync(int roomId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/room/{roomId}/toggle-visibility", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("isActive", out var isActive))
+                    {
+                        return isActive.GetBoolean();
+                    }
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 
     public class AuthResponse
     {
+        public int UserId { get; set; }
         public string Token { get; set; } = string.Empty;
         public bool IsProfileComplete { get; set; }
         public string Role { get; set; } = string.Empty;
@@ -799,7 +850,9 @@ namespace PaLX.Client.Services
         public bool IsPrivate { get; set; }
         public bool Is18Plus { get; set; }
         public int SubscriptionLevel { get; set; }
+        public bool IsActive { get; set; }
         public int UserCount { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class RoomCategoryDto

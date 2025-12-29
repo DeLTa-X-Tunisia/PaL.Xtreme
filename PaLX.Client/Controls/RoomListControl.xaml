@@ -33,13 +33,16 @@
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             
-            <ComboBox x:Name="CategoryFilter" SelectionChanged="CategoryFilter_SelectionChanged" Width="150" HorizontalAlignment="Left">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Name}"/>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
+            <StackPanel Orientation="Horizontal">
+                <ComboBox x:Name="CategoryFilter" SelectionChanged="CategoryFilter_SelectionChanged" Width="150" HorizontalAlignment="Left">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="v2.0" Foreground="Red" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
+            </StackPanel>
 
             <Button Grid.Column="1" Content="+ Créer" Click="CreateRoom_Click" 
                     Background="{StaticResource PrimaryBrush}" Foreground="White" 
@@ -57,7 +60,7 @@
                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" MouseDoubleClick="RoomsList_MouseDoubleClick">
             <ListView.ItemTemplate>
                 <DataTemplate>
-                    <Border Style="{StaticResource RoomItemStyle}">
+                    <Border Style="{StaticResource RoomItemStyle}" Opacity="{Binding Opacity}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/> <!-- Icon/Level -->
@@ -72,9 +75,16 @@
                             </Border>
 
                             <!-- Info -->
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                
                                 <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="#2c3e50"/>
+                                    <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="14" Foreground="#2c3e50" TextTrimming="CharacterEllipsis"/>
                                     <!-- Badges -->
                                     <Border Background="#e74c3c" CornerRadius="3" Margin="5,0,0,0" Padding="3,0" Visibility="{Binding Is18Plus, Converter={StaticResource BooleanToVisibilityConverter}}">
                                         <TextBlock Text="18+" Foreground="White" FontSize="10" FontWeight="Bold"/>
@@ -86,17 +96,25 @@
                                         <TextBlock Text="🔒" Foreground="White" FontSize="10"/>
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="{Binding CategoryName}" FontSize="11" Foreground="Gray"/>
-                                <TextBlock Text="{Binding Description}" FontSize="12" Foreground="#7f8c8d" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
-                            </StackPanel>
+                                <TextBlock Grid.Row="1" Text="{Binding CategoryName}" FontSize="11" Foreground="Gray"/>
+                                <TextBlock Grid.Row="2" Text="{Binding OwnerName, StringFormat='Par : {0}'}" FontSize="11" Foreground="#34495e"/>
+                                <TextBlock Grid.Row="3" Text="{Binding Description}" FontSize="12" Foreground="#7f8c8d" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
 
-                            <!-- Users Count -->
+                            <!-- Users Count & Actions -->
                             <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                <StackPanel Orientation="Horizontal">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                                     <TextBlock Text="👥" FontSize="12" Foreground="Gray" Margin="0,0,3,0"/>
                                     <TextBlock Text="{Binding UserCount}" FontSize="12" Foreground="Gray"/>
                                     <TextBlock Text="/" FontSize="12" Foreground="Gray"/>
                                     <TextBlock Text="{Binding MaxUsers}" FontSize="12" Foreground="Gray"/>
+                                </StackPanel>
+
+                                <!-- Owner Actions -->
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Visibility="{Binding IsOwner, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Button Content="✏️" ToolTip="Modifier" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="EditRoom_Click" Tag="{Binding}" FontSize="14"/>
+                                    <Button Content="{Binding VisibilityIcon}" ToolTip="{Binding VisibilityTooltip}" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="HideRoom_Click" Tag="{Binding}" Margin="5,0" FontSize="14"/>
+                                    <Button Content="🗑️" ToolTip="Supprimer" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="DeleteRoom_Click" Tag="{Binding}" Foreground="Red" FontSize="14"/>
                                 </StackPanel>
                             </StackPanel>
                         </Grid>

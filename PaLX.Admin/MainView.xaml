@@ -279,7 +279,7 @@
             </TabItem>
 
             <!-- Tab 3: Salons -->
-            <TabItem Header="Salons">
+            <TabItem x:Name="RoomsTab" Header="Salons" Visibility="Visible">
                 <controls:RoomListControl Margin="0,10"/>
             </TabItem>
         </TabControl>
@@ -326,7 +326,7 @@
                 </Button>
 
                 <!-- Salons (Chat Rooms) -->
-                <Button Grid.Column="2" x:Name="RoomsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Salons de discussion" Click="RoomsButton_Click">
+                <Button Grid.Column="2" x:Name="RoomsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Salons de discussion" Click="RoomsButton_Click" Visibility="Visible">
                     <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource TextBrush}"/>
                 </Button>
 

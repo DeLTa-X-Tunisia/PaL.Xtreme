@@ -142,17 +142,49 @@ namespace PaLX.API.Services
             }
 
             // 5. Check if already member
-            var checkMember = "SELECT COUNT(*) FROM \"RoomMembers\" WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+            var checkMember = "SELECT \"RoleId\" FROM \"RoomMembers\" WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+            int? currentRole = null;
             using (var cmd = new NpgsqlCommand(checkMember, conn))
             {
                 cmd.Parameters.AddWithValue("rid", roomId);
                 cmd.Parameters.AddWithValue("uid", userId);
-                long exists = (long)(await cmd.ExecuteScalarAsync() ?? 0);
-                if (exists > 0) return true; // Already joined
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    currentRole = (int)result;
+                }
             }
 
-            // 6. Add Member (Default Role = Member)
-            await AddMemberToRoomInternal(conn, roomId, userId, (int)RoomRoleLevel.Member);
+            // 6. Determine Correct Role (Owner or Member)
+            int targetRoleId = (int)RoomRoleLevel.Member;
+            var checkOwner = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(checkOwner, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                var ownerId = (int?)await cmd.ExecuteScalarAsync();
+                if (ownerId == userId) targetRoleId = (int)RoomRoleLevel.Owner;
+            }
+
+            if (currentRole.HasValue)
+            {
+                // Already joined. Check if role needs update (e.g. Owner was demoted or joined as member)
+                if (currentRole.Value != targetRoleId && targetRoleId == (int)RoomRoleLevel.Owner)
+                {
+                    // Fix role to Owner
+                    var updateSql = "UPDATE \"RoomMembers\" SET \"RoleId\" = @role WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+                    using (var cmd = new NpgsqlCommand(updateSql, conn))
+                    {
+                        cmd.Parameters.AddWithValue("role", targetRoleId);
+                        cmd.Parameters.AddWithValue("rid", roomId);
+                        cmd.Parameters.AddWithValue("uid", userId);
+                        await cmd.ExecuteNonQueryAsync();
+                    }
+                }
+                return true; 
+            }
+
+            // 7. Add Member
+            await AddMemberToRoomInternal(conn, roomId, userId, targetRoleId);
             
             // Get Member Details for Notification
             var memberDto = await GetRoomMemberDetailsAsync(conn, roomId, userId);
@@ -192,19 +224,21 @@ namespace PaLX.API.Services
             await _hubContext.Clients.Group($"Room_{roomId}").SendAsync("UserLeft", userId);
         }
 
-        public async Task<List<RoomDto>> GetRoomsAsync(int? categoryId = null)
+        public async Task<List<RoomDto>> GetRoomsAsync(int userId, int? categoryId = null)
         {
             var rooms = new List<RoomDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
             var sql = @"
-                SELECT r.*, c.""Name"" as CatName, u.""Username"" as OwnerName,
+                SELECT r.*, c.""Name"" as CatName, 
+                       COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as OwnerName,
                        (SELECT COUNT(*) FROM ""RoomMembers"" rm WHERE rm.""RoomId"" = r.""Id"") as UserCount
                 FROM ""Rooms"" r
                 JOIN ""RoomCategories"" c ON r.""CategoryId"" = c.""Id""
                 JOIN ""Users"" u ON r.""OwnerId"" = u.""Id""
-                WHERE r.""IsActive"" = TRUE";
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE (r.""IsActive"" = TRUE OR r.""OwnerId"" = @uid)";
 
             if (categoryId.HasValue)
             {
@@ -212,6 +246,7 @@ namespace PaLX.API.Services
             }
 
             using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("uid", userId);
             if (categoryId.HasValue) cmd.Parameters.AddWithValue("cat", categoryId.Value);
 
             using var reader = await cmd.ExecuteReaderAsync();
@@ -230,7 +265,9 @@ namespace PaLX.API.Services
                     IsPrivate = reader.GetBoolean(reader.GetOrdinal("IsPrivate")),
                     Is18Plus = reader.GetBoolean(reader.GetOrdinal("Is18Plus")),
                     SubscriptionLevel = reader.GetInt32(reader.GetOrdinal("SubscriptionLevel")),
-                    UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount"))
+                    IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                    UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount")),
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
                 });
             }
             return rooms;
@@ -247,7 +284,7 @@ namespace PaLX.API.Services
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
                        p.""AvatarPath"",
                        rr.""Id"" as RoleId, rr.""Name"" as RoleName, rr.""Color"" as RoleColor, rr.""Icon"" as RoleIcon,
-                       rm.""IsMuted"", rm.""HasHandRaised"", rm.""IsCamOn"", rm.""IsMicOn""
+                       rm.""IsMuted"", rm.""HasHandRaised"", rm.""IsCamOn"", rm.""IsMicOn"", p.""Gender""
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
@@ -272,7 +309,8 @@ namespace PaLX.API.Services
                     IsMuted = reader.GetBoolean(8),
                     HasHandRaised = reader.GetBoolean(9),
                     IsCamOn = reader.GetBoolean(10),
-                    IsMicOn = reader.GetBoolean(11)
+                    IsMicOn = reader.GetBoolean(11),
+                    Gender = reader.IsDBNull(12) ? "Unknown" : reader.GetString(12)
                 });
             }
             return members;
@@ -428,9 +466,9 @@ namespace PaLX.API.Services
             return false;
         }
 
-        public async Task<List<RoomCategory>> GetCategoriesAsync()
+        public async Task<List<RoomCategoryDto>> GetCategoriesAsync()
         {
-            var list = new List<RoomCategory>();
+            var list = new List<RoomCategoryDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
             
@@ -439,12 +477,12 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                list.Add(new RoomCategory
+                list.Add(new RoomCategoryDto
                 {
                     Id = reader.GetInt32(reader.GetOrdinal("Id")),
                     Name = reader.GetString(reader.GetOrdinal("Name")),
-                    ParentId = reader.GetInt32(reader.GetOrdinal("ParentId")),
-                    Order = reader.GetInt32(reader.GetOrdinal("Order"))
+                    Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString(reader.GetOrdinal("Description")),
+                    Icon = reader.IsDBNull(reader.GetOrdinal("Icon")) ? "" : reader.GetString(reader.GetOrdinal("Icon"))
                 });
             }
             return list;
@@ -457,7 +495,7 @@ namespace PaLX.API.Services
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
                        p.""AvatarPath"",
                        rr.""Name"" as RoleName, rr.""Color"" as RoleColor,
-                       rm.""IsCamOn"", rm.""IsMicOn"", rm.""HasHandRaised""
+                       rm.""IsCamOn"", rm.""IsMicOn"", rm.""HasHandRaised"", p.""Gender""
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
@@ -481,10 +519,119 @@ namespace PaLX.API.Services
                     RoleColor = reader.GetString(5),
                     IsCamOn = reader.GetBoolean(6),
                     IsMicOn = reader.GetBoolean(7),
-                    HasHandRaised = reader.GetBoolean(8)
+                    HasHandRaised = reader.GetBoolean(8),
+                    Gender = reader.IsDBNull(9) ? "Unknown" : reader.GetString(9)
                 };
             }
             return null!;
+        }
+
+        public async Task DeleteRoomAsync(int userId, int roomId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+            
+            var checkSql = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                var ownerId = (int?)await cmd.ExecuteScalarAsync();
+                if (ownerId == null) throw new Exception("Room not found");
+                if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
+            }
+
+            var sql = "DELETE FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        public async Task<RoomDto> UpdateRoomAsync(int userId, int roomId, CreateRoomDto dto)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Check Ownership
+            var checkSql = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                var ownerId = (int?)await cmd.ExecuteScalarAsync();
+                if (ownerId == null) throw new Exception("Room not found");
+                if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
+            }
+
+            var sql = @"
+                UPDATE ""Rooms"" 
+                SET ""Name"" = @name, ""Description"" = @desc, ""CategoryId"" = @cat, 
+                    ""MaxUsers"" = @max, ""IsPrivate"" = @priv, ""Password"" = @pass, 
+                    ""Is18Plus"" = @adult, ""SubscriptionLevel"" = @sub
+                WHERE ""Id"" = @rid
+                RETURNING ""Id"", ""CreatedAt"", ""OwnerId""";
+
+            using var updateCmd = new NpgsqlCommand(sql, conn);
+            updateCmd.Parameters.AddWithValue("name", dto.Name);
+            updateCmd.Parameters.AddWithValue("desc", dto.Description);
+            updateCmd.Parameters.AddWithValue("cat", dto.CategoryId);
+            updateCmd.Parameters.AddWithValue("max", dto.MaxUsers);
+            updateCmd.Parameters.AddWithValue("priv", dto.IsPrivate);
+            updateCmd.Parameters.AddWithValue("pass", (object?)dto.Password ?? DBNull.Value);
+            updateCmd.Parameters.AddWithValue("adult", dto.Is18Plus);
+            updateCmd.Parameters.AddWithValue("sub", dto.SubscriptionLevel);
+            updateCmd.Parameters.AddWithValue("rid", roomId);
+
+            using var reader = await updateCmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new RoomDto
+                {
+                    Id = reader.GetInt32(0),
+                    Name = dto.Name,
+                    Description = dto.Description,
+                    CategoryId = dto.CategoryId,
+                    OwnerId = reader.GetInt32(2),
+                    MaxUsers = dto.MaxUsers,
+                    IsPrivate = dto.IsPrivate,
+                    Is18Plus = dto.Is18Plus,
+                    SubscriptionLevel = dto.SubscriptionLevel,
+                    CreatedAt = reader.GetDateTime(1)
+                };
+            }
+            throw new Exception("Failed to update room");
+        }
+
+        public async Task<bool> ToggleRoomVisibilityAsync(int userId, int roomId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Check Ownership
+            var checkSql = "SELECT \"OwnerId\", \"IsActive\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            bool currentStatus = false;
+            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    var ownerId = reader.GetInt32(0);
+                    if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
+                    currentStatus = reader.GetBoolean(1);
+                }
+                else throw new Exception("Room not found");
+            }
+
+            var newStatus = !currentStatus;
+            var sql = "UPDATE \"Rooms\" SET \"IsActive\" = @status WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("status", newStatus);
+                cmd.Parameters.AddWithValue("rid", roomId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            return newStatus;
         }
     }
 }

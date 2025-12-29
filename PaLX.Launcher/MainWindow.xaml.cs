@@ -199,13 +199,26 @@ public partial class MainWindow : Window
 
         // Try to find the executable directly
         // Assuming Debug build for now as per dev environment
-        // Path: PaLX.Client/bin/Debug/net10.0-windows/PaLX.Client.exe
         string exeName = projectName + ".exe";
-        string binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", exeName);
+        
+        // Check win-x64 first (RuntimeIdentifier)
+        string binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", "win-x64", exeName);
+        
+        if (!File.Exists(binPath))
+        {
+             // Standard path
+             binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", exeName);
+        }
 
         if (!File.Exists(binPath))
         {
-            // Fallback to Release if Debug not found
+            // Fallback to Release win-x64
+            binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", "win-x64", exeName);
+        }
+
+        if (!File.Exists(binPath))
+        {
+            // Fallback to Release standard
             binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", exeName);
         }
 

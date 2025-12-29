@@ -16,6 +16,7 @@ namespace PaLX.Admin.Services
         public bool HasHandRaised { get; set; }
         public bool IsCamOn { get; set; }
         public bool IsMicOn { get; set; }
+        public string Gender { get; set; } = "Unknown";
     }
 
     public class RoomMessageDto
@@ -58,8 +59,10 @@ namespace PaLX.Admin.Services
         public int MaxUsers { get; set; }
         public bool IsPrivate { get; set; }
         public bool Is18Plus { get; set; }
+        public bool IsActive { get; set; }
         public int SubscriptionLevel { get; set; }
         public int UserCount { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 
     public class RoomCategoryDto

@@ -47,6 +47,7 @@ namespace PaLX.API.Services
 
             return new AuthResult
             {
+                UserId = user.Id,
                 Token = token,
                 IsProfileComplete = isProfileComplete,
                 Role = user.Role,

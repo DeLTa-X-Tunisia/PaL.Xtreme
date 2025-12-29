@@ -14,6 +14,7 @@ namespace PaLX.Client.Services
         public bool HasHandRaised { get; set; }
         public bool IsCamOn { get; set; }
         public bool IsMicOn { get; set; }
+        public string Gender { get; set; } = "Unknown";
     }
 
     public class RoomMessageDto

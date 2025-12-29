@@ -2,19 +2,37 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using PaLX.Admin.Services;
+using PaLX.Admin.Controls;
+using System.Linq;
 
 namespace PaLX.Admin
 {
     public partial class CreateRoomWindow : Window
     {
         private readonly ApiService _apiService;
+        private readonly RoomViewModel? _roomToEdit;
 
-        public CreateRoomWindow()
+        public CreateRoomWindow(RoomViewModel? roomToEdit = null)
         {
             InitializeComponent();
             _apiService = ApiService.Instance;
+            _roomToEdit = roomToEdit;
             LoadCategories();
-            LevelCombo.SelectedIndex = 0;
+            
+            if (_roomToEdit != null)
+            {
+                Title = "Modifier le salon";
+                CreateButton.Content = "Modifier";
+                RoomNameBox.Text = _roomToEdit.Name;
+                DescriptionBox.Text = _roomToEdit.Description;
+                PrivateCheck.IsChecked = _roomToEdit.IsPrivate;
+                AdultCheck.IsChecked = _roomToEdit.Is18Plus;
+                LevelCombo.SelectedIndex = _roomToEdit.SubscriptionLevel;
+            }
+            else
+            {
+                LevelCombo.SelectedIndex = 0;
+            }
         }
 
         private async void LoadCategories()
@@ -23,7 +41,16 @@ namespace PaLX.Admin
             {
                 var categories = await _apiService.GetRoomCategoriesAsync();
                 CategoryCombo.ItemsSource = categories;
-                if (categories.Count > 0) CategoryCombo.SelectedIndex = 0;
+                
+                if (_roomToEdit != null)
+                {
+                    var cat = categories.FirstOrDefault(c => c.Id == _roomToEdit.CategoryId);
+                    if (cat != null) CategoryCombo.SelectedItem = cat;
+                }
+                else if (categories.Count > 0) 
+                {
+                    CategoryCombo.SelectedIndex = 0;
+                }
             }
             catch (Exception ex)
             {
@@ -87,14 +114,22 @@ namespace PaLX.Admin
 
             try
             {
-                await _apiService.CreateRoomAsync(dto);
-                MessageBox.Show("Salon créé avec succès !");
+                if (_roomToEdit != null)
+                {
+                    await _apiService.UpdateRoomAsync(_roomToEdit.Id, dto);
+                    MessageBox.Show("Salon modifié avec succès !");
+                }
+                else
+                {
+                    await _apiService.CreateRoomAsync(dto);
+                    MessageBox.Show("Salon créé avec succès !");
+                }
                 DialogResult = true;
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur lors de la création: {ex.Message}");
+                MessageBox.Show($"Erreur: {ex.Message}");
             }
         }
     }

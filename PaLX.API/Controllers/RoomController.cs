@@ -46,7 +46,8 @@ namespace PaLX.API.Controllers
         [HttpGet]
         public async Task<IActionResult> GetRooms([FromQuery] int? categoryId)
         {
-            var rooms = await _roomService.GetRoomsAsync(categoryId);
+            var userId = GetUserId();
+            var rooms = await _roomService.GetRoomsAsync(userId, categoryId);
             return Ok(rooms);
         }
 
@@ -102,6 +103,59 @@ namespace PaLX.API.Controllers
         {
             var categories = await _roomService.GetCategoriesAsync();
             return Ok(categories);
+        }
+
+        [HttpDelete("{roomId}")]
+        public async Task<IActionResult> DeleteRoom(int roomId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                await _roomService.DeleteRoomAsync(userId, roomId);
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPut("{roomId}")]
+        public async Task<IActionResult> UpdateRoom(int roomId, [FromBody] CreateRoomDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var room = await _roomService.UpdateRoomAsync(userId, roomId, dto);
+                return Ok(room);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Not owner" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{roomId}/toggle-visibility")]
+        public async Task<IActionResult> ToggleVisibility(int roomId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var isActive = await _roomService.ToggleRoomVisibilityAsync(userId, roomId);
+                return Ok(new { isActive });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Not owner" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 

@@ -22,10 +22,25 @@ namespace PaLX.API.Services
                 CREATE TABLE IF NOT EXISTS ""RoomCategories"" (
                     ""Id"" SERIAL PRIMARY KEY,
                     ""Name"" VARCHAR(100) NOT NULL,
+                    ""Description"" TEXT,
+                    ""Icon"" VARCHAR(100),
                     ""ParentId"" INT DEFAULT 0,
                     ""Order"" INT DEFAULT 0
                 );";
             using (var cmd = new NpgsqlCommand(sqlCategories, conn)) await cmd.ExecuteNonQueryAsync();
+
+            // Add columns if they don't exist (migration for existing DBs)
+            var alterCategories = @"
+                DO $$ 
+                BEGIN 
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='RoomCategories' AND column_name='Description') THEN 
+                        ALTER TABLE ""RoomCategories"" ADD COLUMN ""Description"" TEXT; 
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='RoomCategories' AND column_name='Icon') THEN 
+                        ALTER TABLE ""RoomCategories"" ADD COLUMN ""Icon"" VARCHAR(100); 
+                    END IF;
+                END $$;";
+            using (var cmd = new NpgsqlCommand(alterCategories, conn)) await cmd.ExecuteNonQueryAsync();
 
             // Seed Room Categories if empty
             var checkCategories = "SELECT COUNT(*) FROM \"RoomCategories\"";
@@ -35,15 +50,15 @@ namespace PaLX.API.Services
                 if (count == 0)
                 {
                     var seedCategories = @"
-                        INSERT INTO ""RoomCategories"" (""Name"", ""ParentId"", ""Order"") VALUES
-                        ('Général', 0, 1),
-                        ('Rencontres', 0, 2),
-                        ('Musique', 0, 3),
-                        ('Jeux Vidéo', 0, 4),
-                        ('Cinéma & Séries', 0, 5),
-                        ('Technologie', 0, 6),
-                        ('Sport', 0, 7),
-                        ('Adulte (18+)', 0, 99);
+                        INSERT INTO ""RoomCategories"" (""Name"", ""Description"", ""Icon"", ""ParentId"", ""Order"") VALUES
+                        ('Général', 'Discussions générales', 'chat', 0, 1),
+                        ('Rencontres', 'Faites de nouvelles connaissances', 'heart', 0, 2),
+                        ('Musique', 'Partagez vos goûts musicaux', 'music-note', 0, 3),
+                        ('Jeux Vidéo', 'Discutez gaming et e-sport', 'controller', 0, 4),
+                        ('Cinéma & Séries', 'Vos films et séries préférés', 'movie', 0, 5),
+                        ('Technologie', 'Tech, dev et gadgets', 'cpu', 0, 6),
+                        ('Sport', 'Actualités sportives', 'basketball', 0, 7),
+                        ('Adulte (18+)', 'Contenu réservé aux adultes', 'alert-circle', 0, 99);
                     ";
                     using (var seedCmd = new NpgsqlCommand(seedCategories, conn)) await seedCmd.ExecuteNonQueryAsync();
                 }

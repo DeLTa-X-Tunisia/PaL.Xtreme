@@ -53,7 +53,7 @@
                         </Style>
                     </Button.Resources>
                 </Button>
-                <Button Content="Créer" Width="100" Height="35" Click="Create_Click" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0">
+                <Button x:Name="CreateButton" Content="Créer" Width="100" Height="35" Click="Create_Click" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0">
                     <Button.Resources>
                         <Style TargetType="Border">
                             <Setter Property="CornerRadius" Value="5"/>

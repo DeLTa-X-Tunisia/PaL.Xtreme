@@ -6,26 +6,41 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using PaLX.Admin.Services;
+using PaLX.Admin.Controls;
 
 namespace PaLX.Admin
 {
     public partial class RoomWindow : Window
     {
         private readonly int _roomId;
+        private readonly RoomViewModel _room;
         private readonly ApiService _apiService;
         private DispatcherTimer _speakingTimer; // Local user timer
         private DispatcherTimer _globalTimer;   // All users timer
+        private DispatcherTimer _uptimeTimer;   // Room uptime timer
         private DateTime _speakingStartTime;
 
         public ObservableCollection<RoomMemberViewModel> Members { get; set; } = new ObservableCollection<RoomMemberViewModel>();
         public ObservableCollection<RoomMessageViewModel> Messages { get; set; } = new ObservableCollection<RoomMessageViewModel>();
 
-        public RoomWindow(int roomId, string roomName)
+        public RoomWindow(RoomViewModel room)
         {
             InitializeComponent();
-            _roomId = roomId;
-            RoomNameText.Text = roomName;
+            _room = room;
+            _roomId = room.Id;
             _apiService = ApiService.Instance;
+
+            // Setup Header
+            RoomNameText.Text = room.Name;
+            CategoryText.Text = room.CategoryName;
+            OwnerNameText.Text = room.OwnerName;
+            
+            // Setup Uptime Timer
+            _uptimeTimer = new DispatcherTimer();
+            _uptimeTimer.Interval = TimeSpan.FromSeconds(1);
+            _uptimeTimer.Tick += UptimeTimer_Tick;
+            _uptimeTimer.Start();
+            UptimeTimer_Tick(null, null); // Initial update
 
             MembersList.ItemsSource = Members;
             MessagesList.ItemsSource = Messages;
@@ -62,6 +77,26 @@ namespace PaLX.Admin
             this.Closed += RoomWindow_Closed;
         }
 
+        private void UptimeTimer_Tick(object? sender, EventArgs? e)
+        {
+            var elapsed = DateTime.Now - _room.CreatedAt;
+            if (elapsed.TotalDays >= 1)
+                UptimeText.Text = $"{(int)elapsed.TotalDays}j {elapsed.Hours}h {elapsed.Minutes}m";
+            else
+                UptimeText.Text = elapsed.ToString(@"hh\:mm\:ss");
+        }
+
+        private void UpdateCounts()
+        {
+            int total = Members.Count;
+            int men = Members.Count(m => m.Gender == "Male" || m.Gender == "Homme");
+            int women = Members.Count(m => m.Gender == "Female" || m.Gender == "Femme");
+
+            TotalCountText.Text = total.ToString();
+            MenCountText.Text = men.ToString();
+            WomenCountText.Text = women.ToString();
+        }
+
         private void SpeakingTimer_Tick(object? sender, EventArgs e)
         {
             var elapsed = DateTime.Now - _speakingStartTime;
@@ -88,6 +123,7 @@ namespace PaLX.Admin
         {
             _speakingTimer.Stop();
             _globalTimer.Stop();
+            _uptimeTimer.Stop();
             _apiService.OnRoomMessageReceived -= OnMessageReceived;
             _apiService.OnRoomUserJoined -= OnUserJoined;
             _apiService.OnRoomUserLeft -= OnUserLeft;
@@ -115,6 +151,7 @@ namespace PaLX.Admin
                         _apiService.VoiceService.ConnectToPeer(m.Username);
                     }
                 }
+                UpdateCounts();
             }
             catch (Exception ex)
             {
@@ -128,6 +165,17 @@ namespace PaLX.Admin
             {
                 var messages = await _apiService.GetRoomMessagesAsync(_roomId);
                 Messages.Clear();
+                
+                // Welcome Message
+                Messages.Add(new RoomMessageViewModel
+                {
+                    DisplayName = "Système",
+                    Content = $"Bienvenu dans votre salon {_room.Name}",
+                    Timestamp = DateTime.Now,
+                    MessageType = "System",
+                    RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E90FF")) // DodgerBlue
+                });
+
                 foreach (var m in messages)
                 {
                     Messages.Add(MapMessage(m));
@@ -148,7 +196,8 @@ namespace PaLX.Admin
                 RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
                 IsMicOn = m.IsMicOn,
                 IsCamOn = m.IsCamOn,
-                HasHandRaised = m.HasHandRaised
+                HasHandRaised = m.HasHandRaised,
+                Gender = m.Gender
             };
         }
 
@@ -200,11 +249,7 @@ namespace PaLX.Admin
                 {
                     Members.Add(MapMember(member));
                     AddSystemMessage($"{member.DisplayName} a rejoint le salon.");
-                    
-                    if (member.Username != _apiService.CurrentUsername && _apiService.VoiceService != null)
-                    {
-                        _apiService.VoiceService.ConnectToPeer(member.Username);
-                    }
+                    UpdateCounts();
                 }
             });
         }
@@ -222,6 +267,7 @@ namespace PaLX.Admin
                     }
                     Members.Remove(member);
                     AddSystemMessage($"{member.DisplayName} a quitté le salon.");
+                    UpdateCounts();
                 }
             });
         }
@@ -405,6 +451,7 @@ namespace PaLX.Admin
             set { _speakingTime = value; OnPropertyChanged(nameof(SpeakingTime)); }
         }
 
+        public string Gender { get; set; } = string.Empty;
         public bool CanModerate { get; set; } = true;
 
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;

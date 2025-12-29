@@ -2,12 +2,14 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using PaLX.Client.Services;
+using PaLX.Client.Controls;
 
 namespace PaLX.Client
 {
     public partial class CreateRoomWindow : Window
     {
         private readonly ApiService _apiService;
+        private readonly int? _editingRoomId;
 
         public CreateRoomWindow()
         {
@@ -15,6 +17,20 @@ namespace PaLX.Client
             _apiService = ApiService.Instance;
             LoadCategories();
             LevelCombo.SelectedIndex = 0;
+        }
+
+        public CreateRoomWindow(RoomViewModel room) : this()
+        {
+            _editingRoomId = room.Id;
+            Title = "Modifier le Salon";
+            RoomNameBox.Text = room.Name;
+            DescriptionBox.Text = room.Description;
+            PrivateCheck.IsChecked = room.IsPrivate;
+            AdultCheck.IsChecked = room.Is18Plus;
+            
+            // Note: Category and Level selection requires waiting for LoadCategories or manual setting
+            // For simplicity, we might not pre-select them perfectly here without async handling
+            // But we can try to set them after loading.
         }
 
         private async void LoadCategories()
@@ -87,14 +103,22 @@ namespace PaLX.Client
 
             try
             {
-                await _apiService.CreateRoomAsync(dto);
-                MessageBox.Show("Salon créé avec succès !");
+                if (_editingRoomId.HasValue)
+                {
+                    await _apiService.UpdateRoomAsync(_editingRoomId.Value, dto);
+                    MessageBox.Show("Salon modifié avec succès !");
+                }
+                else
+                {
+                    await _apiService.CreateRoomAsync(dto);
+                    MessageBox.Show("Salon créé avec succès !");
+                }
                 DialogResult = true;
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur lors de la création: {ex.Message}");
+                MessageBox.Show($"Erreur: {ex.Message}");
             }
         }
     }

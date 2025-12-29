@@ -155,6 +155,8 @@ namespace PaLX.Admin
             LoadStatuses();
             Loaded += async (s, e) => 
             {
+                RoomsButton.Visibility = Visibility.Visible;
+                RoomsTab.Visibility = Visibility.Visible;
                 await LoadUserProfileAsync(username);
                 await LoadFriendsAsync();
                 UpdateFriendRequestsCount();

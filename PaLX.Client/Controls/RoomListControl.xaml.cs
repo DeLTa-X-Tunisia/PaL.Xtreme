@@ -62,11 +62,15 @@ namespace PaLX.Client.Controls
                         Name = r.Name,
                         Description = r.Description,
                         CategoryName = r.CategoryName,
+                        OwnerId = r.OwnerId,
+                        OwnerName = r.OwnerName,
                         UserCount = r.UserCount,
                         MaxUsers = r.MaxUsers,
                         IsPrivate = r.IsPrivate,
                         Is18Plus = r.Is18Plus,
-                        SubscriptionLevel = r.SubscriptionLevel
+                        IsActive = r.IsActive,
+                        SubscriptionLevel = r.SubscriptionLevel,
+                        CreatedAt = r.CreatedAt
                     });
                 }
             }
@@ -118,13 +122,61 @@ namespace PaLX.Client.Controls
                 var success = await _apiService.JoinRoomAsync(room.Id, password);
                 if (success)
                 {
-                    var roomWin = new RoomWindow(room.Id, room.Name);
+                    var roomWin = new RoomWindow(room);
                     roomWin.Show();
                 }
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Impossible de rejoindre: {ex.Message}");
+            }
+        }
+
+        private async void DeleteRoom_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is int roomId)
+            {
+                if (MessageBox.Show("Voulez-vous vraiment supprimer ce salon ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        await _apiService.DeleteRoomAsync(roomId);
+                        await RefreshRooms();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Erreur: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        private void EditRoom_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is RoomViewModel room)
+            {
+                var editWin = new CreateRoomWindow(room);
+                if (editWin.ShowDialog() == true)
+                {
+                    LoadData();
+                }
+            }
+        }
+
+        private async void HideRoom_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is RoomViewModel room)
+            {
+                try
+                {
+                    var newState = await _apiService.ToggleRoomVisibilityAsync(room.Id);
+                    MessageBox.Show(newState ? "Salon visible." : "Salon caché.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await RefreshRooms();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur: {ex.Message}");
+                }
             }
         }
     }
@@ -135,13 +187,21 @@ namespace PaLX.Client.Controls
         public string Name { get; set; }
         public string Description { get; set; }
         public string CategoryName { get; set; }
+        public int OwnerId { get; set; }
+        public string OwnerName { get; set; }
         public int UserCount { get; set; }
         public int MaxUsers { get; set; }
         public bool IsPrivate { get; set; }
         public bool Is18Plus { get; set; }
+        public bool IsActive { get; set; }
         public int SubscriptionLevel { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         public bool IsVIP => SubscriptionLevel >= 2; // Example
+        public bool IsOwner => OwnerId == ApiService.Instance.CurrentUserId;
+        public string VisibilityIcon => IsActive ? "👁️" : "🙈";
+        public string VisibilityTooltip => IsActive ? "Cacher le salon" : "Afficher le salon";
+        public double Opacity => IsActive ? 1.0 : 0.5;
 
         public string LevelInitial
         {
