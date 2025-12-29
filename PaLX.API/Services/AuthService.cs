@@ -152,9 +152,10 @@ namespace PaLX.API.Services
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
                 new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.NameIdentifier, user.Username), // SignalR uses this for UserIdentifier
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("RoleLevel", user.RoleLevel.ToString()),
-                new Claim("UserId", user.Id.ToString())
+                new Claim("UserId", user.Id.ToString()) // Custom claim for API Controllers
             };
 
             var token = new JwtSecurityToken(

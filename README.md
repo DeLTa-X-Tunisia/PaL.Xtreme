@@ -37,7 +37,18 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Visibilité** : Ajustement des marges (padding) pour éviter que le dernier message ne soit coupé.
     *   **Interactivité** : Correction complète des boutons "Accepter / Refuser" pour tous les types de fichiers dans l'interface Admin, avec synchronisation temps réel.
 
-### 🛠️ Correctifs & Optimisations
+### � Chat Rooms : Parité Admin & Audio (Mise à jour Majeure)
+*   **Synchronisation Admin** :
+    *   **Correction Temps Réel** : L'interface Admin reçoit désormais les événements `UserJoinedRoom` avec les données complètes (`RoomMemberDto`), éliminant le délai de synchronisation et les utilisateurs invisibles.
+    *   **Parité Fonctionnelle** : Alignement total de la logique de gestion des membres entre le Client et l'Admin.
+*   **Audio Mesh P2P** :
+    *   **Support Multi-Peer** : Implémentation de la topologie Mesh WebRTC dans l'Admin (`VoiceCallService`), permettant aux administrateurs de participer pleinement aux conversations vocales de groupe.
+    *   **Stabilité** : Gestion robuste des connexions multiples simultanées.
+*   **Gestion du Micro** :
+    *   **Mute par Défaut** : Pour éviter les bruits parasites, le microphone est désormais **désactivé par défaut** à l'entrée d'une room (Client & Admin).
+    *   **Contrôle Admin** : Le bouton de micro de l'interface Admin contrôle désormais correctement le flux audio réel.
+
+### �🛠️ Correctifs & Optimisations
 *   **Admin Chat Fixes** :
     *   **Smileys** : Correction de l'affichage des smileys dans l'interface Admin (décodage correct des balises `[smiley:...]`).
     *   **Transfert de Fichiers** : Réparation des boutons "Accepter" et "Refuser" pour les images, vidéos et fichiers dans le chat Admin.

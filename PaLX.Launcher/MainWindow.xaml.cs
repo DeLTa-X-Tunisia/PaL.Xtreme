@@ -197,6 +197,37 @@ public partial class MainWindow : Window
         var root = GetSolutionRoot();
         var projectPath = Path.Combine(root, projectName);
 
+        // Try to find the executable directly
+        // Assuming Debug build for now as per dev environment
+        // Path: PaLX.Client/bin/Debug/net10.0-windows/PaLX.Client.exe
+        string exeName = projectName + ".exe";
+        string binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", exeName);
+
+        if (!File.Exists(binPath))
+        {
+            // Fallback to Release if Debug not found
+            binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", exeName);
+        }
+
+        if (File.Exists(binPath))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = binPath,
+                    WorkingDirectory = Path.GetDirectoryName(binPath),
+                    UseShellExecute = true 
+                });
+                return;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erreur lancement EXE : {ex.Message}");
+            }
+        }
+
+        // Fallback to dotnet run if EXE not found
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",

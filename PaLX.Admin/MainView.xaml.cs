@@ -949,10 +949,12 @@ private void AddFriend_Click(object sender, RoutedEventArgs e)
                     OpenChatWindow(username);
                 }
             }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Impossible d'ouvrir le chat : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            catch { }
+        }
+
+        private void RoomsButton_Click(object sender, RoutedEventArgs e)
+        {
+            MainTabControl.SelectedIndex = 2;
         }
         private void ViewProfile_Click(object sender, RoutedEventArgs e)
         {

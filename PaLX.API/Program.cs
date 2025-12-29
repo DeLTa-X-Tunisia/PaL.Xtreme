@@ -10,6 +10,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddOpenApi();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<DatabaseInitializer>();
+builder.Services.AddScoped<IRoomService, RoomService>();
+builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing.");
@@ -42,7 +46,7 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+            if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/chatHub") || path.StartsWithSegments("/roomHub")))
             {
                 context.Token = accessToken;
             }
@@ -57,6 +61,13 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddHostedService<StartupService>();
 
 var app = builder.Build();
+
+// Initialize Database
+using (var scope = app.Services.CreateScope())
+{
+    var dbInit = scope.ServiceProvider.GetRequiredService<DatabaseInitializer>();
+    await dbInit.InitializeAsync();
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -73,5 +84,6 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
+app.MapHub<RoomHub>("/roomHub");
 
 app.Run();

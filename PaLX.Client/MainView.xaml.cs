@@ -1018,6 +1018,13 @@ namespace PaLX.Client
                 _addFriendWindow.Activate();
             }
         }
+
+        private void RoomsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Logic to check subscription could go here
+            // For now, we allow access
+            MainTabControl.SelectedIndex = 2;
+        }
     }
 
     public class StatusItem

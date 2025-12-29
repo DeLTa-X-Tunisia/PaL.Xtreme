@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:controls="clr-namespace:PaLX.Admin.Controls"
         mc:Ignorable="d"
         Title="PaL.Xtreme Admin" Height="700" Width="380"
         WindowStartupLocation="CenterScreen"
@@ -92,7 +93,7 @@
         </Border>
 
         <!-- Main Content -->
-        <TabControl Grid.Row="2" Margin="0,10" BorderThickness="0" Background="Transparent">
+        <TabControl x:Name="MainTabControl" Grid.Row="2" Margin="0,10" BorderThickness="0" Background="Transparent">
             <TabControl.Resources>
                 <Style TargetType="TabItem">
                     <Setter Property="Template">
@@ -276,12 +277,18 @@
                     </ListView.ItemTemplate>
                 </ListView>
             </TabItem>
+
+            <!-- Tab 3: Salons -->
+            <TabItem Header="Salons">
+                <controls:RoomListControl Margin="0,10"/>
+            </TabItem>
         </TabControl>
 
         <!-- Bottom Bar -->
         <Border Grid.Row="3" Background="White" Padding="10" BorderBrush="#ecf0f1" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
@@ -318,18 +325,23 @@
                      </Grid>
                 </Button>
 
+                <!-- Salons (Chat Rooms) -->
+                <Button Grid.Column="2" x:Name="RoomsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Salons de discussion" Click="RoomsButton_Click">
+                    <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource TextBrush}"/>
+                </Button>
+
                 <!-- Add Friend -->
-                <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
+                <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
                     <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
                 </Button>
 
                 <!-- Blocked Users -->
-                <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" ToolTip="Utilisateurs bloqués" Click="BlockedUsers_Click">
+                <Button Grid.Column="4" Style="{StaticResource IconButtonStyle}" ToolTip="Utilisateurs bloqués" Click="BlockedUsers_Click">
                     <TextBlock Text="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#e74c3c"/>
                 </Button>
 
                 <!-- Logout -->
-                <Button Grid.Column="4" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
+                <Button Grid.Column="5" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
                     <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
                 </Button>
             </Grid>

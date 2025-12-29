@@ -17,6 +17,7 @@ namespace PaLX.Client.Services
         private HubConnection _hubConnection;
         private AudioTrackSource _audioSource;
         private bool _isCallActive = false;
+        private bool _isMuted = false;
         private SemaphoreSlim _audioLock = new SemaphoreSlim(1, 1);
         
         public event Action<string> OnCallEnded;
@@ -210,6 +211,7 @@ namespace PaLX.Client.Services
                     }
                     // Create a NEW track for THIS connection
                     localTrack = LocalAudioTrack.CreateFromSource(_audioSource, new LocalAudioTrackInitConfig { });
+                    localTrack.Enabled = !_isMuted;
                     _localAudioTracks.TryAdd(remoteUser, localTrack);
                 }
                 finally
@@ -311,12 +313,32 @@ namespace PaLX.Client.Services
             }
         }
         
-        public void ToggleMute(bool isMuted)
+        public async Task ConnectToPeer(string username)
         {
+            if (_peerConnections.ContainsKey(username)) return;
+            
+            _isCallActive = true; 
+            await InitializePeerConnection(username, true);
+            if (_peerConnections.TryGetValue(username, out var pc))
+            {
+                pc.CreateOffer();
+            }
+        }
+
+        public void DisconnectPeer(string username)
+        {
+            EndCall(username, false);
+        }
+
+        public void SetMute(bool isMuted)
+        {
+            _isMuted = isMuted;
             foreach (var track in _localAudioTracks.Values)
             {
                 track.Enabled = !isMuted;
             }
         }
+
+        public void ToggleMute(bool isMuted) => SetMute(isMuted);
     }
 }

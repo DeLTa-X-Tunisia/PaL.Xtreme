@@ -15,9 +15,11 @@ namespace PaLX.Admin.Services
 
         private readonly HttpClient _httpClient;
         private HubConnection? _hubConnection;
+        private HubConnection? _roomHubConnection;
         private string _authToken = string.Empty;
         public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
 
+        public string CurrentUsername { get; private set; } = string.Empty;
         public int CurrentUserRoleLevel { get; private set; } = 7; // Default to User
 
         public event Action<string, string>? OnMessageReceived;
@@ -28,6 +30,12 @@ namespace PaLX.Admin.Services
         public event Action<string, string>? OnUserStatusChanged;
         public event Action<string>? OnChatCleared;
         public event Action<string>? OnPartnerLeft;
+
+        // Room Events
+        public event Action<RoomMessageDto>? OnRoomMessageReceived;
+        public event Action<RoomMemberDto>? OnRoomUserJoined;
+        public event Action<int>? OnRoomUserLeft;
+        public event Action<int, bool?, bool?, bool?>? OnRoomMemberStatusUpdated;
 
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
@@ -84,6 +92,7 @@ namespace PaLX.Admin.Services
                     if (result != null && !string.IsNullOrEmpty(result.Token))
                     {
                         _authToken = result.Token;
+                        CurrentUsername = username;
                         CurrentUserRoleLevel = result.RoleLevel;
                         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
                         return (result, false);
@@ -505,6 +514,37 @@ namespace PaLX.Admin.Services
             try
             {
                 await _hubConnection.StartAsync();
+
+                // --- Room Hub ---
+                _roomHubConnection = new HubConnectionBuilder()
+                    .WithUrl($"{BaseUrl}/roomHub", options =>
+                    {
+                        options.AccessTokenProvider = () => Task.FromResult<string?>(_authToken);
+                    })
+                    .WithAutomaticReconnect()
+                    .Build();
+
+                _roomHubConnection.On<RoomMessageDto>("ReceiveRoomMessage", (msg) =>
+                {
+                    OnRoomMessageReceived?.Invoke(msg);
+                });
+
+                _roomHubConnection.On<RoomMemberDto>("UserJoinedRoom", (member) =>
+                {
+                    OnRoomUserJoined?.Invoke(member);
+                });
+
+                _roomHubConnection.On<int>("UserLeftRoom", (userId) =>
+                {
+                    OnRoomUserLeft?.Invoke(userId);
+                });
+
+                _roomHubConnection.On<int, bool?, bool?, bool?>("MemberStatusUpdated", (userId, isCamOn, isMicOn, isAdmin) =>
+                {
+                    OnRoomMemberStatusUpdated?.Invoke(userId, isCamOn, isMicOn, isAdmin);
+                });
+
+                await _roomHubConnection.StartAsync();
             }
             catch (Exception ex)
             {
@@ -708,6 +748,110 @@ namespace PaLX.Admin.Services
             {
                 await _hubConnection.InvokeAsync("RespondToFileRequest", fileId, isAccepted);
             }
+        }
+
+        // --- Room Methods ---
+
+        public async Task<List<RoomDto>> GetRoomsAsync(int? categoryId = null)
+        {
+            var url = "api/room";
+            if (categoryId.HasValue) url += $"?categoryId={categoryId}";
+            return await _httpClient.GetFromJsonAsync<List<RoomDto>>(url) ?? new List<RoomDto>();
+        }
+
+        public async Task<List<RoomCategoryDto>> GetRoomCategoriesAsync()
+        {
+            return await _httpClient.GetFromJsonAsync<List<RoomCategoryDto>>("api/room/categories") ?? new List<RoomCategoryDto>();
+        }
+
+        public async Task<RoomDto?> CreateRoomAsync(CreateRoomDto dto)
+        {
+            var response = await _httpClient.PostAsJsonAsync("api/room", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<RoomDto>();
+            }
+            var error = await response.Content.ReadAsStringAsync();
+            throw new Exception(error);
+        }
+
+        public async Task<bool> JoinRoomAsync(int roomId, string? password)
+        {
+            var dto = new JoinRoomDto { Password = password };
+            var response = await _httpClient.PostAsJsonAsync($"api/room/{roomId}/join", dto);
+            if (response.IsSuccessStatusCode) return true;
+            
+            var error = await response.Content.ReadAsStringAsync();
+            throw new Exception(error);
+        }
+
+        public async Task JoinRoomGroupAsync(int roomId)
+        {
+            if (_roomHubConnection != null && _roomHubConnection.State == HubConnectionState.Connected)
+            {
+                await _roomHubConnection.InvokeAsync("JoinRoomGroup", roomId);
+            }
+        }
+
+        public async Task LeaveRoomGroupAsync(int roomId)
+        {
+            if (_roomHubConnection != null && _roomHubConnection.State == HubConnectionState.Connected)
+            {
+                await _roomHubConnection.InvokeAsync("LeaveRoomGroup", roomId);
+            }
+        }
+
+        public async Task<List<RoomMemberDto>> GetRoomMembersAsync(int roomId)
+        {
+            return await _httpClient.GetFromJsonAsync<List<RoomMemberDto>>($"api/room/{roomId}/members") ?? new List<RoomMemberDto>();
+        }
+
+        public async Task<List<RoomMessageDto>> GetRoomMessagesAsync(int roomId, int limit = 50)
+        {
+            return await _httpClient.GetFromJsonAsync<List<RoomMessageDto>>($"api/room/{roomId}/messages?limit={limit}") ?? new List<RoomMessageDto>();
+        }
+
+        public async Task SendRoomMessageAsync(int roomId, string content, string type = "Text", string? attachmentUrl = null)
+        {
+            var dto = new SendMessageDto { Content = content, Type = type, AttachmentUrl = attachmentUrl };
+            await _httpClient.PostAsJsonAsync($"api/room/{roomId}/messages", dto);
+        }
+
+        public async Task UpdateRoomStatusAsync(int roomId, bool? isCamOn, bool? isMicOn, bool? hasHandRaised)
+        {
+            var dto = new UpdateStatusDto { IsCamOn = isCamOn, IsMicOn = isMicOn, HasHandRaised = hasHandRaised };
+            await _httpClient.PutAsJsonAsync($"api/room/{roomId}/status", dto);
+        }
+
+        public async Task LeaveRoomAsync(int roomId)
+        {
+            await _httpClient.PostAsync($"api/room/{roomId}/leave", null);
+            await LeaveRoomGroupAsync(roomId);
+        }
+
+        public async Task KickUserAsync(int roomId, int userId)
+        {
+            await _httpClient.PostAsync($"api/room/{roomId}/kick/{userId}", null);
+        }
+
+        public async Task BanUserAsync(int roomId, int userId)
+        {
+            await _httpClient.PostAsync($"api/room/{roomId}/ban/{userId}", null);
+        }
+
+        public async Task MuteUserAsync(int roomId, int userId, int durationMinutes)
+        {
+             await _httpClient.PostAsync($"api/room/{roomId}/mute/{userId}?duration={durationMinutes}", null);
+        }
+
+        public async Task UnmuteUserAsync(int roomId, int userId)
+        {
+             await _httpClient.PostAsync($"api/room/{roomId}/unmute/{userId}", null);
+        }
+
+        public async Task DeleteRoomAsync(int roomId)
+        {
+             await _httpClient.DeleteAsync($"api/room/{roomId}");
         }
 
         public async Task DisconnectAsync()
