@@ -14,5 +14,12 @@ public partial class App : Application
         base.OnStartup(e);
         // DatabaseService removed - API First
     }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        base.OnExit(e);
+        // Force kill process to ensure no background threads (like WebRTC) keep it alive
+        System.Diagnostics.Process.GetCurrentProcess().Kill();
+    }
 }
 

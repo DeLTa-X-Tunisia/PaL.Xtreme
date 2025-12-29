@@ -20,6 +20,7 @@ namespace PaLX.Admin.Services
         public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
 
         public string CurrentUsername { get; private set; } = string.Empty;
+        public int CurrentUserId { get; private set; }
         public int CurrentUserRoleLevel { get; private set; } = 7; // Default to User
 
         public event Action<string, string>? OnMessageReceived;
@@ -93,6 +94,7 @@ namespace PaLX.Admin.Services
                     {
                         _authToken = result.Token;
                         CurrentUsername = username;
+                        CurrentUserId = result.UserId;
                         CurrentUserRoleLevel = result.RoleLevel;
                         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
                         return (result, false);
@@ -524,17 +526,17 @@ namespace PaLX.Admin.Services
                     .WithAutomaticReconnect()
                     .Build();
 
-                _roomHubConnection.On<RoomMessageDto>("ReceiveRoomMessage", (msg) =>
+                _roomHubConnection.On<RoomMessageDto>("ReceiveMessage", (msg) =>
                 {
                     OnRoomMessageReceived?.Invoke(msg);
                 });
 
-                _roomHubConnection.On<RoomMemberDto>("UserJoinedRoom", (member) =>
+                _roomHubConnection.On<RoomMemberDto>("UserJoined", (member) =>
                 {
                     OnRoomUserJoined?.Invoke(member);
                 });
 
-                _roomHubConnection.On<int>("UserLeftRoom", (userId) =>
+                _roomHubConnection.On<int>("UserLeft", (userId) =>
                 {
                     OnRoomUserLeft?.Invoke(userId);
                 });
@@ -775,6 +777,17 @@ namespace PaLX.Admin.Services
             throw new Exception(error);
         }
 
+        public async Task<RoomDto?> UpdateRoomAsync(int roomId, CreateRoomDto dto)
+        {
+            var response = await _httpClient.PutAsJsonAsync($"api/room/{roomId}", dto);
+            if (response.IsSuccessStatusCode)
+            {
+                return await response.Content.ReadFromJsonAsync<RoomDto>();
+            }
+            var error = await response.Content.ReadAsStringAsync();
+            throw new Exception(error);
+        }
+
         public async Task<bool> JoinRoomAsync(int roomId, string? password)
         {
             var dto = new JoinRoomDto { Password = password };
@@ -854,9 +867,42 @@ namespace PaLX.Admin.Services
              await _httpClient.DeleteAsync($"api/room/{roomId}");
         }
 
+        public async Task<bool> ToggleRoomVisibilityAsync(int roomId)
+        {
+            var response = await _httpClient.PostAsync($"api/room/{roomId}/toggle-visibility", null);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                return result.GetProperty("isActive").GetBoolean();
+            }
+            throw new Exception("Failed to toggle visibility");
+        }
+
         public async Task DisconnectAsync()
         {
             _isIntentionalDisconnect = true;
+            
+            if (VoiceService != null)
+            {
+                VoiceService.Dispose();
+                VoiceService = null;
+            }
+
+            if (_roomHubConnection != null)
+            {
+                try
+                {
+                    await _roomHubConnection.StopAsync();
+                }
+                catch { }
+                try
+                {
+                    await _roomHubConnection.DisposeAsync();
+                }
+                catch { }
+                _roomHubConnection = null;
+            }
+
             if (_hubConnection != null)
             {
                 try
@@ -879,6 +925,7 @@ namespace PaLX.Admin.Services
     public class AuthResponse
     {
         public string Token { get; set; } = string.Empty;
+        public int UserId { get; set; }
         public bool IsProfileComplete { get; set; }
         public string Role { get; set; } = string.Empty;
         public int RoleLevel { get; set; }

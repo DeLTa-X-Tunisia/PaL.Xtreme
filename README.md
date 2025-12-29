@@ -15,7 +15,16 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 🛡️ Gestion Avancée du Statut "Ne pas déranger" (DND)
+### �️ Administration & Stabilité (Dernière Mise à Jour)
+*   **Gestion des Salons (Admin)** :
+    *   **Parité Fonctionnelle** : Ajout des boutons "Éditer", "Masquer" et "Supprimer" dans la liste des salons de l'interface Admin, alignant les capacités de gestion sur celles du Client.
+    *   **Contrôle Propriétaire** : Ces options sont dynamiquement visibles uniquement pour le créateur du salon.
+*   **Stabilité du Processus** :
+    *   **Correction "Zombie Process"** : Résolution critique du bug où le processus `PaLX.Admin` restait actif après la fermeture de la fenêtre.
+    *   **Nettoyage des Ressources** : Implémentation rigoureuse du pattern `IDisposable` dans le service vocal (`VoiceCallService`) pour libérer correctement les threads WebRTC et les connexions SignalR à la fermeture.
+    *   **Arrêt Forcé** : Sécurité supplémentaire garantissant l'arrêt complet de l'application lors de la sortie.
+
+### �🛡️ Gestion Avancée du Statut "Ne pas déranger" (DND)
 *   **Matrice de Rôles Stricte** : Implémentation d'une logique de permission hiérarchique pour le statut DND.
     *   Un utilisateur en mode DND bloque par défaut tous les messages entrants.
     *   **Exception Hiérarchique** : Un utilisateur peut contourner le blocage DND d'un autre utilisateur **uniquement** si son rôle est supérieur ou égal (ex: ServerMaster peut écrire à tout le monde, ServerAdmin peut écrire aux utilisateurs mais pas aux SuperAdmins en DND).

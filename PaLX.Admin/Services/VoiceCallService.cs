@@ -310,5 +310,30 @@ namespace PaLX.Admin.Services
         }
 
         public void ToggleMute(bool isMuted) => SetMute(isMuted);
+
+        public void Dispose()
+        {
+            try
+            {
+                foreach (var pc in _peerConnections.Values)
+                {
+                    pc.Close();
+                    pc.Dispose();
+                }
+                _peerConnections.Clear();
+
+                foreach (var track in _localAudioTracks.Values)
+                {
+                    track.Dispose();
+                }
+                _localAudioTracks.Clear();
+
+                _audioSource?.Dispose();
+                _audioSource = null;
+                
+                _audioLock?.Dispose();
+            }
+            catch { }
+        }
     }
 }
