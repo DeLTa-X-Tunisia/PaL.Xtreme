@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
@@ -10,8 +11,8 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Text;
 using System.Net.Http;
-using Microsoft.Web.WebView2.Core;
 using PaLX.Client.Services;
+using PaLX.Client.Models;
 
 namespace PaLX.Client
 {
@@ -23,6 +24,7 @@ namespace PaLX.Client
         private DateTime _lastTypingSent = DateTime.MinValue;
         private System.Media.SoundPlayer? _messageSound;
         private MediaPlayer _buzzPlayer = new MediaPlayer();
+        private MediaPlayer _audioPlayer = new MediaPlayer();
         private bool _isBlocked = false;
         private bool _isBlockedByPartner = false;
         private int _lastMessageId = 0;
@@ -39,6 +41,13 @@ namespace PaLX.Client
 
         // Voice Call
         private VoiceCallService _voiceService;
+
+        // WPF Native Messages Collection
+        private ObservableCollection<ChatMessageItem> _messages = new ObservableCollection<ChatMessageItem>();
+        private ChatMessageItem? _currentlyPlayingAudio = null;
+        private bool _hasMoreMessages = false;
+        private int _currentPage = 0;
+        private const int PageSize = 50;
 
         public ChatWindow(string currentUser, string partnerUser)
         {
@@ -93,7 +102,7 @@ namespace PaLX.Client
             }
             catch { }
 
-            InitializeWebView();
+            // History will be loaded in Loaded event after LoadPartnerInfo()
             
             // Subscribe to Typing
             ApiService.Instance.OnUserTyping += OnUserTyping;
@@ -111,8 +120,9 @@ namespace PaLX.Client
             // Initial Load
             Loaded += async (s, e) => 
             {
+                await LoadPartnerInfo();  // Load partner info FIRST
+                await LoadHistoryAsync(); // Then load history (uses PartnerName.Text)
                 await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
-                await LoadPartnerInfo();
                 await CheckBlockStatusAsync();
                 CheckBuzzAvailability();
                 UpdateDndState();
@@ -121,6 +131,7 @@ namespace PaLX.Client
             Closing += async (s, e) =>
             {
                 try { _audioRecorder.CancelRecording(); } catch { }
+                try { _audioPlayer.Stop(); } catch { }
                 await ApiService.Instance.LeaveChatAsync(_partnerUser);
                 ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
                 ApiService.Instance.OnAudioListened -= OnAudioListened;
@@ -134,6 +145,9 @@ namespace PaLX.Client
                 ApiService.Instance.OnChatCleared -= OnChatCleared;
                 ApiService.Instance.OnPartnerLeft -= OnPartnerLeft;
             };
+            
+            // Initialize WPF native messages
+            MessagesListBox.ItemsSource = _messages;
         }
 
         private void OnIncomingCall(string sender)
@@ -167,13 +181,13 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    // Play Sound
                     try { _messageSound?.Play(); } catch { }
-                    
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addFileRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : sender;
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, senderDisplayName, false, filename, url, "Image", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.Image;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -184,10 +198,11 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addFileRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, _currentUserDisplayName, true, filename, url, "Image", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.Image;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -196,32 +211,23 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                // Determine if it's mine or theirs based on context? 
-                // Actually the JS function handles updating the UI regardless of who owns it if we pass the right flag
-                // But here we don't know easily if it's mine or theirs without tracking.
-                // However, the UI update logic in JS is split by ID.
-                // Let's try to update both sides just in case, or rely on the fact that the ID is unique.
-                // Wait, the JS `updateFileStatus` needs `isMine`.
-                // We can infer `isMine` if we track pending requests, but for simplicity:
-                // We will try to update assuming it might be either.
-                // Actually, the simplest way is to check if the element exists in DOM as mine or theirs.
-                // But we can't check DOM easily.
-                // Let's just pass a flag to JS to try updating both.
-                
-                // Better approach: The JS function `updateFileStatus` takes `isMine`.
-                // We can just call it twice or modify JS to find the element.
-                // Let's modify JS to find element by ID `file-{id}` and check class.
-                
-                // For now, let's assume we can just call a smart JS function.
-                // I'll update the JS to be smarter in the InitializeWebView method.
-                // But since I already wrote the JS, let's see.
-                // The JS `updateFileStatus` takes `isMine`.
-                // I will call it with true AND false, one will work.
-                
-                string script1 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, true);";
-                string script2 = $"updateFileStatus({id}, {isAccepted.ToString().ToLower()}, false);";
-                ChatWebView.ExecuteScriptAsync(script1);
-                ChatWebView.ExecuteScriptAsync(script2);
+                var msg = _messages.FirstOrDefault(m => m.TransferId == id);
+                if (msg != null)
+                {
+                    msg.TransferStatus = isAccepted ? TransferStatus.Accepted : TransferStatus.Declined;
+                    if (isAccepted && !string.IsNullOrEmpty(url))
+                    {
+                        msg.ImageUrl = url;
+                    }
+                    
+                    // Force template refresh by removing and re-adding the item
+                    int index = _messages.IndexOf(msg);
+                    if (index >= 0)
+                    {
+                        _messages.RemoveAt(index);
+                        _messages.Insert(index, msg);
+                    }
+                }
             });
         }
 
@@ -232,10 +238,13 @@ namespace PaLX.Client
                 Dispatcher.Invoke(() =>
                 {
                     try { _messageSound?.Play(); } catch { }
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addVideoRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : sender;
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, senderDisplayName, false, filename, url, "Video", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.Video;
+                    msg.VideoUrl = url;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -246,10 +255,12 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addVideoRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, _currentUserDisplayName, true, filename, url, "Video", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.Video;
+                    msg.VideoUrl = url;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -258,10 +269,23 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                string script1 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, true);";
-                string script2 = $"updateVideoStatus({id}, {isAccepted.ToString().ToLower()}, false);";
-                ChatWebView.ExecuteScriptAsync(script1);
-                ChatWebView.ExecuteScriptAsync(script2);
+                var msg = _messages.FirstOrDefault(m => m.TransferId == id);
+                if (msg != null)
+                {
+                    msg.TransferStatus = isAccepted ? TransferStatus.Accepted : TransferStatus.Declined;
+                    if (isAccepted && !string.IsNullOrEmpty(url))
+                    {
+                        msg.VideoUrl = url;
+                    }
+                    
+                    // Force template refresh by removing and re-adding the item
+                    int index = _messages.IndexOf(msg);
+                    if (index >= 0)
+                    {
+                        _messages.RemoveAt(index);
+                        _messages.Insert(index, msg);
+                    }
+                }
             });
         }
 
@@ -272,10 +296,13 @@ namespace PaLX.Client
                 Dispatcher.Invoke(() =>
                 {
                     try { _messageSound?.Play(); } catch { }
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addAudioRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : sender;
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, senderDisplayName, false, filename, url, "Audio", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.AudioFile;  // Use AudioFile for transferred audio
+                    msg.AudioUrl = url;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -286,10 +313,12 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addAudioRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, _currentUserDisplayName, true, filename, url, "Audio", TransferStatus.Pending, DateTime.Now);
+                    msg.Type = ChatMessageType.AudioFile;  // Use AudioFile for transferred audio
+                    msg.AudioUrl = url;
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -298,10 +327,23 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                string script1 = $"updateAudioStatus({id}, {isAccepted.ToString().ToLower()}, true);";
-                string script2 = $"updateAudioStatus({id}, {isAccepted.ToString().ToLower()}, false);";
-                ChatWebView.ExecuteScriptAsync(script1);
-                ChatWebView.ExecuteScriptAsync(script2);
+                var msg = _messages.FirstOrDefault(m => m.TransferId == id);
+                if (msg != null)
+                {
+                    msg.TransferStatus = isAccepted ? TransferStatus.Accepted : TransferStatus.Declined;
+                    if (isAccepted && !string.IsNullOrEmpty(url))
+                    {
+                        msg.AudioUrl = url;
+                    }
+                    
+                    // Force template refresh by removing and re-adding the item
+                    int index = _messages.IndexOf(msg);
+                    if (index >= 0)
+                    {
+                        _messages.RemoveAt(index);
+                        _messages.Insert(index, msg);
+                    }
+                }
             });
         }
 
@@ -312,10 +354,11 @@ namespace PaLX.Client
                 Dispatcher.Invoke(() =>
                 {
                     try { _messageSound?.Play(); } catch { }
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addGenericFileRequest({id}, '{sender}', '{safeFilename}', '{safeUrl}', false);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : sender;
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, senderDisplayName, false, filename, url, "Fichier", TransferStatus.Pending, DateTime.Now);
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -326,10 +369,10 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string safeFilename = filename.Replace("\\", "\\\\").Replace("'", "\\'");
-                    string script = $"addGenericFileRequest({id}, '{_currentUser}', '{safeFilename}', '{safeUrl}', true);";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    var msg = ChatMessageItem.CreateFileTransfer(
+                        id, _currentUserDisplayName, true, filename, url, "Fichier", TransferStatus.Pending, DateTime.Now);
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -338,10 +381,11 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                string script1 = $"updateGenericFileStatus({id}, {isAccepted.ToString().ToLower()}, true);";
-                string script2 = $"updateGenericFileStatus({id}, {isAccepted.ToString().ToLower()}, false);";
-                ChatWebView.ExecuteScriptAsync(script1);
-                ChatWebView.ExecuteScriptAsync(script2);
+                var msg = _messages.FirstOrDefault(m => m.TransferId == id);
+                if (msg != null)
+                {
+                    msg.TransferStatus = isAccepted ? TransferStatus.Accepted : TransferStatus.Declined;
+                }
             });
         }
 
@@ -352,11 +396,9 @@ namespace PaLX.Client
                 Dispatcher.Invoke(() => 
                 {
                     PartnerStatus.Text = status;
-                    // Update online status tracking
                     _isPartnerOnline = status == "En ligne";
                     CheckBuzzAvailability();
 
-                    // Update partner status int for DND logic
                     _partnerStatus = status switch
                     {
                         "En ligne" => 0,
@@ -368,32 +410,26 @@ namespace PaLX.Client
                     };
                     UpdateDndState();
 
-                    // Add status message to chat
-                    string cssClass = "status-offline";
-                    string displayName = PartnerName.Text; // Use Display Name
+                    // Add status message to chat with status-appropriate color
+                    string displayName = PartnerName.Text;
                     string message = $"Ton ami {displayName} est passé en {status}";
 
-                    switch (status)
-                    {
-                        case "En ligne": 
-                            cssClass = "status-online"; 
-                            message = $"Ton ami {displayName} est de retour En ligne";
-                            break;
-                        case "Occupé": 
-                        case "En appel":
-                        case "Ne pas déranger":
-                            cssClass = "status-busy"; 
-                            break;
-                        case "Absent": 
-                            cssClass = "status-away"; 
-                            break;
-                        default: // Hors ligne
-                            cssClass = "status-offline"; 
-                            break;
-                    }
+                    if (status == "En ligne")
+                        message = $"Ton ami {displayName} est de retour En ligne";
 
-                    string script = $"addStatusMessage('{message}', '{cssClass}');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string statusClass = status switch
+                    {
+                        "En ligne" => "status-online",
+                        "Occupé" => "status-busy",
+                        "Absent" => "status-away",
+                        "En appel" => "status-call",
+                        "Ne pas déranger" => "status-dnd",
+                        _ => "status-offline"
+                    };
+
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(message, statusClass);
+                    _messages.Add(statusMsg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -413,10 +449,11 @@ namespace PaLX.Client
             // Play sound locally
             PlayBuzzSound();
 
-            // Show message locally (Blue)
+            // Show message locally
             string msg = "======== Vous avez envoyé un BUZZ à " + PartnerName.Text + " ========";
-            string script = $"addStatusMessage('{msg}', 'status-buzz-sent');"; // Need CSS for this
-            await ChatWebView.ExecuteScriptAsync(script);
+            var buzzMsg = ChatMessageItem.CreateBuzzMessage(msg, true, DateTime.Now);
+            _messages.Add(buzzMsg);
+            ScrollToBottom();
 
             // Send to partner
             await ApiService.Instance.SendBuzzAsync(_partnerUser);
@@ -440,11 +477,12 @@ namespace PaLX.Client
                 // Play Sound
                 PlayBuzzSound();
 
-                // Show message (Orange)
+                // Show message
                 string name = string.IsNullOrEmpty(PartnerName.Text) ? _partnerUser : PartnerName.Text;
                 string msg = $"======== {name} vous a envoyé un BUZZ ========";
-                string script = $"addStatusMessage('{msg}', 'status-buzz-received');";
-                ChatWebView.ExecuteScriptAsync(script);
+                var buzzMsg = ChatMessageItem.CreateBuzzMessage(msg, false, DateTime.Now);
+                _messages.Add(buzzMsg);
+                ScrollToBottom();
             });
         }
 
@@ -452,7 +490,7 @@ namespace PaLX.Client
         {
             try
             {
-                string soundPath = @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\doorbell_1.mp3";
+                string soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Sounds", "doorbell.mp3");
                 if (System.IO.File.Exists(soundPath))
                 {
                     _buzzPlayer.Open(new Uri(soundPath));
@@ -498,14 +536,10 @@ namespace PaLX.Client
                     _isBlocked = true;
                     UpdateBlockUi();
 
-                    string html = $@"
-                        <div style='font-size: 20px;'>🔒</div>
-                        <div>
-                            <div style='font-size: 14px;'>Vous avez bloqué {PartnerName.Text}</div>
-                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Blocage permanent • {DateTime.Now:HH:mm}</div>
-                        </div>";
-                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-blocked');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string text = $"🔒 Vous avez bloqué {PartnerName.Text} • Blocage permanent • {DateTime.Now:HH:mm}";
+                    var blockMsg = ChatMessageItem.CreateBlockMessage(text, true, DateTime.Now);
+                    _messages.Add(blockMsg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -519,14 +553,10 @@ namespace PaLX.Client
                     _isBlockedByPartner = true;
                     UpdateBlockUi();
 
-                    string html = $@"
-                        <div style='font-size: 20px;'>🔒</div>
-                        <div>
-                            <div style='font-size: 14px;'>{PartnerName.Text} vous a bloqué</div>
-                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Blocage permanent • {DateTime.Now:HH:mm}</div>
-                        </div>";
-                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-blocked');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string text = $"🔒 {PartnerName.Text} vous a bloqué • Blocage permanent • {DateTime.Now:HH:mm}";
+                    var blockMsg = ChatMessageItem.CreateBlockMessage(text, false, DateTime.Now);
+                    _messages.Add(blockMsg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -540,14 +570,10 @@ namespace PaLX.Client
                     _isBlocked = false;
                     UpdateBlockUi();
 
-                    string html = $@"
-                        <div style='font-size: 20px;'>🔓</div>
-                        <div>
-                            <div style='font-size: 14px;'>Vous avez débloqué {PartnerName.Text}</div>
-                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Accès rétabli • {DateTime.Now:HH:mm}</div>
-                        </div>";
-                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-unblocked');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string text = $"🔓 Vous avez débloqué {PartnerName.Text} • Accès rétabli • {DateTime.Now:HH:mm}";
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, DateTime.Now);
+                    _messages.Add(statusMsg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -561,14 +587,10 @@ namespace PaLX.Client
                     _isBlockedByPartner = false;
                     UpdateBlockUi();
 
-                    string html = $@"
-                        <div style='font-size: 20px;'>🔓</div>
-                        <div>
-                            <div style='font-size: 14px;'>{PartnerName.Text} vous a débloqué</div>
-                            <div style='font-size: 11px; opacity: 0.7; font-weight: normal; margin-top: 2px;'>Accès rétabli • {DateTime.Now:HH:mm}</div>
-                        </div>";
-                    string script = $"addStatusMessage(\"{html.Replace("\r\n", "").Replace("\"", "'")}\", 'status-unblocked');";
-                    ChatWebView.ExecuteScriptAsync(script);
+                    string text = $"🔓 {PartnerName.Text} vous a débloqué • Accès rétabli • {DateTime.Now:HH:mm}";
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, DateTime.Now);
+                    _messages.Add(statusMsg);
+                    ScrollToBottom();
                 });
             }
         }
@@ -699,9 +721,9 @@ namespace PaLX.Client
         {
             if (partnerUser == _partnerUser || partnerUser == _currentUser)
             {
-                Dispatcher.Invoke(async () =>
+                Dispatcher.Invoke(() =>
                 {
-                    await ChatWebView.ExecuteScriptAsync("clearChat();");
+                    _messages.Clear();
                 });
             }
         }
@@ -781,14 +803,11 @@ namespace PaLX.Client
                     _dndOverride = true;
                     UpdateDndState();
 
-                    var msg = new ChatMessage 
-                    { 
-                        Id = id,
-                        Content = message, 
-                        IsMine = false, 
-                        Timestamp = DateTime.Now 
-                    };
-                    AppendMessageToUi(msg);
+                    // Use display name instead of username
+                    string senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : sender;
+                    var msg = CreateMessageFromContent(message, senderDisplayName, false, id, DateTime.Now);
+                    _messages.Add(msg);
+                    ScrollToBottom();
                     
                     if (!this.IsActive)
                     {
@@ -796,7 +815,6 @@ namespace PaLX.Client
                     }
                     else
                     {
-                        // Mark as read immediately if window is active
                         await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
                     }
                 });
@@ -807,7 +825,11 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                ChatWebView.CoreWebView2.PostWebMessageAsJson($"{{\"type\": \"audioListened\", \"id\": {messageId}}}");
+                var msg = _messages.FirstOrDefault(m => m.Id == messageId);
+                if (msg != null)
+                {
+                    msg.IsAudioListened = true;
+                }
             });
         }
 
@@ -872,16 +894,11 @@ namespace PaLX.Client
                     string content = $"[AUDIO_MSG]{url}|{_recordingSeconds}";
                     await ApiService.Instance.SendPrivateMessageAsync(_partnerUser, content);
                     
-                    // Add to UI immediately (Sender side)
-                    // Note: We don't have the ID yet, so we can't track read receipt for this specific instance until refresh
-                    // But that's fine for the sender view initially.
-                    var msg = new ChatMessage 
-                    { 
-                        Content = content, 
-                        IsMine = true, 
-                        Timestamp = DateTime.Now 
-                    };
-                    AppendMessageToUi(msg);
+                    // Add to UI immediately
+                    var msg = ChatMessageItem.CreateAudioMessage(_currentUserDisplayName, true, url, 
+                        TimeSpan.FromSeconds(_recordingSeconds).ToString(@"m\:ss"), DateTime.Now);
+                    _messages.Add(msg);
+                    ScrollToBottom();
                 }
                 
                 // Cleanup
@@ -978,831 +995,15 @@ namespace PaLX.Client
             }
         }
 
-        private async void InitializeWebView()
+        private void InitializeChat()
         {
-            try
-            {
-                // Ensure the environment is ready
-                await ChatWebView.EnsureCoreWebView2Async();
-                
-                // Disable Default Context Menus and DevTools
-                ChatWebView.CoreWebView2.Settings.AreDefaultContextMenusEnabled = false;
-                ChatWebView.CoreWebView2.Settings.AreDevToolsEnabled = false;
-                ChatWebView.CoreWebView2.Settings.IsStatusBarEnabled = false;
-
-                // Handle Downloads Silently (Hide Default Dialog)
-                ChatWebView.CoreWebView2.DownloadStarting += (s, args) =>
-                {
-                    args.Handled = true; // Hide the default download dialog
-                };
-                
-                // Map Assets folder for Smileys
-                string assetsPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets");
-                ChatWebView.CoreWebView2.SetVirtualHostNameToFolderMapping(
-                    "assets", assetsPath, CoreWebView2HostResourceAccessKind.Allow);
-                
-                // Handle Web Messages (Accept/Decline/OpenImage/SaveImage)
-                ChatWebView.CoreWebView2.WebMessageReceived += async (s, args) =>
-                {
-                    try
-                    {
-                        string json = args.TryGetWebMessageAsString();
-                        var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
-                        
-                        if (data != null && data.ContainsKey("type"))
-                        {
-                            string type = data["type"];
-                            if (type == "openImage" && data.ContainsKey("url"))
-                            {
-                                try 
-                                {
-                                    // Download to Temp and Open
-                                    string url = data["url"];
-                                    string ext = System.IO.Path.GetExtension(url);
-                                    if (string.IsNullOrEmpty(ext)) ext = ".jpg";
-                                    string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"PaLX_View_{Guid.NewGuid()}{ext}");
-                                    
-                                    using (var client = new HttpClient())
-                                    {
-                                        var bytes = await client.GetByteArrayAsync(url);
-                                        await System.IO.File.WriteAllBytesAsync(tempFile, bytes);
-                                    }
-
-                                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                                    {
-                                        FileName = tempFile,
-                                        UseShellExecute = true
-                                    });
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show("Impossible d'ouvrir l'image : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                                }
-                            }
-                            else if (type == "saveImage" && data.ContainsKey("url"))
-                            {
-                                try
-                                {
-                                    string url = data["url"];
-                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "image.jpg";
-                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
-
-                                    // Ensure unique filename
-                                    int count = 1;
-                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
-                                    string extension = System.IO.Path.GetExtension(filePath);
-                                    while (System.IO.File.Exists(filePath))
-                                    {
-                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
-                                    }
-
-                                    using (var client = new HttpClient())
-                                    {
-                                        var bytes = await client.GetByteArrayAsync(url);
-                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
-                                    }
-
-                                    var dialog = new DownloadCompleteWindow();
-                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
-                                    {
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                                        {
-                                            FileName = filePath,
-                                            UseShellExecute = true
-                                        });
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                                }
-                            }
-                            else if (type == "respondImage" && data.ContainsKey("id") && data.ContainsKey("accepted"))
-                            {
-                                int id = int.Parse(data["id"]);
-                                bool accepted = bool.Parse(data["accepted"]);
-                                await ApiService.Instance.RespondToImageRequestAsync(id, accepted);
-                            }
-                            else if (type == "openVideo" && data.ContainsKey("url"))
-                            {
-                                try 
-                                {
-                                    string url = data["url"];
-                                    string ext = System.IO.Path.GetExtension(url);
-                                    if (string.IsNullOrEmpty(ext)) ext = ".mp4";
-                                    string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"PaLX_Video_{Guid.NewGuid()}{ext}");
-                                    
-                                    using (var client = new HttpClient())
-                                    {
-                                        var bytes = await client.GetByteArrayAsync(url);
-                                        await System.IO.File.WriteAllBytesAsync(tempFile, bytes);
-                                    }
-
-                                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                                    {
-                                        FileName = tempFile,
-                                        UseShellExecute = true
-                                    });
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show("Impossible d'ouvrir la vidéo : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                                }
-                            }
-                            else if (type == "saveVideo" && data.ContainsKey("url"))
-                            {
-                                try
-                                {
-                                    string url = data["url"];
-                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "video.mp4";
-                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
-
-                                    int count = 1;
-                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
-                                    string extension = System.IO.Path.GetExtension(filePath);
-                                    while (System.IO.File.Exists(filePath))
-                                    {
-                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
-                                    }
-
-                                    using (var client = new HttpClient())
-                                    {
-                                        var bytes = await client.GetByteArrayAsync(url);
-                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
-                                    }
-
-                                    var dialog = new DownloadCompleteWindow();
-                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
-                                    {
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                                        {
-                                            FileName = filePath,
-                                            UseShellExecute = true
-                                        });
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                                }
-                            }
-                            else if (type == "respondVideo" && data.ContainsKey("id") && data.ContainsKey("accepted"))
-                            {
-                                int id = int.Parse(data["id"]);
-                                bool accepted = bool.Parse(data["accepted"]);
-                                await ApiService.Instance.RespondToVideoRequestAsync(id, accepted);
-                            }
-                            else if (type == "respondAudio" && data.ContainsKey("id") && data.ContainsKey("accepted"))
-                            {
-                                int id = int.Parse(data["id"]);
-                                bool accepted = bool.Parse(data["accepted"]);
-                                await ApiService.Instance.RespondToAudioRequestAsync(id, accepted);
-                            }
-                            else if (type == "audioPlayed" && data.ContainsKey("id"))
-                            {
-                                int id = int.Parse(data["id"]);
-                                await ApiService.Instance.MarkAudioListenedAsync(id);
-                            }
-                            else if (type == "saveAudio" && data.ContainsKey("url"))
-                            {
-                                try
-                                {
-                                    string url = data["url"];
-                                    string fileName = data.ContainsKey("filename") ? data["filename"] : "audio.mp3";
-                                    string downloadsPath = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
-                                    string filePath = System.IO.Path.Combine(downloadsPath, fileName);
-
-                                    int count = 1;
-                                    string fileNameOnly = System.IO.Path.GetFileNameWithoutExtension(filePath);
-                                    string extension = System.IO.Path.GetExtension(filePath);
-                                    while (System.IO.File.Exists(filePath))
-                                    {
-                                        filePath = System.IO.Path.Combine(downloadsPath, $"{fileNameOnly} ({count++}){extension}");
-                                    }
-
-                                    using (var client = new HttpClient())
-                                    {
-                                        var bytes = await client.GetByteArrayAsync(url);
-                                        await System.IO.File.WriteAllBytesAsync(filePath, bytes);
-                                    }
-
-                                    var dialog = new DownloadCompleteWindow();
-                                    if (dialog.ShowDialog() == true && dialog.ShouldOpen)
-                                    {
-                                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                                        {
-                                            FileName = filePath,
-                                            UseShellExecute = true
-                                        });
-                                    }
-                                }
-                                catch (Exception ex)
-                                {
-                                    MessageBox.Show("Erreur lors du téléchargement : " + ex.Message, "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
-                                }
-                            }
-                            else if (type == "respondFile" && data.ContainsKey("id") && data.ContainsKey("accepted"))
-                            {
-                                int id = int.Parse(data["id"]);
-                                bool accepted = bool.Parse(data["accepted"]);
-                                await ApiService.Instance.RespondToFileRequestAsync(id, accepted);
-                            }
-                        }
-                    }
-                    catch { }
-                };
-
-                string html = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background-color: #f5f5f5; margin: 0; padding: 10px; overflow-x: hidden; }
-        .message { display: flex; margin-bottom: 10px; animation: fadeIn 0.3s ease; }
-        .message.mine { justify-content: flex-end; }
-        .bubble { max-width: 75%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .mine .bubble { background-color: #E3F2FD; color: black; border-bottom-right-radius: 4px; }
-        .theirs .bubble { background-color: white; color: black; border: 1px solid #e0e0e0; border-bottom-left-radius: 4px; }
-        .timestamp { font-size: 10px; margin-top: 4px; opacity: 0.7; text-align: right; }
-        .status-message { text-align: center; margin: 15px 0; font-size: 12px; font-weight: 600; opacity: 0.9; animation: fadeIn 0.5s ease; }
-        .status-online { color: #4CAF50; }
-        .status-busy { color: #F44336; }
-        .status-away { color: #FF9800; }
-        .status-offline { color: #9E9E9E; }
-        .status-blocked { 
-            color: #D32F2F; 
-            background: linear-gradient(to right, rgba(255, 235, 238, 0.95), rgba(255, 255, 255, 0.8));
-            border-left: 4px solid #D32F2F;
-            padding: 12px 20px;
-            margin: 20px 0;
-            border-radius: 4px;
-            font-family: 'Segoe UI Semibold', sans-serif;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 2px 8px rgba(211, 47, 47, 0.1);
-            animation: slideIn 0.4s ease-out;
-            text-align: left;
-        }
-        .status-unblocked { 
-            color: #2E7D32; 
-            background: linear-gradient(to right, rgba(232, 245, 233, 0.95), rgba(255, 255, 255, 0.8));
-            border-left: 4px solid #2E7D32;
-            padding: 12px 20px;
-            margin: 20px 0;
-            border-radius: 4px;
-            font-family: 'Segoe UI Semibold', sans-serif;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            box-shadow: 0 2px 8px rgba(46, 125, 50, 0.1);
-            animation: slideIn 0.4s ease-out;
-            text-align: left;
-        }
-        @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
-        .smiley { width: 40px; height: 40px; vertical-align: middle; margin: 0 2px; }
-        
-        /* File Transfer Styles */
-        .file-request { background-color: #FFF3E0; border: 1px solid #FFB74D; padding: 10px; border-radius: 8px; text-align: center; }
-        .file-actions { margin-top: 10px; display: flex; justify-content: center; gap: 10px; }
-        .btn-accept { background-color: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .btn-decline { background-color: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
-        .file-thumb { width: 200px; height: 200px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 1px solid #ddd; transition: opacity 0.2s; background: #f0f0f0; }
-        .file-thumb:hover { opacity: 0.8; }
-        .file-status-accepted { color: #4CAF50; font-weight: bold; font-size: 12px; margin-top: 5px; }
-        .file-status-declined { color: #F44336; font-weight: bold; font-size: 12px; margin-top: 5px; }
-        .download-link { display: block; margin-top: 5px; font-size: 12px; color: #2196F3; text-decoration: none; cursor: pointer; }
-        .download-link:hover { text-decoration: underline; }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
-</head>
-<body>
-    <div id=""chat-container""></div>
-    <script>
-        function scrollToBottom() {
-            window.scrollTo(0, document.body.scrollHeight);
-        }
-
-        function smartScroll() {
-            // Only scroll if we are near the bottom (user hasn't scrolled up to read history)
-            const isAtBottom = (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 250);
-            if (isAtBottom) {
-                scrollToBottom();
-            }
-        }
-
-        window.chrome.webview.addEventListener('message', event => {
-            const data = event.data;
-            if (data.type === 'audioListened') {
-                const id = data.id;
-                const readIndicator = document.getElementById('audio-read-' + id);
-                if (readIndicator) {
-                    readIndicator.style.display = 'block';
-                }
-            }
-        });
-
-        function addStatusMessage(htmlContent, statusClass) {
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'status-message ' + statusClass;
-            msgDiv.innerHTML = htmlContent;
-            container.appendChild(msgDiv);
-            scrollToBottom();
-        }
-
-        function playAudio(btn) {
-            var container = btn.parentElement;
-            var audio = container.querySelector('audio');
-            var allAudios = document.getElementsByTagName('audio');
-            
-            // Stop others
-            for(var i=0; i<allAudios.length; i++) {
-                if(allAudios[i] !== audio) {
-                    allAudios[i].pause();
-                    var otherBtn = allAudios[i].parentElement.querySelector('button');
-                    if(otherBtn) otherBtn.innerHTML = '▶';
-                }
-            }
-
-            if (audio.paused) {
-                audio.play();
-                btn.innerHTML = '⏸';
-            } else {
-                audio.pause();
-                btn.innerHTML = '▶';
-            }
-        }
-
-        function resetAudio(audio) {
-            var btn = audio.parentElement.querySelector('button');
-            btn.innerHTML = '▶';
-            audio.parentElement.querySelector('.progress').style.width = '0%';
-        }
-
-        function updateProgress(audio) {
-            var percent = (audio.currentTime / audio.duration) * 100;
-            audio.parentElement.querySelector('.progress').style.width = percent + '%';
-        }
-
-        function notifyPlayed(audio) {
-            // Find message ID if possible, or just notify generic
-            // We need the message ID to be passed in addMessage if we want to track specific messages
-            // But addMessage currently doesn't take ID.
-            // However, we can try to find the parent message div ID if it was set.
-            // But addMessage creates a div without ID usually.
-            // Wait, I updated OnPrivateMessageReceived to pass ID, but addMessage signature is (content, isMine, time).
-            // I should update addMessage signature to (content, isMine, time, id).
-        }
-
-        function addMessage(contentBase64, isMine, time, id) {
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
-            if (id) msgDiv.id = 'msg-' + id;
-            
-            let content = '';
-            try { content = decodeURIComponent(escape(atob(contentBase64))); } catch (e) { content = atob(contentBase64); }
-
-            content = content.replace(/\[smiley:(b_s_\d+\.png)\]/g, '<img src=""https://assets/Smiley/$1"" class=""smiley"" />');
-
-            // Legacy Image Support
-            if (content.startsWith('[IMAGE]')) {
-                var url = content.substring(7);
-                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
-                content = '<div style=""position:relative; display:inline-block;"">' +
-                          '<img src=""' + url + '"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: \'openImage\', url: \'' + safeUrl + '\'}))"" />' +
-                          '</div>';
-            }
-            // Audio Message Support
-            else if (content.startsWith('[AUDIO_MSG]')) {
-                var parts = content.substring(11).split('|');
-                var url = parts[0];
-                var duration = parts.length > 1 ? parts[1] : '0';
-                
-                var sec = parseInt(duration);
-                var min = Math.floor(sec / 60);
-                var s = sec % 60;
-                var timeStr = min + ':' + (s < 10 ? '0' + s : s);
-
-                content = `
-                    <div class=""audio-msg"" data-src=""${url}"" style=""display:flex; align-items:center; gap:10px; min-width:200px;"">
-                        <button onclick=""playAudio(this)"" style=""background:none; border:none; cursor:pointer; font-size:24px; color:${isMine ? 'white' : '#333'}; outline:none;"">▶</button>
-                        <div style=""flex-grow:1; height:4px; background:${isMine ? 'rgba(255,255,255,0.3)' : '#ddd'}; border-radius:2px; position:relative;"">
-                            <div class=""progress"" style=""width:0%; height:100%; background:${isMine ? 'white' : '#2196F3'}; border-radius:2px;""></div>
-                        </div>
-                        <span style=""font-size:11px; min-width:30px;"">${timeStr}</span>
-                        <audio src=""${url}"" onended=""resetAudio(this)"" ontimeupdate=""updateProgress(this)"" onplay=""notifyPlayed(this, ${id})"" preload=""metadata""></audio>
-                    </div>`;
-                
-                // Add read receipt indicator for audio
-                if (isMine) {
-                     content += `<div id=""audio-read-${id}"" style=""font-size:10px; text-align:right; opacity:0.7; display:none;"">✅ Écouté</div>`;
-                }
-            }
-
-            msgDiv.innerHTML = `<div class=""bubble"">${content}<div class=""timestamp"">${time}</div></div>`;
-            container.appendChild(msgDiv);
-            
-            scrollToBottom();
-            
-            // Ensure scroll after images load
-            const images = msgDiv.getElementsByTagName('img');
-            for(let img of images) {
-                img.onload = smartScroll;
-            }
-        }
-
-        function notifyPlayed(audio, id) {
-            if (id) {
-                window.chrome.webview.postMessage(JSON.stringify({type: 'audioPlayed', id: id}));
-            }
-        }
-
-        function addFileRequest(id, sender, filename, url, isMine, status) {
-            var ext = filename.split('.').pop().toLowerCase();
-            if (['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0) {
-                addVideoRequest(id, sender, filename, url, isMine, status);
-                return;
-            }
-            if (['mp3', 'wav', 'ogg', 'm4a', 'aac', 'wma', 'flac'].indexOf(ext) >= 0) {
-                addAudioRequest(id, sender, filename, url, isMine, status);
-                return;
-            }
-            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(ext) < 0) {
-                addGenericFileRequest(id, sender, filename, url, isMine, status);
-                return;
-            }
-
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
-            msgDiv.id = 'file-' + id;
-
-            let innerHtml = '';
-            if (isMine) {
-                innerHtml = `
-                    <div class=""bubble"">
-                        <img src=""${url}"" class=""file-thumb"" style=""opacity:0.7"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />
-                        <div id=""status-${id}"" style=""font-size:11px; color:#666; margin-top:5px;"">En attente...</div>
-                    </div>`;
-            } else {
-                innerHtml = `
-                    <div class=""bubble file-request"">
-                        <div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">
-                            <span style=""font-size:16px;"">📷</span> <span>${filename}</span>
-                        </div>
-                        <div id=""actions-${id}"" class=""file-actions"">
-                            <button class=""btn-accept"" onclick=""respond(${id}, true)"">Accepter</button>
-                            <button class=""btn-decline"" onclick=""respond(${id}, false)"">Refuser</button>
-                        </div>
-                        <div id=""content-${id}"" style=""display:none; margin-top:10px;"">
-                            <img src=""${url}"" class=""file-thumb"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: '${url}'}))"" />
-                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${url}', filename: '${filename}'}))"">💾 Enregistrer sous...</div>
-                        </div>
-                    </div>`;
-            }
-
-            msgDiv.innerHTML = innerHtml;
-            container.appendChild(msgDiv);
-            
-            // Apply status if not pending (0)
-            if (status !== undefined && status !== 0) {
-                updateFileStatus(id, status === 1, isMine);
-            }
-
-            scrollToBottom();
-            
-            // Ensure scroll after images load
-            const images = msgDiv.getElementsByTagName('img');
-            for(let img of images) {
-                img.onload = smartScroll;
-            }
-        }
-
-        function updateFileStatus(id, isAccepted, isMine) {
-            if (isMine) {
-                const statusDiv = document.getElementById('status-' + id);
-                if (statusDiv) {
-                    if (isAccepted) {
-                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Votre image a été acceptée</span>';
-                        const img = document.querySelector(`#file-${id} img`);
-                        if(img) img.style.opacity = '1';
-                    } else {
-                        statusDiv.innerHTML = '<span class=""file-status-declined"">Votre image a été refusée</span>';
-                    }
-                }
-            } else {
-                const actionsDiv = document.getElementById('actions-' + id);
-                const contentDiv = document.getElementById('content-' + id);
-                if (actionsDiv) actionsDiv.style.display = 'none';
-                
-                if (isAccepted) {
-                    if (contentDiv) contentDiv.style.display = 'block';
-                } else {
-                    const bubble = document.querySelector(`#file-${id} .bubble`);
-                    if(bubble) bubble.innerHTML = '<div style=""color:#F44336; font-style:italic;"">Image refusée</div>';
-                }
-            }
-        }
-
-        function respond(id, accepted) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
-        }
-
-        function addVideoRequest(id, sender, filename, url, isMine, status) {
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
-            msgDiv.id = 'video-' + id;
-
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
-            var safeFilename = filename.replace(/'/g, ""\\\\'"");
-
-            let innerHtml = '';
-            // Video Player HTML (Hidden initially for receiver)
-            const videoPlayer = `
-                <div style=""width:300px; height:200px; border-radius:8px; overflow:hidden; background:black;"">
-                    <video controls width=""100%"" height=""100%"" preload=""metadata"">
-                        <source src=""${url}"" type=""video/mp4"">
-                        Votre navigateur ne supporte pas la lecture vidéo.
-                    </video>
-                </div>`;
-
-            // Request Card HTML
-            const requestCard = `
-                <div class=""bubble file-request"" style=""background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%); color:white;"">
-                    <div style=""font-weight:bold; margin-bottom:10px; display:flex; align-items:center; gap:8px;"">
-                        <span style=""font-size:20px;"">🎥</span> 
-                        <span style=""word-break:break-all;"">${filename}</span>
-                    </div>
-                    <div id=""v-actions-${id}"" class=""file-actions"" style=""margin-top:10px;"">
-                        <button class=""btn-accept"" style=""background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.5);"" onclick=""respondVideo(${id}, true)"">Accepter</button>
-                        <button class=""btn-decline"" style=""background:rgba(255,255,255,0.1); color:#ffcccc; border:1px solid rgba(255,0,0,0.3);"" onclick=""respondVideo(${id}, false)"">Refuser</button>
-                    </div>
-                </div>`;
-
-            if (isMine) {
-                innerHtml = `
-                    <div class=""bubble"" style=""padding:5px;"">
-                        ${videoPlayer}
-                        <div id=""v-status-${id}"" style=""font-size:11px; color:#666; margin-top:5px; text-align:right;"">En attente...</div>
-                    </div>`;
-            } else {
-                innerHtml = `
-                    <div id=""v-req-${id}"">
-                        ${requestCard}
-                    </div>
-                    <div id=""v-content-${id}"" style=""display:none; margin-top:5px;"">
-                        <div class=""bubble"" style=""padding:5px;"">
-                            ${videoPlayer}
-                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveVideo('${safeUrl}', '${safeFilename}')"">💾 Enregistrer sous...</div>
-                        </div>
-                    </div>`;
-            }
-
-            msgDiv.innerHTML = innerHtml;
-            container.appendChild(msgDiv);
-            
-            if (status !== undefined && status !== 0) {
-                updateVideoStatus(id, status === 1, isMine);
-            }
-
-            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
-        }
-
-        function updateVideoStatus(id, isAccepted, isMine) {
-            if (isMine) {
-                const statusDiv = document.getElementById('v-status-' + id);
-                if (statusDiv) {
-                    if (isAccepted) {
-                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Vidéo acceptée</span>';
-                    } else {
-                        statusDiv.innerHTML = '<span class=""file-status-declined"">Vidéo refusée</span>';
-                    }
-                }
-            } else {
-                const reqDiv = document.getElementById('v-req-' + id);
-                const contentDiv = document.getElementById('v-content-' + id);
-                
-                if (isAccepted) {
-                    if (reqDiv) reqDiv.style.display = 'none';
-                    if (contentDiv) contentDiv.style.display = 'block';
-                } else {
-                    if (reqDiv) reqDiv.innerHTML = '<div class=""bubble"" style=""color:#F44336; font-style:italic;"">Vidéo refusée</div>';
-                }
-            }
-        }
-
-        function respondVideo(id, accepted) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
-        }
-
-        function saveVideo(url, filename) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: url, filename: filename}));
-        }
-
-        function addAudioRequest(id, sender, filename, url, isMine, status) {
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
-            msgDiv.id = 'audio-' + id;
-
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
-            var safeFilename = filename.replace(/'/g, ""\\\\'"");
-
-            let innerHtml = '';
-            // Audio Player HTML
-            const audioPlayer = `
-                <div style=""width:250px; border-radius:20px; background:#f1f1f1; padding:5px;"">
-                    <audio controls style=""width:100%; height:30px;"">
-                        <source src=""${url}"" type=""audio/mpeg"">
-                        Votre navigateur ne supporte pas l'audio.
-                    </audio>
-                </div>`;
-
-            // Request Card HTML
-            const requestCard = `
-                <div class=""bubble file-request"" style=""background: linear-gradient(135deg, #1DB954 0%, #191414 100%); color:white;"">
-                    <div style=""font-weight:bold; margin-bottom:10px; display:flex; align-items:center; gap:8px;"">
-                        <span style=""font-size:20px;"">🎵</span> 
-                        <span style=""word-break:break-all;"">${filename}</span>
-                    </div>
-                    <div id=""a-actions-${id}"" class=""file-actions"" style=""margin-top:10px;"">
-                        <button class=""btn-accept"" style=""background:rgba(255,255,255,0.2); color:white; border:1px solid rgba(255,255,255,0.5);"" onclick=""respondAudio(${id}, true)"">Accepter</button>
-                        <button class=""btn-decline"" style=""background:rgba(255,255,255,0.1); color:#ffcccc; border:1px solid rgba(255,0,0,0.3);"" onclick=""respondAudio(${id}, false)"">Refuser</button>
-                    </div>
-                </div>`;
-
-            if (isMine) {
-                innerHtml = `
-                    <div class=""bubble"" style=""padding:5px;"">
-                        ${audioPlayer}
-                        <div id=""a-status-${id}"" style=""font-size:11px; color:#666; margin-top:5px; text-align:right;"">En attente...</div>
-                    </div>`;
-            } else {
-                innerHtml = `
-                    <div id=""a-req-${id}"">
-                        ${requestCard}
-                    </div>
-                    <div id=""a-content-${id}"" style=""display:none; margin-top:5px;"">
-                        <div class=""bubble"" style=""padding:5px;"">
-                            ${audioPlayer}
-                            <div class=""download-link"" style=""margin-top:5px; text-align:right;"" onclick=""saveAudio('${safeUrl}', '${safeFilename}')"">💾 Enregistrer sous...</div>
-                        </div>
-                    </div>`;
-            }
-
-            msgDiv.innerHTML = innerHtml;
-            container.appendChild(msgDiv);
-            
-            if (status !== undefined && status !== 0) {
-                updateAudioStatus(id, status === 1, isMine);
-            }
-
-            msgDiv.scrollIntoView({behavior: 'smooth', block: 'end'});
-        }
-
-        function updateAudioStatus(id, isAccepted, isMine) {
-            if (isMine) {
-                const statusDiv = document.getElementById('a-status-' + id);
-                if (statusDiv) {
-                    if (isAccepted) {
-                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Audio accepté</span>';
-                    } else {
-                        statusDiv.innerHTML = '<span class=""file-status-declined"">Audio refusé</span>';
-                    }
-                }
-            } else {
-                const reqDiv = document.getElementById('a-req-' + id);
-                const contentDiv = document.getElementById('a-content-' + id);
-                
-                if (isAccepted) {
-                    if (reqDiv) reqDiv.style.display = 'none';
-                    if (contentDiv) contentDiv.style.display = 'block';
-                } else {
-                    if (reqDiv) reqDiv.innerHTML = '<div class=""bubble"" style=""color:#F44336; font-style:italic;"">Audio refusé</div>';
-                }
-            }
-        }
-
-        function respondAudio(id, accepted) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'respondAudio', id: id.toString(), accepted: accepted.toString()}));
-        }
-
-        function saveAudio(url, filename) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'saveAudio', url: url, filename: filename}));
-        }
-
-        function addGenericFileRequest(id, sender, filename, url, isMine, status) {
-            const container = document.getElementById('chat-container');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'message ' + (isMine ? 'mine' : 'theirs');
-            msgDiv.id = 'file-' + id;
-
-            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
-            var safeFilename = filename.replace(/'/g, ""\\\\'"");
-
-            var icon = '📄';
-            var ext = filename.split('.').pop().toLowerCase();
-            if (['zip', 'rar', '7z'].indexOf(ext) >= 0) icon = '📦';
-            else if (['pdf'].indexOf(ext) >= 0) icon = '📕';
-            else if (['doc', 'docx'].indexOf(ext) >= 0) icon = '📘';
-            else if (['xls', 'xlsx'].indexOf(ext) >= 0) icon = '📗';
-            else if (['ppt', 'pptx'].indexOf(ext) >= 0) icon = '📙';
-            else if (['txt'].indexOf(ext) >= 0) icon = '📝';
-            else if (['mp3', 'wav', 'ogg'].indexOf(ext) >= 0) icon = '🎵';
-
-            let innerHtml = '';
-            if (isMine) {
-                innerHtml = `
-                    <div class=""bubble"">
-                        <div style=""display:flex; align-items:center; gap:10px;"">
-                            <div style=""font-size:24px;"">${icon}</div>
-                            <div>
-                                <div style=""font-weight:bold;"">${filename}</div>
-                                <div id=""status-${id}"" style=""font-size:11px; color:#666;"">En attente...</div>
-                            </div>
-                        </div>
-                    </div>`;
-            } else {
-                innerHtml = `
-                    <div class=""bubble file-request"">
-                        <div style=""font-weight:bold; margin-bottom:5px; display:flex; align-items:center; gap:5px;"">
-                            <span style=""font-size:24px;"">${icon}</span> <span>${filename}</span>
-                        </div>
-                        <div id=""actions-${id}"" class=""file-actions"">
-                            <button class=""btn-accept"" onclick=""respondFile(${id}, true)"">Accepter</button>
-                            <button class=""btn-decline"" onclick=""respondFile(${id}, false)"">Refuser</button>
-                        </div>
-                        <div id=""content-${id}"" style=""display:none; margin-top:10px;"">
-                            <div class=""download-link"" onclick=""window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: '${safeUrl}', filename: '${safeFilename}'}))"">💾 Enregistrer sous...</div>
-                        </div>
-                    </div>`;
-            }
-
-            msgDiv.innerHTML = innerHtml;
-            container.appendChild(msgDiv);
-            
-            if (status !== undefined && status !== 0) {
-                updateGenericFileStatus(id, status === 1, isMine);
-            }
-
-            scrollToBottom();
-        }
-
-        function updateGenericFileStatus(id, isAccepted, isMine) {
-            if (isMine) {
-                const statusDiv = document.getElementById('status-' + id);
-                if (statusDiv) {
-                    if (isAccepted) {
-                        statusDiv.innerHTML = '<span class=""file-status-accepted"">Fichier accepté</span>';
-                    } else {
-                        statusDiv.innerHTML = '<span class=""file-status-declined"">Fichier refusé</span>';
-                    }
-                }
-            } else {
-                const actionsDiv = document.getElementById('actions-' + id);
-                const contentDiv = document.getElementById('content-' + id);
-                if (actionsDiv) actionsDiv.style.display = 'none';
-                
-                if (isAccepted) {
-                    if (contentDiv) contentDiv.style.display = 'block';
-                } else {
-                    const bubble = document.querySelector(`#file-${id} .bubble`);
-                    if(bubble) bubble.innerHTML = '<div style=""color:#F44336; font-style:italic;"">Fichier refusé</div>';
-                }
-            }
-        }
-
-        function respondFile(id, accepted) {
-            window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
-        }
-
-        function clearChat() {
-            document.getElementById('chat-container').innerHTML = '';
-        }
-    </script>
-
-</body>
-</html>";
-                ChatWebView.NavigateToString(html);
-                ChatWebView.CoreWebView2.DOMContentLoaded += async (s, e) => await LoadHistoryAsync();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"Erreur critique du composant Chat (WebView2) : {ex.Message}\n\nAssurez-vous que 'WebView2 Runtime' est installé.", "Erreur Chat", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
+            // Load history
+            _ = LoadHistoryAsync();
         }
 
         private async Task LoadHistoryAsync()
         {
-            if (ChatWebView.CoreWebView2 == null) return;
-
-            // Mark messages as read (Redundant but safe)
+            // Mark messages as read
             await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
             var messages = await ApiService.Instance.GetChatHistoryAsync(_partnerUser);
@@ -1833,12 +1034,40 @@ namespace PaLX.Client
                                 int id = int.Parse(idStr);
                                 int status = int.Parse(statusStr);
                                 bool isMine = msg.Sender == _currentUser;
+                                string senderDisplayName = isMine ? _currentUserDisplayName : 
+                                    (!string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : msg.Sender);
                                 
-                                string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                                string safeFilename = filename.Replace("'", "\\'");
+                                // Detect file type by extension
+                                string ext = System.IO.Path.GetExtension(filename)?.ToLower() ?? "";
+                                bool isImage = ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp" || ext == ".webp";
+                                bool isVideo = ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".mkv" || ext == ".webm";
+                                bool isAudio = ext == ".mp3" || ext == ".wav" || ext == ".ogg" || ext == ".m4a" || ext == ".aac" || ext == ".wma" || ext == ".flac";
                                 
-                                string script = $"addFileRequest({id}, '{msg.Sender}', '{safeFilename}', '{safeUrl}', {(isMine ? "true" : "false")}, {status});";
-                                await ChatWebView.ExecuteScriptAsync(script);
+                                var fileMsg = ChatMessageItem.CreateFileTransfer(
+                                    id, senderDisplayName, isMine, filename, url, 
+                                    isImage ? "Image" : isVideo ? "Video" : isAudio ? "Audio" : "Fichier", 
+                                    (TransferStatus)status, msg.Timestamp);
+                                
+                                // Set the correct type for proper template selection
+                                if (isImage)
+                                {
+                                    fileMsg.Type = ChatMessageType.Image;
+                                    fileMsg.ImageUrl = url;
+                                }
+                                else if (isVideo)
+                                {
+                                    fileMsg.Type = ChatMessageType.Video;
+                                    fileMsg.VideoUrl = url;
+                                }
+                                else if (isAudio)
+                                {
+                                    fileMsg.Type = ChatMessageType.AudioFile;
+                                    fileMsg.AudioUrl = url;
+                                    // Set a default duration display for audio files
+                                    fileMsg.AudioDuration = 0;
+                                }
+                                
+                                _messages.Add(fileMsg);
                                 continue;
                             }
                         }
@@ -1854,12 +1083,13 @@ namespace PaLX.Client
                                 string url = data.Substring(secondColon + 1);
                                 int id = int.Parse(idStr);
                                 bool isMine = msg.Sender == _currentUser;
-                                
-                                string safeUrl = url.Replace("\\", "\\\\").Replace("'", "\\'");
-                                string safeFilename = filename.Replace("'", "\\'");
+                                string senderDisplayName = isMine ? _currentUserDisplayName : 
+                                    (!string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : msg.Sender);
 
-                                string script = $"addFileRequest({id}, '{msg.Sender}', '{safeFilename}', '{safeUrl}', {(isMine ? "true" : "false")}, 0);";
-                                await ChatWebView.ExecuteScriptAsync(script);
+                                var fileMsg = ChatMessageItem.CreateFileTransfer(
+                                    id, senderDisplayName, isMine, filename, url, "Fichier", 
+                                    TransferStatus.Pending, msg.Timestamp);
+                                _messages.Add(fileMsg);
                                 continue;
                             }
                         }
@@ -1872,12 +1102,12 @@ namespace PaLX.Client
                     string partnerName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
                     
                     if (msg.Sender == _currentUser)
-                        text = $"Vous avez bloqué {partnerName} – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                        text = $"🔒 Vous avez bloqué {partnerName} – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
                     else
-                        text = $"{partnerName} vous a bloqué – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                        text = $"🔒 {partnerName} vous a bloqué – Blocage PERMANENT – {msg.Timestamp:dd/MM/yyyy HH:mm}";
                     
-                    string script = $"addStatusMessage('{text}', 'status-blocked');";
-                    await ChatWebView.ExecuteScriptAsync(script);
+                    var blockMsg = ChatMessageItem.CreateBlockMessage(text, msg.Sender == _currentUser, msg.Timestamp);
+                    _messages.Add(blockMsg);
                 }
                 else if (msg.Content == "[SYSTEM_UNBLOCK]")
                 {
@@ -1885,28 +1115,31 @@ namespace PaLX.Client
                     string partnerName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
 
                     if (msg.Sender == _currentUser)
-                        text = $"Vous avez débloqué {partnerName} – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                        text = $"🔓 Vous avez débloqué {partnerName} – {msg.Timestamp:dd/MM/yyyy HH:mm}";
                     else
-                        text = $"{partnerName} vous a débloqué – {msg.Timestamp:dd/MM/yyyy HH:mm}";
+                        text = $"🔓 {partnerName} vous a débloqué – {msg.Timestamp:dd/MM/yyyy HH:mm}";
                     
-                    string script = $"addStatusMessage('{text}', 'status-unblocked');";
-                    await ChatWebView.ExecuteScriptAsync(script);
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, msg.Timestamp);
+                    _messages.Add(statusMsg);
                 }
                 else
                 {
-                    var chatMsg = new ChatMessage
-                    {
-                        Content = msg.Content,
-                        IsMine = msg.Sender == _currentUser,
-                        Timestamp = msg.Timestamp
-                    };
-                    AppendMessageToUi(chatMsg);
+                    // Use display name instead of username
+                    string senderDisplayName;
+                    if (msg.Sender == _currentUser)
+                        senderDisplayName = _currentUserDisplayName;
+                    else
+                        senderDisplayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : msg.Sender;
+                    
+                    var chatMsg = CreateMessageFromContent(msg.Content, senderDisplayName, msg.Sender == _currentUser, msg.Id, msg.Timestamp);
+                    _messages.Add(chatMsg);
                 }
                 if (msg.Id > _lastMessageId) _lastMessageId = msg.Id;
             }
             
             // Initial Status Message (at the bottom)
             UpdateStatusMessageInChat();
+            ScrollToBottom();
 
             // Mark as read
             await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
@@ -1916,246 +1149,349 @@ namespace PaLX.Client
         {
             string status = PartnerStatus.Text;
             string name = PartnerName.Text;
-            string cssClass = "status-offline";
-            
-            if (status.ToLower() == "en ligne") cssClass = "status-online";
-            else if (status.ToLower() == "occupé" || status.ToLower() == "ne pas déranger") cssClass = "status-busy";
-            else if (status.ToLower() == "absent") cssClass = "status-away";
-
             string message = $"{name} est actuellement {status}";
-            string script = $"addStatusMessage('{message}', '{cssClass}');";
-            ChatWebView.ExecuteScriptAsync(script);
+            
+            string statusClass = status switch
+            {
+                "En ligne" => "status-online",
+                "Occupé" => "status-busy",
+                "Absent" => "status-away",
+                "En appel" => "status-call",
+                "Ne pas déranger" => "status-dnd",
+                _ => "status-offline"
+            };
+            
+            var statusMsg = ChatMessageItem.CreateStatusMessage(message, statusClass);
+            _messages.Add(statusMsg);
         }
 
-        private string GetHtmlTemplate()
+        private ChatMessageItem CreateMessageFromContent(string content, string sender, bool isMine, int id, DateTime timestamp)
         {
-            return @"
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset='utf-8'>
-                <style>
-                    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 10px; padding-bottom: 20px; background-color: #f9f9f9; }
-                    .message-container { display: flex; flex-direction: column; margin-bottom: 10px; }
-                    .message-bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; position: relative; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
-                    .mine { align-self: flex-end; background-color: #0078D7; color: white; border-bottom-right-radius: 4px; }
-                    .theirs { align-self: flex-start; background-color: #E0E0E0; color: #333; border-bottom-left-radius: 4px; }
-                    .timestamp { font-size: 10px; margin-top: 4px; opacity: 0.7; text-align: right; }
-                    .status-message { text-align: center; font-size: 12px; margin: 15px 0; font-style: italic; padding: 5px; border-radius: 10px; }
-                    .status-online { color: #4CAF50; background-color: #E8F5E9; }
-                    .status-offline { color: #9E9E9E; background-color: #F5F5F5; }
-                    .status-busy { color: #F44336; background-color: #FFEBEE; }
-                    .status-away { color: #FF9800; background-color: #FFF3E0; }
-                    .status-blocked { color: #D32F2F; background-color: #FFCDD2; font-weight: bold; border: 1px solid #EF9A9A; }
+            // Audio Message - process BEFORE emoji conversion to preserve URLs
+            if (content.StartsWith("[AUDIO_MSG]"))
+            {
+                var parts = content.Substring(11).Split('|');
+                var url = parts[0];
+                var duration = parts.Length > 1 ? parts[1] : "0";
+                var sec = int.Parse(duration);
+                var min = sec / 60;
+                var s = sec % 60;
+                var timeStr = $"{min}:{s:D2}";
+                
+                var msg = ChatMessageItem.CreateAudioMessage(sender, isMine, url, timeStr, timestamp);
+                msg.Id = id;
+                return msg;
+            }
+            
+            // Legacy Image - process BEFORE emoji conversion to preserve URLs
+            if (content.StartsWith("[IMAGE]"))
+            {
+                var url = content.Substring(7);
+                var msg = ChatMessageItem.CreateImageMessage(sender, isMine, url, timestamp);
+                msg.Id = id;
+                return msg;
+            }
+            
+            // Convert emoji text patterns ONLY for regular text messages
+            content = EmojiConverter.ConvertEmojis(content);
+            
+            // Regular Text Message
+            return ChatMessageItem.CreateTextMessage(sender, isMine, content, timestamp, id);
+        }
+
+        private void ScrollToBottom()
+        {
+            if (MessagesListBox.Items.Count > 0)
+            {
+                MessagesListBox.ScrollIntoView(MessagesListBox.Items[MessagesListBox.Items.Count - 1]);
+            }
+        }
+
+        // WPF Event Handlers for Templates
+        private async void Image_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is string url)
+            {
+                await OpenMediaAsync(url, ".jpg");
+            }
+        }
+
+        // Video playback state tracking
+        private MediaElement? _currentVideoPlayer = null;
+        private DateTime _lastVideoClickTime = DateTime.MinValue;
+        private const int DoubleClickThresholdMs = 300;
+
+        private async void Video_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is string url)
+            {
+                await OpenMediaAsync(url, ".mp4");
+            }
+        }
+
+        private void VideoPlay_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Track for double-click detection
+            e.Handled = false;
+        }
+
+        private async void VideoPlay_Click(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is Border overlay && overlay.Tag is string url)
+            {
+                // Check for double-click
+                var now = DateTime.Now;
+                if ((now - _lastVideoClickTime).TotalMilliseconds < DoubleClickThresholdMs)
+                {
+                    // Double-click: Open in external player
+                    _lastVideoClickTime = DateTime.MinValue;
+                    await OpenMediaAsync(url, ".mp4");
+                    return;
+                }
+                _lastVideoClickTime = now;
+
+                // Single click: Play/Pause in embedded player
+                try
+                {
+                    // Find the MediaElement in the parent Grid
+                    if (overlay.Parent is Grid container)
+                    {
+                        var mediaElement = FindChild<MediaElement>(container);
+                        if (mediaElement != null)
+                        {
+                            // Stop any other playing video
+                            if (_currentVideoPlayer != null && _currentVideoPlayer != mediaElement)
+                            {
+                                _currentVideoPlayer.Stop();
+                            }
+
+                            // Toggle play/pause
+                            var state = GetMediaState(mediaElement);
+                            if (state == MediaState.Play)
+                            {
+                                mediaElement.Pause();
+                            }
+                            else
+                            {
+                                // Set source if needed
+                                if (mediaElement.Source == null && !string.IsNullOrEmpty(url))
+                                {
+                                    mediaElement.Source = new Uri(url);
+                                }
+                                mediaElement.Play();
+                                _currentVideoPlayer = mediaElement;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Video play error: {ex.Message}");
+                }
+            }
+        }
+
+        private void VideoPlayer_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            if (sender is MediaElement mediaElement)
+            {
+                mediaElement.Stop();
+                mediaElement.Position = TimeSpan.Zero;
+            }
+        }
+
+        private static T? FindChild<T>(DependencyObject parent) where T : DependencyObject
+        {
+            for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+            {
+                var child = VisualTreeHelper.GetChild(parent, i);
+                if (child is T result)
+                    return result;
+                var found = FindChild<T>(child);
+                if (found != null)
+                    return found;
+            }
+            return null;
+        }
+
+        private enum MediaState { Play, Pause, Stop }
+        
+        private MediaState GetMediaState(MediaElement media)
+        {
+            try
+            {
+                var hlp = typeof(MediaElement).GetField("_helper", 
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (hlp != null)
+                {
+                    var helperObj = hlp.GetValue(media);
+                    if (helperObj != null)
+                    {
+                        var stateField = helperObj.GetType().GetField("_currentState", 
+                            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        if (stateField != null)
+                        {
+                            var state = stateField.GetValue(helperObj);
+                            if (state != null && state.ToString() == "Play")
+                                return MediaState.Play;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return MediaState.Stop;
+        }
+
+        private void AudioPlay_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn)
+            {
+                // Get DataContext which contains the message data
+                var dataContext = btn.DataContext as ChatMessageItem;
+                
+                // Check if this audio is already playing - toggle pause
+                if (dataContext != null && dataContext == _currentlyPlayingAudio && dataContext.IsPlaying)
+                {
+                    // Pause the current audio
+                    _audioPlayer.Pause();
+                    dataContext.IsPlaying = false;
+                    return;
+                }
+                
+                // Get URL from DataContext directly (more reliable than Tag binding)
+                string? url = dataContext?.FileUrl;
+                
+                // Fallback to Tag if DataContext doesn't work
+                if (string.IsNullOrEmpty(url))
+                {
+                    url = btn.Tag as string;
+                }
+                
+                if (string.IsNullOrEmpty(url))
+                {
+                    MessageBox.Show($"URL audio non disponible.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                
+                try
+                {
+                    // Stop previous audio if different
+                    if (_currentlyPlayingAudio != null && _currentlyPlayingAudio != dataContext)
+                    {
+                        _audioPlayer.Stop();
+                        _currentlyPlayingAudio.IsPlaying = false;
+                    }
                     
-                    /* BUZZ STYLES */
-                    .status-buzz-sent { color: #2196F3; background-color: #E3F2FD; font-weight: bold; border: 1px solid #90CAF9; animation: pulse 1s; }
-                    .status-buzz-received { color: #FF9800; background-color: #FFF3E0; font-weight: bold; border: 1px solid #FFCC80; animation: shake 0.5s; }
-
-                    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-                    @keyframes shake { 0% { transform: translate(1px, 1px) rotate(0deg); } 10% { transform: translate(-1px, -2px) rotate(-1deg); } 20% { transform: translate(-3px, 0px) rotate(1deg); } 30% { transform: translate(3px, 2px) rotate(0deg); } 40% { transform: translate(1px, -1px) rotate(1deg); } 50% { transform: translate(-1px, 2px) rotate(-1deg); } 60% { transform: translate(-3px, 1px) rotate(0deg); } 70% { transform: translate(3px, 1px) rotate(-1deg); } 80% { transform: translate(-1px, -1px) rotate(1deg); } 90% { transform: translate(1px, 2px) rotate(0deg); } 100% { transform: translate(1px, -2px) rotate(-1deg); } }
-                </style>
-                <script>
-                    function saveFile(url, filename) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'saveImage', url: url, filename: filename}));
+                    // Check if we're resuming the same audio that was paused
+                    if (dataContext != null && dataContext == _currentlyPlayingAudio && !dataContext.IsPlaying)
+                    {
+                        // Resume playback
+                        _audioPlayer.Play();
+                        dataContext.IsPlaying = true;
+                        return;
                     }
                     
-                    function openImage(url) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'openImage', url: url}));
+                    // Build absolute URL if relative
+                    string absoluteUrl = url;
+                    if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+                    {
+                        // Relative URL - prepend API base URL
+                        var baseUrl = ApiService.Instance.GetBaseUrl().TrimEnd('/');
+                        absoluteUrl = url.StartsWith("/") ? $"{baseUrl}{url}" : $"{baseUrl}/{url}";
                     }
                     
-                    function saveVideo(url, filename) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'saveVideo', url: url, filename: filename}));
+                    _audioPlayer.Open(new Uri(absoluteUrl, UriKind.Absolute));
+                    _audioPlayer.Play();
+                    
+                    // Update IsPlaying
+                    if (dataContext != null)
+                    {
+                        dataContext.IsPlaying = true;
+                        _currentlyPlayingAudio = dataContext;
                     }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur de lecture audio: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
 
-                    function respondFile(id, accepted) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondFile', id: id.toString(), accepted: accepted.toString()}));
-                    }
+        private async void AcceptTransfer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is int transferId)
+            {
+                var msg = _messages.FirstOrDefault(m => m.TransferId == transferId);
+                if (msg != null)
+                {
+                    msg.TransferStatus = TransferStatus.Accepted;
+                    
+                    // Call appropriate API based on type
+                    if (msg.Type == ChatMessageType.Image)
+                        await ApiService.Instance.RespondToImageRequestAsync(transferId, true);
+                    else if (msg.Type == ChatMessageType.Video)
+                        await ApiService.Instance.RespondToVideoRequestAsync(transferId, true);
+                    else if (msg.Type == ChatMessageType.AudioMessage || msg.Type == ChatMessageType.AudioFile)
+                        await ApiService.Instance.RespondToAudioRequestAsync(transferId, true);
+                    else
+                        await ApiService.Instance.RespondToFileRequestAsync(transferId, true);
+                }
+            }
+        }
 
-                    function respondImage(id, accepted) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondImage', id: id.toString(), accepted: accepted.toString()}));
-                    }
+        private async void DeclineTransfer_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is int transferId)
+            {
+                var msg = _messages.FirstOrDefault(m => m.TransferId == transferId);
+                if (msg != null)
+                {
+                    msg.TransferStatus = TransferStatus.Declined;
+                    
+                    // Call appropriate API based on type
+                    if (msg.Type == ChatMessageType.Image)
+                        await ApiService.Instance.RespondToImageRequestAsync(transferId, false);
+                    else if (msg.Type == ChatMessageType.Video)
+                        await ApiService.Instance.RespondToVideoRequestAsync(transferId, false);
+                    else if (msg.Type == ChatMessageType.AudioMessage || msg.Type == ChatMessageType.AudioFile)
+                        await ApiService.Instance.RespondToAudioRequestAsync(transferId, false);
+                    else
+                        await ApiService.Instance.RespondToFileRequestAsync(transferId, false);
+                }
+            }
+        }
 
-                    function respondVideo(id, accepted) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondVideo', id: id.toString(), accepted: accepted.toString()}));
-                    }
+        private async Task OpenMediaAsync(string url, string defaultExt)
+        {
+            try
+            {
+                string ext = System.IO.Path.GetExtension(url);
+                if (string.IsNullOrEmpty(ext)) ext = defaultExt;
+                string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"PaLX_View_{Guid.NewGuid()}{ext}");
+                
+                using (var client = new HttpClient())
+                {
+                    var bytes = await client.GetByteArrayAsync(url);
+                    await System.IO.File.WriteAllBytesAsync(tempFile, bytes);
+                }
 
-                    function respondAudio(id, accepted) {
-                        window.chrome.webview.postMessage(JSON.stringify({type: 'respondAudio', id: id.toString(), accepted: accepted.toString()}));
-                    }
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = tempFile,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Impossible d'ouvrir le fichier : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
 
-                    function addMessage(base64Content, isMine, time) {
-                        var content = decodeURIComponent(escape(window.atob(base64Content)));
-                        var container = document.createElement('div');
-                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
-                        
-                        var bubble = document.createElement('div');
-                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
-                        
-                        // Legacy Image Support
-                        if (content.startsWith('[IMAGE]')) {
-                            var url = content.substring(7);
-                            var safeUrl = url.replace(/'/g, ""\\\\'"");
-                            content = '<img src=""' + url + '"" class=""file-thumb"" onclick=""openImage(\'' + safeUrl + '\')"" />';
-                        }
-                        
-                        bubble.innerHTML = content;
-                        
-                        var ts = document.createElement('div');
-                        ts.className = 'timestamp';
-                        ts.innerText = time;
-                        
-                        bubble.appendChild(ts);
-                        container.appendChild(bubble);
-                        document.body.appendChild(container);
-                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
-                    }
-
-                    function addStatusMessage(text, cssClass) {
-                        var div = document.createElement('div');
-                        div.className = 'status-message ' + cssClass;
-                        div.innerText = text;
-                        document.body.appendChild(div);
-                        window.scrollTo(0, document.body.scrollHeight);
-                    }
-
-                    function addGenericFileRequest(id, sender, filename, url, isMine, status) {
-                        var container = document.createElement('div');
-                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
-                        
-                        var bubble = document.createElement('div');
-                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
-                        bubble.id = 'f-bubble-' + id;
-                        
-                        var icon = '📄';
-                        var ext = filename.split('.').pop().toLowerCase();
-                        if (['zip', 'rar'].indexOf(ext) >= 0) icon = '📦';
-                        else if (['pdf'].indexOf(ext) >= 0) icon = '📕';
-                        else if (['doc', 'docx'].indexOf(ext) >= 0) icon = '📘';
-                        else if (['xls', 'xlsx'].indexOf(ext) >= 0) icon = '📗';
-                        else if (['ppt', 'pptx'].indexOf(ext) >= 0) icon = '📙';
-                        else if (['txt'].indexOf(ext) >= 0) icon = '📝';
-                        
-                        var html = '<div style=""display:flex; align-items:center; gap:10px;"">';
-                        html += '<div style=""font-size:24px;"">' + icon + '</div>';
-                        html += '<div><div style=""font-weight:bold;"">' + filename + '</div>';
-                        html += '<div style=""font-size:11px; opacity:0.7;"">Fichier ' + ext.toUpperCase() + '</div>';
-                        
-                        // Status Area
-                        html += '<div id=""f-status-' + id + '"" style=""margin-top:5px;"">';
-                        
-                        if (status === undefined || status === 0) { // Pending
-                            html += '<div id=""f-req-' + id + '"" style=""font-size:12px; font-style:italic;"">En attente...</div>';
-                            if (!isMine) {
-                                html += '<div id=""f-actions-' + id + '"" style=""margin-top:8px; display:flex; gap:5px;"">';
-                                html += '<button onclick=""respondFile(' + id + ', true)"" style=""background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Accepter</button>';
-                                html += '<button onclick=""respondFile(' + id + ', false)"" style=""background:#F44336; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Refuser</button>';
-                                html += '</div>';
-                            }
-                        } else if (status === 1) { // Accepted
-                            html += '<div style=""font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
-                        } else if (status === 2) { // Declined
-                            html += '<div style=""font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
-                        }
-                        html += '</div>'; // End Status Area
-
-                        // Content Area (Download Button) - Hidden if pending
-                        var displayStyle = (status === 1) ? 'block' : 'none';
-                        html += '<div id=""f-content-' + id + '"" style=""display:' + displayStyle + '; margin-top:8px;"">';
-                        if (url) {
-                            var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, ""\\\\'"");
-                            var safeFilename = filename.replace(/'/g, ""\\\\'"");
-                            html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; width:100%;"">💾 Enregistrer</button>';
-                        }
-                        html += '</div>';
-
-                        html += '</div></div>';
-                        bubble.innerHTML = html;
-                        
-                        container.appendChild(bubble);
-                        document.body.appendChild(container);
-                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
-                    }
-
-                    function updateGenericFileStatus(id, isAccepted) {
-                        var bubble = document.getElementById('f-bubble-' + id);
-                        var isMine = bubble && bubble.classList.contains('mine');
-                        
-                        var statusDiv = document.getElementById('f-status-' + id);
-                        var contentDiv = document.getElementById('f-content-' + id);
-                        var actionsDiv = document.getElementById('f-actions-' + id);
-                        var reqDiv = document.getElementById('f-req-' + id);
-
-                        if (statusDiv) {
-                            if (isAccepted) {
-                                statusDiv.innerHTML = '<div style=""font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
-                                if (contentDiv) contentDiv.style.display = 'block';
-                            } else {
-                                statusDiv.innerHTML = '<div style=""font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
-                                if (actionsDiv) actionsDiv.style.display = 'none';
-                                if (reqDiv) reqDiv.style.display = 'none';
-                            }
-                        }
-                    }
-
-                    function addFileRequest(id, sender, filename, url, isMine, status) {
-                        var ext = filename.split('.').pop().toLowerCase();
-                        if (['mp4', 'avi', 'mov', 'mkv', 'webm'].indexOf(ext) >= 0) {
-                            addVideoRequest(id, sender, filename, url, isMine, status);
-                            return;
-                        }
-                        if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].indexOf(ext) < 0) {
-                            addGenericFileRequest(id, sender, filename, url, isMine, status);
-                            return;
-                        }
-
-                        var container = document.createElement('div');
-                        container.className = 'message-container ' + (isMine ? 'mine' : 'theirs');
-                        
-                        var bubble = document.createElement('div');
-                        bubble.className = 'message-bubble ' + (isMine ? 'mine' : 'theirs');
-                        
-                        var icon = '📷';
-                        var typeLabel = 'Image';
-                        
-                        var html = '<div style=""display:flex; align-items:center; gap:10px;"">';
-                        html += '<div style=""font-size:24px;"">' + icon + '</div>';
-                        html += '<div><div style=""font-weight:bold;"">' + filename + '</div>';
-                        html += '<div style=""font-size:11px; opacity:0.7;"">' + typeLabel + '</div>';
-                        
-                        if (status === 0) { // Pending
-                            html += '<div style=""margin-top:5px; font-size:12px; font-style:italic;"">En attente...</div>';
-                            if (!isMine) {
-                                html += '<div style=""margin-top:8px; display:flex; gap:5px;"">';
-                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'acceptFile\', id:' + id + ', sender:\'' + sender + '\'}))"" style=""background:#4CAF50; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Accepter</button>';
-                                html += '<button onclick=""window.chrome.webview.postMessage(JSON.stringify({type:\'declineFile\', id:' + id + ', sender:\'' + sender + '\'}))"" style=""background:#F44336; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Refuser</button>';
-                                html += '</div>';
-                            }
-                        } else if (status === 1) { // Accepted
-                            html += '<div style=""margin-top:5px; font-size:12px; color:' + (isMine ? '#E8F5E9' : '#2E7D32') + ';"">Accepté</div>';
-                            if (url) {
-                                var safeUrl = url.replace(/\\/g, '\\\\').replace(/'/g, '\\\'');
-                                var safeFilename = filename.replace(/'/g, '\\\'');
-                                html += '<div style=""margin-top:8px; display:flex; gap:5px;"">';
-                                html += '<button onclick=""openImage(\'' + safeUrl + '\')"" style=""background:#2196F3; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Voir</button>';
-                                html += '<button onclick=""saveFile(\'' + safeUrl + '\', \'' + safeFilename + '\')"" style=""background:#FF9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;"">Enregistrer</button>';
-                                html += '</div>';
-                            }
-                        } else if (status === 2) { // Declined
-                            html += '<div style=""margin-top:5px; font-size:12px; color:' + (isMine ? '#FFCDD2' : '#C62828') + ';"">Refusé</div>';
-                        }
-                        
-                        html += '</div></div>';
-                        bubble.innerHTML = html;
-                        
-                        container.appendChild(bubble);
-                        document.body.appendChild(container);
-                        container.scrollIntoView({behavior: 'smooth', block: 'end'});
-                    }
-                </script>
-            </head>
-            <body></body>
-            </html>";
+        private async void LoadMore_Click(object sender, RoutedEventArgs e)
+        {
+            // API ne supporte pas la pagination pour le moment
+            // Cacher le bouton car tous les messages sont déjà chargés
+            LoadMoreButton.Visibility = Visibility.Collapsed;
         }
 
         private async Task CheckBlockStatusAsync()
@@ -2211,15 +1547,12 @@ namespace PaLX.Client
             await CheckBlockStatusAsync(); // Refresh status immediately
         }
 
-
-
         private void AppendMessageToUi(ChatMessage msg)
         {
-            // Encode content to Base64 to preserve HTML and avoid JS syntax errors
-            string base64Content = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(msg.Content));
-            string time = msg.Timestamp.ToString("HH:mm");
-            string script = $"addMessage('{base64Content}', {(msg.IsMine ? "true" : "false")}, '{time}', {msg.Id});";
-            ChatWebView.ExecuteScriptAsync(script);
+            // Convert content and create ChatMessageItem
+            var chatItem = CreateMessageFromContent(msg.Content, msg.IsMine ? _currentUser : _partnerUser, msg.IsMine, msg.Id, msg.Timestamp);
+            _messages.Add(chatItem);
+            ScrollToBottom();
         }
 
         private void Send_Click(object sender, RoutedEventArgs e)

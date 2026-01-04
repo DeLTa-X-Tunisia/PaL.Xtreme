@@ -1,0 +1,497 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="clr-namespace:PaLX.Client.Converters"
+                    xmlns:models="clr-namespace:PaLX.Client.Models">
+
+    <!-- Converters -->
+    <local:IsMineToAlignmentConverter x:Key="IsMineToAlignmentConverter"/>
+    <local:IsMineToBubbleColorConverter x:Key="IsMineToBubbleColorConverter"/>
+    <local:IsMineToBorderConverter x:Key="IsMineToBorderConverter"/>
+    <local:IsMineToCornerRadiusConverter x:Key="IsMineToCornerRadiusConverter"/>
+    <local:IsMineToMarginConverter x:Key="IsMineToMarginConverter"/>
+    <local:UrlToImageSourceConverter x:Key="UrlToImageSourceConverter"/>
+    <local:HexColorToBrushConverter x:Key="HexColorToBrushConverter"/>
+    <local:TransferStatusToVisibilityConverter x:Key="TransferStatusToVisibilityConverter"/>
+    <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    <local:ProgressToWidthConverter x:Key="ProgressToWidthConverter"/>
+    <local:ShowActionsConverter x:Key="ShowActionsConverter"/>
+
+    <!-- Couleur primaire -->
+    <SolidColorBrush x:Key="PrimaryBrush" Color="#E03E2F"/>
+    <SolidColorBrush x:Key="PrimaryHoverBrush" Color="#C43626"/>
+    <SolidColorBrush x:Key="AcceptBrush" Color="#4CAF50"/>
+    <SolidColorBrush x:Key="DeclineBrush" Color="#F44336"/>
+
+    <!-- Style de bouton pour audio/vidéo -->
+    <Style x:Key="MediaButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Width" Value="40"/>
+        <Setter Property="Height" Value="40"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" 
+                            CornerRadius="20"
+                            BorderThickness="0">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#20000000"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter Property="Background" Value="#40000000"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Style pour boutons d'action (Accepter/Refuser) -->
+    <Style x:Key="ActionButtonStyle" TargetType="Button">
+        <Setter Property="Padding" Value="12,6"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border" 
+                            Background="{TemplateBinding Background}" 
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="15"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- =============================================== -->
+    <!-- Template: Message Texte -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="TextMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="{Binding IsMine, Converter={StaticResource IsMineToMarginConverter}}"
+              HorizontalAlignment="{Binding IsMine, Converter={StaticResource IsMineToAlignmentConverter}}">
+            <Border Background="{Binding IsMine, Converter={StaticResource IsMineToBubbleColorConverter}}"
+                    BorderBrush="{Binding IsMine, Converter={StaticResource IsMineToBorderConverter}}"
+                    BorderThickness="1"
+                    CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
+                    Padding="12,8"
+                    MaxWidth="400">
+                <StackPanel>
+                    <!-- Nom de l'expéditeur (seulement si pas mon message) -->
+                    <TextBlock Text="{Binding SenderName}"
+                               Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Margin="0,0,0,4"/>
+                    
+                    <!-- Contenu du message -->
+                    <TextBlock Text="{Binding Content}"
+                               TextWrapping="Wrap"
+                               FontSize="14"
+                               Foreground="#333333"/>
+                    
+                    <!-- Heure -->
+                    <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}"
+                               HorizontalAlignment="Right"
+                               FontSize="10"
+                               Foreground="#888888"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message Image -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="ImageMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="{Binding IsMine, Converter={StaticResource IsMineToMarginConverter}}"
+              HorizontalAlignment="{Binding IsMine, Converter={StaticResource IsMineToAlignmentConverter}}">
+            <Border Background="{Binding IsMine, Converter={StaticResource IsMineToBubbleColorConverter}}"
+                    BorderBrush="{Binding IsMine, Converter={StaticResource IsMineToBorderConverter}}"
+                    BorderThickness="1"
+                    CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
+                    Padding="4"
+                    MaxWidth="320">
+                <StackPanel>
+                    <!-- Nom de l'expéditeur -->
+                    <TextBlock Text="{Binding SenderName}"
+                               Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Margin="8,4,8,4"/>
+                    
+                    <!-- Image cliquable -->
+                    <Border CornerRadius="12" ClipToBounds="True" Cursor="Hand">
+                        <Image Source="{Binding ImageUrl, Converter={StaticResource UrlToImageSourceConverter}}"
+                               MaxHeight="300"
+                               Stretch="Uniform"
+                               x:Name="ChatImage"/>
+                    </Border>
+                    
+                    <!-- Heure -->
+                    <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}"
+                               HorizontalAlignment="Right"
+                               FontSize="10"
+                               Foreground="#888888"
+                               Margin="8,4,8,4"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message Audio -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="AudioMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="{Binding IsMine, Converter={StaticResource IsMineToMarginConverter}}"
+              HorizontalAlignment="{Binding IsMine, Converter={StaticResource IsMineToAlignmentConverter}}">
+            <Border Background="{Binding IsMine, Converter={StaticResource IsMineToBubbleColorConverter}}"
+                    BorderBrush="{Binding IsMine, Converter={StaticResource IsMineToBorderConverter}}"
+                    BorderThickness="1"
+                    CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
+                    Padding="8"
+                    MinWidth="220">
+                <StackPanel>
+                    <!-- Nom de l'expéditeur -->
+                    <TextBlock Text="{Binding SenderName}"
+                               Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Margin="0,0,0,4"/>
+                    
+                    <!-- Contrôles audio -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Bouton Play/Pause -->
+                        <Button Grid.Column="0" 
+                                Style="{StaticResource MediaButtonStyle}"
+                                Tag="{Binding AudioUrl}"
+                                x:Name="AudioPlayButton">
+                            <Path Data="{Binding IsPlaying, Converter={x:Static local:AudioIconConverter.Instance}}"
+                                  Fill="{StaticResource PrimaryBrush}"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"/>
+                        </Button>
+                        
+                        <!-- Forme d'onde / Barre de progression -->
+                        <Grid Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
+                            <Border Background="#E0E0E0" Height="4" CornerRadius="2"/>
+                            <Border Background="{StaticResource PrimaryBrush}" 
+                                    Height="4" 
+                                    CornerRadius="2"
+                                    HorizontalAlignment="Left"
+                                    Width="{Binding AudioProgress, Converter={StaticResource ProgressToWidthConverter}, ConverterParameter=120}"/>
+                        </Grid>
+                        
+                        <!-- Durée -->
+                        <TextBlock Grid.Column="2" 
+                                   Text="{Binding AudioDuration}"
+                                   VerticalAlignment="Center"
+                                   FontSize="11"
+                                   Foreground="#666666"/>
+                    </Grid>
+                    
+                    <!-- Heure -->
+                    <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}"
+                               HorizontalAlignment="Right"
+                               FontSize="10"
+                               Foreground="#888888"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message Vidéo -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="VideoMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="{Binding IsMine, Converter={StaticResource IsMineToMarginConverter}}"
+              HorizontalAlignment="{Binding IsMine, Converter={StaticResource IsMineToAlignmentConverter}}">
+            <Border Background="{Binding IsMine, Converter={StaticResource IsMineToBubbleColorConverter}}"
+                    BorderBrush="{Binding IsMine, Converter={StaticResource IsMineToBorderConverter}}"
+                    BorderThickness="1"
+                    CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
+                    Padding="4"
+                    MaxWidth="320">
+                <StackPanel>
+                    <!-- Nom de l'expéditeur -->
+                    <TextBlock Text="{Binding SenderName}"
+                               Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Margin="8,4,8,4"/>
+                    
+                    <!-- Miniature vidéo avec bouton play -->
+                    <Border CornerRadius="12" ClipToBounds="True" Cursor="Hand">
+                        <Grid>
+                            <Image Source="{Binding VideoThumbnailUrl, Converter={StaticResource UrlToImageSourceConverter}}"
+                                   MaxHeight="200"
+                                   Stretch="Uniform"/>
+                            
+                            <!-- Overlay sombre + icône play -->
+                            <Border Background="#40000000">
+                                <Border Width="50" Height="50" 
+                                        Background="{StaticResource PrimaryBrush}" 
+                                        CornerRadius="25"
+                                        HorizontalAlignment="Center" 
+                                        VerticalAlignment="Center">
+                                    <Path Data="M18,12 L18,12 8,6 8,18Z" 
+                                          Fill="White" 
+                                          Width="20" Height="20"
+                                          Stretch="Uniform"
+                                          Margin="3,0,0,0"/>
+                                </Border>
+                            </Border>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Heure -->
+                    <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}"
+                               HorizontalAlignment="Right"
+                               FontSize="10"
+                               Foreground="#888888"
+                               Margin="8,4,8,4"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Transfert de Fichier -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="FileTransferTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="{Binding IsMine, Converter={StaticResource IsMineToMarginConverter}}"
+              HorizontalAlignment="{Binding IsMine, Converter={StaticResource IsMineToAlignmentConverter}}">
+            <Border Background="{Binding IsMine, Converter={StaticResource IsMineToBubbleColorConverter}}"
+                    BorderBrush="{Binding IsMine, Converter={StaticResource IsMineToBorderConverter}}"
+                    BorderThickness="1"
+                    CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
+                    Padding="12,10"
+                    MinWidth="260">
+                <StackPanel>
+                    <!-- Nom de l'expéditeur -->
+                    <TextBlock Text="{Binding SenderName}"
+                               Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               Margin="0,0,0,6"/>
+                    
+                    <!-- Info fichier -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <!-- Icône fichier -->
+                        <Border Grid.Column="0" 
+                                Width="44" Height="44" 
+                                Background="#F5F5F5" 
+                                CornerRadius="8"
+                                Margin="0,0,10,0">
+                            <Path Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+                                  Fill="#666666"
+                                  Width="22" Height="22"
+                                  Stretch="Uniform"
+                                  HorizontalAlignment="Center"
+                                  VerticalAlignment="Center"/>
+                        </Border>
+                        
+                        <!-- Détails fichier -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding FileName}"
+                                       FontSize="13"
+                                       FontWeight="Medium"
+                                       Foreground="#333333"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxWidth="180"/>
+                            <TextBlock Text="{Binding FileSize}"
+                                       FontSize="11"
+                                       Foreground="#888888"/>
+                        </StackPanel>
+                    </Grid>
+                    
+                    <!-- Barre de progression (visible pendant le transfert) -->
+                    <Grid Margin="0,8,0,0"
+                          Visibility="{Binding TransferStatus, Converter={StaticResource TransferStatusToVisibilityConverter}, ConverterParameter=accepted}">
+                        <Border Background="#E0E0E0" Height="4" CornerRadius="2"/>
+                        <Border Background="{StaticResource PrimaryBrush}" 
+                                Height="4" 
+                                CornerRadius="2"
+                                HorizontalAlignment="Left"
+                                Width="{Binding TransferProgress, Converter={StaticResource ProgressToWidthConverter}, ConverterParameter=200}"/>
+                    </Grid>
+                    
+                    <!-- Boutons d'action (Accepter/Refuser) - seulement pour le destinataire en attente -->
+                    <StackPanel Orientation="Horizontal" 
+                                HorizontalAlignment="Center"
+                                Margin="0,10,0,0">
+                        <StackPanel.Visibility>
+                            <MultiBinding Converter="{StaticResource ShowActionsConverter}">
+                                <Binding Path="IsMine"/>
+                                <Binding Path="TransferStatus"/>
+                            </MultiBinding>
+                        </StackPanel.Visibility>
+                        
+                        <Button Content="Accepter"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="{StaticResource AcceptBrush}"
+                                Foreground="White"
+                                BorderBrush="{StaticResource AcceptBrush}"
+                                Margin="0,0,8,0"
+                                Tag="{Binding TransferId}"
+                                x:Name="AcceptTransferButton"/>
+                        
+                        <Button Content="Refuser"
+                                Style="{StaticResource ActionButtonStyle}"
+                                Background="White"
+                                Foreground="{StaticResource DeclineBrush}"
+                                BorderBrush="{StaticResource DeclineBrush}"
+                                Tag="{Binding TransferId}"
+                                x:Name="DeclineTransferButton"/>
+                    </StackPanel>
+                    
+                    <!-- Statut (Accepté/Refusé/En attente) -->
+                    <TextBlock FontSize="11" 
+                               FontStyle="Italic"
+                               Foreground="#888888"
+                               Margin="0,6,0,0"
+                               HorizontalAlignment="Center"
+                               Visibility="{Binding TransferStatus, Converter={StaticResource TransferStatusToVisibilityConverter}, ConverterParameter=notpending}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TransferStatus}" Value="Accepted">
+                                        <Setter Property="Text" Value="Transfert accepté"/>
+                                        <Setter Property="Foreground" Value="{StaticResource AcceptBrush}"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding TransferStatus}" Value="Declined">
+                                        <Setter Property="Text" Value="Transfert refusé"/>
+                                        <Setter Property="Foreground" Value="{StaticResource DeclineBrush}"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    
+                    <!-- Heure -->
+                    <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}"
+                               HorizontalAlignment="Right"
+                               FontSize="10"
+                               Foreground="#888888"
+                               Margin="0,4,0,0"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message de Statut (système) -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="StatusMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="20,8">
+            <Border Background="#F0F0F0" 
+                    CornerRadius="12"
+                    Padding="16,8"
+                    HorizontalAlignment="Center">
+                <TextBlock Text="{Binding Content}"
+                           FontSize="12"
+                           FontStyle="Italic"
+                           Foreground="#666666"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"/>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message Buzz -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="BuzzMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="20,12">
+            <Border Background="#FFF3E0" 
+                    BorderBrush="#FF9800"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16,10"
+                    HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M7.07,18.28C7.5,17.38 10.12,16.5 12,16.5C13.88,16.5 16.5,17.38 16.93,18.28C15.57,19.36 13.86,20 12,20C10.14,20 8.43,19.36 7.07,18.28M18.36,16.83C16.93,15.09 13.46,14.5 12,14.5C10.54,14.5 7.07,15.09 5.64,16.83C4.62,15.5 4,13.82 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,13.82 19.38,15.5 18.36,16.83M12,6C10.06,6 8.5,7.56 8.5,9.5C8.5,11.44 10.06,13 12,13C13.94,13 15.5,11.44 15.5,9.5C15.5,7.56 13.94,6 12,6M12,11A1.5,1.5 0 0,1 10.5,9.5A1.5,1.5 0 0,1 12,8A1.5,1.5 0 0,1 13.5,9.5A1.5,1.5 0 0,1 12,11Z"
+                          Fill="#FF9800"
+                          Width="18" Height="18"
+                          Stretch="Uniform"
+                          Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding Content}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#E65100"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template: Message de Blocage -->
+    <!-- =============================================== -->
+    <DataTemplate x:Key="BlockMessageTemplate" DataType="{x:Type models:ChatMessageItem}">
+        <Grid Margin="20,12">
+            <Border Background="#FFEBEE" 
+                    BorderBrush="#F44336"
+                    BorderThickness="1"
+                    CornerRadius="12"
+                    Padding="16,10"
+                    HorizontalAlignment="Center">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Path Data="M12,2C17.5,2 22,6.5 22,12C22,17.5 17.5,22 12,22C6.5,22 2,17.5 2,12C2,6.5 6.5,2 12,2M12,4C7.58,4 4,7.58 4,12C4,16.42 7.58,20 12,20C16.42,20 20,16.42 20,12C20,7.58 16.42,4 12,4M16.5,7.5L7.5,16.5M7.5,7.5L16.5,16.5"
+                          Fill="#F44336"
+                          Width="18" Height="18"
+                          Stretch="Uniform"
+                          Margin="0,0,8,0"/>
+                    <TextBlock Text="{Binding Content}"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#C62828"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- =============================================== -->
+    <!-- Template Selector -->
+    <!-- =============================================== -->
+    <local:ChatMessageTemplateSelector x:Key="ChatMessageTemplateSelector"
+                                       TextMessageTemplate="{StaticResource TextMessageTemplate}"
+                                       ImageMessageTemplate="{StaticResource ImageMessageTemplate}"
+                                       AudioMessageTemplate="{StaticResource AudioMessageTemplate}"
+                                       VideoMessageTemplate="{StaticResource VideoMessageTemplate}"
+                                       FileTransferTemplate="{StaticResource FileTransferTemplate}"
+                                       StatusMessageTemplate="{StaticResource StatusMessageTemplate}"
+                                       BuzzMessageTemplate="{StaticResource BuzzMessageTemplate}"
+                                       BlockMessageTemplate="{StaticResource BlockMessageTemplate}"/>
+
+</ResourceDictionary>

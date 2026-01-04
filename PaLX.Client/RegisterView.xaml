@@ -4,96 +4,160 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
-             d:DesignHeight="500" d:DesignWidth="400">
+             d:DesignHeight="550" d:DesignWidth="500">
+    
+    <UserControl.Resources>
+        <!-- Input Field Style with Icon -->
+        <Style x:Key="InputFieldStyle" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="16,4"/>
+            <Setter Property="Height" Value="56"/>
+        </Style>
+    </UserControl.Resources>
+    
+    <!-- Fade-in Animation -->
     <UserControl.RenderTransform>
-        <TranslateTransform Y="20"/>
+        <TranslateTransform Y="30"/>
     </UserControl.RenderTransform>
     <UserControl.Triggers>
         <EventTrigger RoutedEvent="UserControl.Loaded">
             <BeginStoryboard>
                 <Storyboard>
-                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.5"/>
-                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="20" To="0" Duration="0:0:0.5" DecelerationRatio="0.9"/>
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.6"/>
+                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="30" To="0" Duration="0:0:0.5">
+                        <DoubleAnimation.EasingFunction>
+                            <CubicEase EasingMode="EaseOut"/>
+                        </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
                 </Storyboard>
             </BeginStoryboard>
         </EventTrigger>
     </UserControl.Triggers>
+    
     <Grid Background="{StaticResource CardBackgroundBrush}">
-        <StackPanel VerticalAlignment="Center" Margin="40">
-            <TextBlock Text="Inscription" FontSize="28" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,30"/>
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,35,0,30">
+            
+            <!-- Username Field -->
+            <TextBlock Text="Nom d'utilisateur" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="4,0,0,8"/>
+            <Border Style="{StaticResource InputFieldStyle}" Width="380" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="40" Height="40" CornerRadius="10" Background="#10E03E2F" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                   Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBox x:Name="UsernameBox" Grid.Column="1" 
+                             Background="Transparent" BorderThickness="0" 
+                             FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
+                             Foreground="{StaticResource TextBrush}"/>
+                    <TextBlock Grid.Column="1" Text="Choisissez un username" IsHitTestVisible="False" 
+                               Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="15">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Text, ElementName=UsernameBox}" Value="">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </Border>
 
-            <!-- Username -->
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Path Data="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" 
-                      Fill="{StaticResource LightTextBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <TextBox x:Name="UsernameBox" Grid.Column="1" />
-                <TextBlock Text="Username" Grid.Column="1" IsHitTestVisible="False" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="5,0,0,0">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Text, ElementName=UsernameBox}" Value="">
-                                    <Setter Property="Visibility" Value="Visible"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+            <!-- Password Field -->
+            <TextBlock Text="Mot de passe" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="4,0,0,8"/>
+            <Border Style="{StaticResource InputFieldStyle}" Width="380" Margin="0,0,0,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="40" Height="40" CornerRadius="10" Background="#10E03E2F" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                   Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <PasswordBox x:Name="PasswordBox" Grid.Column="1" 
+                                 Background="Transparent" BorderThickness="0" 
+                                 FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
+                                 Foreground="{StaticResource TextBrush}" PasswordChanged="PasswordBox_PasswordChanged"/>
+                    <TextBox x:Name="PasswordTxtBox" Grid.Column="1" Visibility="Collapsed"
+                             Background="Transparent" BorderThickness="0" 
+                             FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
+                             Foreground="{StaticResource TextBrush}"/>
+                    <TextBlock x:Name="PasswordPlaceholder" Grid.Column="1" Text="Créez un mot de passe" IsHitTestVisible="False" 
+                               Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="15"/>
+                    
+                    <!-- Show/Hide Password Toggle -->
+                    <ToggleButton x:Name="ShowPasswordToggle" Grid.Column="2" Width="40" Height="40" 
+                                  Background="Transparent" BorderThickness="0" Click="ShowPasswordToggle_Click" Cursor="Hand">
+                        <ToggleButton.Template>
+                            <ControlTemplate TargetType="ToggleButton">
+                                <Border x:Name="bg" Background="Transparent" CornerRadius="10">
+                                    <TextBlock x:Name="icon" Text="&#xE7B3;" FontFamily="Segoe MDL2 Assets" FontSize="16" 
+                                               Foreground="{StaticResource LightTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsChecked" Value="True">
+                                        <Setter TargetName="icon" Property="Text" Value="&#xED1A;"/>
+                                        <Setter TargetName="icon" Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bg" Property="Background" Value="#10000000"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </ToggleButton.Template>
+                    </ToggleButton>
+                </Grid>
+            </Border>
+
+            <!-- Confirm Password Field -->
+            <TextBlock Text="Confirmer le mot de passe" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="4,0,0,8"/>
+            <Border Style="{StaticResource InputFieldStyle}" Width="380" Margin="0,0,0,20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="40" Height="40" CornerRadius="10" Background="#10E03E2F" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
+                                   Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <PasswordBox x:Name="ConfirmPasswordBox" Grid.Column="1" 
+                                 Background="Transparent" BorderThickness="0" 
+                                 FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
+                                 Foreground="{StaticResource TextBrush}" PasswordChanged="ConfirmPasswordBox_PasswordChanged"/>
+                    <TextBlock x:Name="ConfirmPasswordPlaceholder" Grid.Column="1" Text="Confirmez le mot de passe" IsHitTestVisible="False" 
+                               Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="15"/>
+                </Grid>
+            </Border>
+
+            <!-- Register Button -->
+            <Button x:Name="RegisterButton" Style="{StaticResource PrimaryButtonStyle}" 
+                    Content="Créer mon compte" Click="RegisterButton_Click" 
+                    Width="380" Height="56" FontSize="16"/>
+
+            <!-- Divider -->
+            <Grid Width="380" Margin="0,20,0,15">
+                <Rectangle Height="1" Fill="{StaticResource DividerBrush}"/>
+                <Border Background="{StaticResource CardBackgroundBrush}" HorizontalAlignment="Center" Padding="16,0">
+                    <TextBlock Text="ou" FontSize="13" Foreground="{StaticResource LightTextBrush}"/>
+                </Border>
             </Grid>
 
-            <!-- Password -->
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Path Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z" 
-                      Fill="{StaticResource LightTextBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                
-                <PasswordBox x:Name="PasswordBox" Grid.Column="1"/>
-                <TextBox x:Name="PasswordTxtBox" Grid.Column="1" Visibility="Collapsed"/>
-                <TextBlock Text="Password" Grid.Column="1" IsHitTestVisible="False" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="5,0,0,0" x:Name="PasswordPlaceholder"/>
-
-                <ToggleButton x:Name="ShowPasswordToggle" Grid.Column="2" Width="20" Height="20" Margin="10,0,0,0" Background="Transparent" BorderThickness="0" Click="ShowPasswordToggle_Click" Cursor="Hand">
-                    <ToggleButton.Template>
-                        <ControlTemplate TargetType="ToggleButton">
-                            <Path x:Name="EyeIcon" Data="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z" 
-                                  Fill="{StaticResource LightTextBrush}" Stretch="Uniform"/>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="EyeIcon" Property="Fill" Value="{StaticResource PrimaryBrush}"/>
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </ToggleButton.Template>
-                </ToggleButton>
-            </Grid>
-
-            <!-- Confirm Password -->
-            <Grid Margin="0,0,0,30">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Path Data="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z" 
-                      Fill="{StaticResource LightTextBrush}" Width="20" Height="20" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                <PasswordBox x:Name="ConfirmPasswordBox" Grid.Column="1"/>
-                <TextBlock Text="Confirm Password" Grid.Column="1" IsHitTestVisible="False" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="5,0,0,0" x:Name="ConfirmPasswordPlaceholder"/>
-            </Grid>
-
-            <!-- Register Button (Icon) -->
-            <Button Style="{StaticResource IconButtonStyle}" Click="RegisterButton_Click" HorizontalAlignment="Center" Width="60" Height="60">
-                <Path Data="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z" 
-                      Fill="{StaticResource PrimaryBrush}" Stretch="Uniform" Width="30" Height="30"/>
-            </Button>
-
-            <!-- Switch Link -->
-            <Button Style="{StaticResource LinkButtonStyle}" Content="Déjà un compte ? Connectez-vous" Click="SwitchToLogin_Click" Margin="0,20,0,0"/>
+            <!-- Login Link -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock Text="Déjà un compte ? " FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                <Button Style="{StaticResource LinkButtonStyle}" Content="Se connecter" Click="SwitchToLogin_Click" FontSize="14" FontWeight="SemiBold"/>
+            </StackPanel>
+            
         </StackPanel>
     </Grid>
 </UserControl>

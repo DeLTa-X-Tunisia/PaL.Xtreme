@@ -1,36 +1,79 @@
 <Window x:Class="PaLX.Client.CustomAlertWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Alerte" Height="200" Width="400"
+        Title="Alerte" Height="240" Width="440"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen">
-    <Border CornerRadius="10" Background="#2D2D30" BorderBrush="#F44336" BorderThickness="2">
-        <Grid Margin="20">
+    
+    <Border CornerRadius="20" Margin="10">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#FFFFFF" Offset="0"/>
+                <GradientStop Color="#FAFAFA" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.2" Color="Black"/>
+        </Border.Effect>
+        
+        <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
-                <TextBlock Text="⚠️" FontSize="24" Foreground="#F44336" Margin="0,0,10,0"/>
-                <TextBlock x:Name="TitleText" Text="Action Non Autorisée" FontSize="18" FontWeight="Bold" Foreground="#F44336" VerticalAlignment="Center"/>
-            </StackPanel>
+            <!-- Header -->
+            <Border Grid.Row="0" CornerRadius="20,20,0,0" Padding="24,20">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#E03E2F" Offset="0"/>
+                        <GradientStop Color="#C93529" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <TextBlock Text="⚠️" FontSize="28" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TitleText" Text="Attention" FontSize="20" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
 
+            <!-- Message -->
             <TextBlock x:Name="MessageText" Grid.Row="1" 
                        Text="Vous ne pouvez pas effectuer cette action." 
-                       Foreground="White" TextWrapping="Wrap" 
-                       HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" FontSize="14"/>
+                       Foreground="#1A1A2E" TextWrapping="Wrap" 
+                       HorizontalAlignment="Center" VerticalAlignment="Center" 
+                       TextAlignment="Center" FontSize="15" Margin="30,20" LineHeight="24"/>
 
-            <Button Grid.Row="2" Content="OK" Width="100" Height="30" 
-                    Background="#F44336" Foreground="White" BorderThickness="0"
-                    Click="OkButton_Click" Cursor="Hand" Margin="0,10,0,0">
-                <Button.Resources>
-                    <Style TargetType="Border">
-                        <Setter Property="CornerRadius" Value="5"/>
-                    </Style>
-                </Button.Resources>
-            </Button>
+            <!-- Button -->
+            <Border Grid.Row="2" Padding="24,0,24,24">
+                <Button Content="Compris" Width="140" Height="46" Click="OkButton_Click" Cursor="Hand">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="border" CornerRadius="14">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#E03E2F" Offset="0"/>
+                                        <GradientStop Color="#FF6B5B" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#E03E2F" BlurRadius="12" ShadowDepth="0" Opacity="0.3"/>
+                                </Border.Effect>
+                                <TextBlock Text="{TemplateBinding Content}" Foreground="White" FontWeight="SemiBold" FontSize="14" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </Border>
         </Grid>
     </Border>
 </Window>

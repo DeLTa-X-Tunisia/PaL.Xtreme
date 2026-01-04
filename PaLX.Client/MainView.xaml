@@ -5,25 +5,148 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:PaLX.Client.Controls"
         mc:Ignorable="d"
-        Title="PaL.Xtreme Client" Height="700" Width="380"
+        Title="PaL.Xtreme" Height="850" Width="480"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundBrush}">
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanResizeWithGrip"
+        MinHeight="600" MinWidth="400">
+        
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <Style x:Key="IconButtonStyle" TargetType="Button">
+        
+        <!-- Modern Tab Style -->
+        <Style x:Key="ModernTabStyle" TargetType="TabItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Border" Background="Transparent" Padding="20,12" Cursor="Hand" CornerRadius="12">
+                            <ContentPresenter x:Name="ContentSite"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Center"
+                                ContentSource="Header"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Border" Property="Background" Value="#15E03E2F"/>
+                                <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsMouseOver" Value="True"/>
+                                    <Condition Property="IsSelected" Value="False"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="Border" Property="Background" Value="#08000000"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Friend Card Style -->
+        <Style x:Key="FriendCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Padding" Value="16"/>
+            <Setter Property="Margin" Value="0,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#FAFAFA"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        
+        <!-- Nav Button Style -->
+        <Style x:Key="NavButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="Width" Value="56"/>
+            <Setter Property="Height" Value="56"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="20" Padding="10">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="16" Padding="8">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#f0f0f0"/>
+                                <Setter TargetName="border" Property="Background" Value="#15E03E2F"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#25E03E2F"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Window Control Button -->
+        <Style x:Key="WindowControlButton" TargetType="Button">
+            <Setter Property="Width" Value="46"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#10000000"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseWindowButton" TargetType="Button" BasedOn="{StaticResource WindowControlButton}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="0,20,0,0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Local IconButtonStyle (override from App.xaml for list items) -->
+        <Style x:Key="LocalIconButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12" Padding="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#F0F0F0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E8E8E8"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -32,102 +155,161 @@
         </Style>
     </Window.Resources>
     
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Menu -->
-            <RowDefinition Height="Auto"/> <!-- User Info -->
-            <RowDefinition Height="*"/>    <!-- Friends List -->
-            <RowDefinition Height="Auto"/> <!-- Bottom Bar -->
-        </Grid.RowDefinitions>
+    <!-- Main Container with Shadow -->
+    <Border CornerRadius="20" Background="{StaticResource BackgroundBrush}" Margin="10">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="30" ShadowDepth="0" Opacity="0.15"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header -->
+                <RowDefinition Height="Auto"/> <!-- User Profile Card -->
+                <RowDefinition Height="Auto"/> <!-- Tab Headers -->
+                <RowDefinition Height="*"/>    <!-- Content -->
+                <RowDefinition Height="Auto"/> <!-- Bottom Nav -->
+            </Grid.RowDefinitions>
 
-        <!-- Menu -->
-        <Menu Grid.Row="0" Background="White" Padding="5">
-            <MenuItem Header="Fichier">
-                <MenuItem Header="Quitter" Click="Logout_Click"/>
-            </MenuItem>
-            <MenuItem Header="Aide">
-                <MenuItem Header="À propos"/>
-            </MenuItem>
-        </Menu>
-
-        <!-- User Info -->
-        <Border Grid.Row="1" Background="White" Padding="15" Margin="0,0,0,1">
-            <Border.Effect>
-                <DropShadowEffect Color="#bdc3c7" BlurRadius="5" ShadowDepth="1" Opacity="0.2"/>
-            </Border.Effect>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                
-                <!-- Avatar -->
-                <Ellipse x:Name="UserAvatar" Width="60" Height="60" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2">
-                    <Ellipse.Fill>
-                        <SolidColorBrush Color="#ecf0f1"/>
-                    </Ellipse.Fill>
-                    <Ellipse.ToolTip>
-                        <ToolTip Content="Votre Avatar"/>
-                    </Ellipse.ToolTip>
-                </Ellipse>
-                <TextBlock x:Name="AvatarPlaceholder" Text="👤" FontSize="30" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0" IsHitTestVisible="False"/>
-
-                <!-- Info -->
-                <StackPanel Grid.Column="1" Margin="15,0,0,0" VerticalAlignment="Center">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
-                        <TextBlock x:Name="UsernameText" Text="Username" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextBrush}"/>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- HEADER WITH WINDOW CONTROLS                                      -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="0" Background="White" CornerRadius="20,20,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid Height="50">
+                    <!-- App Title -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="20,0,0,0">
+                        <TextBlock Text="🔥" FontSize="20" VerticalAlignment="Center"/>
+                        <TextBlock Text="PaL.Xtreme" FontSize="16" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     
-                    <ComboBox x:Name="StatusCombo" SelectedIndex="0" BorderThickness="0" Background="White" BorderBrush="White" Width="150" HorizontalAlignment="Left">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,8,0"/>
-                                    <TextBlock Text="{Binding Name}"/>
-                                </StackPanel>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                </StackPanel>
-            </Grid>
-        </Border>
+                    <!-- Window Controls -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource WindowControlButton}" Click="MinimizeButton_Click">
+                            <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Button>
+                        <Button Style="{StaticResource WindowControlButton}" Click="MaximizeButton_Click">
+                            <TextBlock x:Name="MaximizeIcon" Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Button>
+                        <Button Style="{StaticResource CloseWindowButton}" Click="CloseButton_Click">
+                            <TextBlock Text="&#xE8BB;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-        <!-- Main Content -->
-        <TabControl x:Name="MainTabControl" Grid.Row="2" Margin="0,10" BorderThickness="0" Background="Transparent">
-            <TabControl.Resources>
-                <Style TargetType="TabItem">
-                    <Setter Property="Template">
-                        <Setter.Value>
-                            <ControlTemplate TargetType="TabItem">
-                                <Border Name="Border" BorderThickness="0,0,0,2" BorderBrush="Transparent" Margin="10,0">
-                                    <ContentPresenter x:Name="ContentSite"
-                                        VerticalAlignment="Center"
-                                        HorizontalAlignment="Center"
-                                        ContentSource="Header"
-                                        Margin="10,5"/>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- USER PROFILE CARD                                                -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="1" Background="White" Margin="16,8,16,8" CornerRadius="20" Padding="20">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="16" ShadowDepth="2" Opacity="0.06"/>
+                </Border.Effect>
+                
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Avatar -->
+                    <Grid>
+                        <Ellipse x:Name="UserAvatar" Width="64" Height="64" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="3">
+                            <Ellipse.Fill>
+                                <SolidColorBrush Color="#F0F0F0"/>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                        <TextBlock x:Name="AvatarPlaceholder" Text="👤" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                    </Grid>
+
+                    <!-- User Info -->
+                    <StackPanel Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="UsernameText" Text="Username" FontWeight="Bold" FontSize="18" Foreground="{StaticResource TextBrush}"/>
+                        
+                        <!-- Status Selector -->
+                        <ComboBox x:Name="StatusCombo" SelectedIndex="0" Margin="0,6,0,0" Width="160" HorizontalAlignment="Left">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse Width="10" Height="10" Fill="{Binding ColorBrush}" Margin="0,0,10,0"/>
+                                        <TextBlock Text="{Binding Name}" FontSize="13"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    
+                    <!-- Edit Profile Button -->
+                    <Button Grid.Column="2" Style="{StaticResource CircleIconButtonStyle}" ToolTip="Modifier le profil" Click="Profile_Click">
+                        <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- TAB HEADERS                                                      -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="2" Background="White" Margin="16,0,16,8" CornerRadius="16" Padding="4">
+                <TabControl x:Name="MainTabControl" BorderThickness="0" Background="Transparent" Padding="0" SelectionChanged="MainTabControl_SelectionChanged">
+                    <TabControl.Template>
+                        <ControlTemplate TargetType="TabControl">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="0"/>
+                                </Grid.RowDefinitions>
+                                <TabPanel Grid.Row="0" IsItemsHost="True" HorizontalAlignment="Center" Margin="4"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </TabControl.Template>
+
+                    <!-- Tab: Amis -->
+                    <TabItem Header="👥 Amis" Style="{StaticResource ModernTabStyle}"/>
+                    
+                    <!-- Tab: Discussions -->
+                    <TabItem Style="{StaticResource ModernTabStyle}">
+                        <TabItem.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="💬 Discussions"/>
+                                <Border Background="{StaticResource PrimaryBrush}" CornerRadius="10" MinWidth="20" Height="20" Margin="8,0,0,0" Padding="6,0" 
+                                        Visibility="{Binding TotalUnreadVisibility, RelativeSource={RelativeSource AncestorType=Window}}">
+                                    <TextBlock Text="{Binding TotalUnreadCount, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                               Foreground="White" FontSize="11" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <ControlTemplate.Triggers>
-                                    <Trigger Property="IsSelected" Value="True">
-                                        <Setter TargetName="Border" Property="BorderBrush" Value="{StaticResource PrimaryBrush}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}"/>
-                                        <Setter Property="FontWeight" Value="Bold"/>
-                                    </Trigger>
-                                    <Trigger Property="IsSelected" Value="False">
-                                        <Setter Property="Foreground" Value="Gray"/>
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Setter.Value>
-                    </Setter>
-                </Style>
-            </TabControl.Resources>
-
-            <!-- Tab 1: Amis -->
-            <TabItem Header="Amis">
-                <ListView x:Name="FriendsList" BorderThickness="0" Background="Transparent" Margin="0,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            </StackPanel>
+                        </TabItem.Header>
+                    </TabItem>
+                    
+                    <!-- Tab: Salons -->
+                    <TabItem x:Name="RoomsTab" Header="🏠 Salons" Style="{StaticResource ModernTabStyle}" Visibility="Visible"/>
+                </TabControl>
+            </Border>
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- CONTENT AREA - FRIENDS LIST                                          -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Grid Grid.Row="3" Margin="16,0,16,0">
+                <!-- Friends List (Tab 0) -->
+                <ListView x:Name="FriendsList" BorderThickness="0" Background="Transparent" 
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="White" CornerRadius="8" Margin="5,2" Padding="10" Width="330">
+                            <Border Style="{StaticResource FriendCardStyle}">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="1" Opacity="0.04"/>
+                                </Border.Effect>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -135,33 +317,41 @@
                                         <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     
-                                    <!-- Avatar with Block Overlay -->
-                                    <Grid Margin="0,0,15,0">
-                                        <Ellipse Width="40" Height="40" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1" Visibility="{Binding AvatarVisibility}">
+                                    <!-- Avatar with Status Indicator -->
+                                    <Grid Margin="0,0,12,0">
+                                        <!-- Avatar -->
+                                        <Ellipse Width="50" Height="50" Stroke="{StaticResource BorderBrush}" StrokeThickness="2" Visibility="{Binding AvatarVisibility}">
                                             <Ellipse.Fill>
                                                 <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
                                             </Ellipse.Fill>
                                         </Ellipse>
-                                        <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" Visibility="{Binding PlaceholderVisibility}"/>
+                                        <TextBlock Text="👤" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                                   IsHitTestVisible="False" Visibility="{Binding PlaceholderVisibility}"/>
                                         
                                         <!-- Block Overlay -->
-                                        <Ellipse Width="40" Height="40" Fill="#99FFFFFF" Visibility="{Binding BlockOverlayVisibility}"/>
-                                        <TextBlock Text="🚫" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Red" Visibility="{Binding BlockOverlayVisibility}"/>
+                                        <Ellipse Width="50" Height="50" Fill="#80FFFFFF" Visibility="{Binding BlockOverlayVisibility}"/>
+                                        <TextBlock Text="🚫" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                                                   Visibility="{Binding BlockOverlayVisibility}"/>
+                                        
+                                        <!-- Online Status Dot -->
+                                        <Ellipse Width="14" Height="14" Fill="{Binding StatusColor}" 
+                                                 Stroke="White" StrokeThickness="2"
+                                                 HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
                                     </Grid>
                                     
+                                    <!-- Name & Status -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Name}" FontSize="14">
+                                        <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontWeight" Value="{Binding NameFontWeight}"/>
-                                                    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding IsBlinking}" Value="True">
                                                             <DataTrigger.EnterActions>
                                                                 <BeginStoryboard x:Name="BlinkStoryboard">
                                                                     <Storyboard>
                                                                         <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                                                         From="1.0" To="0.2" Duration="0:0:0.5"
+                                                                                         From="1.0" To="0.3" Duration="0:0:0.5"
                                                                                          AutoReverse="True" RepeatBehavior="Forever"/>
                                                                     </Storyboard>
                                                                 </BeginStoryboard>
@@ -174,26 +364,21 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                            <Ellipse Width="8" Height="8" Fill="{Binding StatusColor}" Margin="0,0,5,0"/>
-                                            <TextBlock Text="{Binding StatusText}" FontSize="12" Foreground="{Binding StatusColor}"/>
-                                        </StackPanel>
+                                        <TextBlock Text="{Binding StatusText}" FontSize="13" Foreground="{Binding StatusColor}" Margin="0,3,0,0"/>
                                     </StackPanel>
 
-                                    <!-- Actions -->
+                                    <!-- Action Buttons -->
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Style="{StaticResource IconButtonStyle}" ToolTip="Discuter" Click="OpenChat_Click" Tag="{Binding Username}">
+                                        <Button Style="{StaticResource LocalIconButtonStyle}" ToolTip="Discuter" Click="OpenChat_Click" Tag="{Binding Username}">
                                             <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource PrimaryBrush}"/>
                                         </Button>
-                                        <Button Style="{StaticResource IconButtonStyle}" ToolTip="Voir Profil" Click="ViewProfile_Click" Tag="{Binding Username}">
-                                            <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource TextBrush}"/>
+                                        <Button Style="{StaticResource LocalIconButtonStyle}" ToolTip="Profil" Click="ViewProfile_Click" Tag="{Binding Username}">
+                                            <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
                                         </Button>
-                                        <Button Style="{StaticResource IconButtonStyle}" ToolTip="{Binding BlockToolTip}" Click="BlockUser_Click" Tag="{Binding Username}">
-                                            <Grid>
-                                                <TextBlock Text="{Binding BlockIcon}" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="Red"/>
-                                            </Grid>
+                                        <Button Style="{StaticResource LocalIconButtonStyle}" ToolTip="{Binding BlockToolTip}" Click="BlockUser_Click" Tag="{Binding Username}">
+                                            <TextBlock Text="{Binding BlockIcon}" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource DangerBrush}"/>
                                         </Button>
-                                        <Button Style="{StaticResource IconButtonStyle}" ToolTip="Retirer" Click="RemoveFriend_Click" Tag="{Binding Username}">
+                                        <Button Style="{StaticResource LocalIconButtonStyle}" ToolTip="Retirer" Click="RemoveFriend_Click" Tag="{Binding Username}">
                                             <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#e74c3c"/>
                                         </Button>
                                     </StackPanel>
@@ -202,22 +387,31 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-            </TabItem>
 
-            <!-- Tab 2: Discussions -->
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Discussions"/>
-                        <Border Background="Red" CornerRadius="8" MinWidth="16" Height="16" Margin="5,0,0,0" Padding="4,0" Visibility="{Binding TotalUnreadVisibility, RelativeSource={RelativeSource AncestorType=Window}}">
-                            <TextBlock Text="{Binding TotalUnreadCount, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="White" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
-                        </Border>
-                    </StackPanel>
-                </TabItem.Header>
-                <ListView x:Name="ConversationsList" BorderThickness="0" Background="Transparent" ScrollViewer.HorizontalScrollBarVisibility="Disabled" MouseDoubleClick="ConversationsList_MouseDoubleClick">
+                <!-- Conversations List (Tab 1) -->
+                <ListView x:Name="ConversationsList" BorderThickness="0" Background="Transparent" 
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
+                          MouseDoubleClick="ConversationsList_MouseDoubleClick" Visibility="Collapsed">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <ContentPresenter/>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate>
-                            <Border Background="White" CornerRadius="8" Margin="5,2" Padding="10" Width="330">
+                            <Border Style="{StaticResource FriendCardStyle}">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="1" Opacity="0.04"/>
+                                </Border.Effect>
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -226,8 +420,8 @@
                                     </Grid.ColumnDefinitions>
                                     
                                     <!-- Avatar -->
-                                    <Grid Margin="0,0,15,0">
-                                        <Ellipse Width="40" Height="40" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="1">
+                                    <Grid Margin="0,0,12,0">
+                                        <Ellipse Width="50" Height="50" Stroke="{StaticResource BorderBrush}" StrokeThickness="2">
                                             <Ellipse.Fill>
                                                 <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
                                             </Ellipse.Fill>
@@ -241,7 +435,7 @@
                                                 </Style>
                                             </Ellipse.Style>
                                         </Ellipse>
-                                        <TextBlock Text="👤" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                                        <TextBlock Text="👤" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -258,20 +452,23 @@
                                     <!-- Content -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="{Binding DisplayName}" FontWeight="Bold" FontSize="14" Foreground="{StaticResource TextBrush}"/>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="15" Foreground="{StaticResource TextBrush}"/>
                                             <!-- Unknown Sender Indicator -->
-                                            <Border Background="#e74c3c" CornerRadius="4" Margin="5,0,0,0" Padding="4,1" Visibility="{Binding UnknownSenderVisibility}">
-                                                <TextBlock Text="Inconnu" Foreground="White" FontSize="10"/>
+                                            <Border Background="{StaticResource DangerBrush}" CornerRadius="6" Margin="8,0,0,0" Padding="6,2" Visibility="{Binding UnknownSenderVisibility}">
+                                                <TextBlock Text="Inconnu" Foreground="White" FontSize="10" FontWeight="SemiBold"/>
                                             </Border>
                                         </StackPanel>
-                                        <TextBlock Text="{Binding LastMessage}" FontSize="12" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+                                        <TextBlock Text="{Binding LastMessage}" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" 
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="220" Margin="0,4,0,0"/>
                                     </StackPanel>
 
                                     <!-- Time & Badge -->
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                        <TextBlock Text="{Binding TimeDisplay}" FontSize="10" Foreground="Gray" HorizontalAlignment="Right" Margin="0,0,0,5"/>
-                                        <Border Background="{StaticResource PrimaryBrush}" CornerRadius="10" MinWidth="20" Height="20" Visibility="{Binding UnreadVisibility}">
-                                            <TextBlock Text="{Binding UnreadCount}" Foreground="White" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="5,0"/>
+                                        <TextBlock Text="{Binding TimeDisplay}" FontSize="11" Foreground="{StaticResource LightTextBrush}" HorizontalAlignment="Right"/>
+                                        <Border Background="{StaticResource PrimaryBrush}" CornerRadius="12" MinWidth="24" Height="24" 
+                                                Visibility="{Binding UnreadVisibility}" Margin="0,6,0,0" HorizontalAlignment="Right">
+                                            <TextBlock Text="{Binding UnreadCount}" Foreground="White" FontSize="11" FontWeight="Bold" 
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0"/>
                                         </Border>
                                     </StackPanel>
                                 </Grid>
@@ -279,74 +476,81 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
-            </TabItem>
 
-            <!-- Tab 3: Salons -->
-            <TabItem x:Name="RoomsTab" Header="Salons" Visibility="Visible">
-                <controls:RoomListControl Margin="0,10"/>
-            </TabItem>
-        </TabControl>
-
-        <!-- Bottom Bar -->
-        <Border Grid.Row="3" Background="White" Padding="10" BorderBrush="#ecf0f1" BorderThickness="0,1,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Settings -->
-                <Button Grid.Column="0" x:Name="SettingsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Paramètres" Click="SettingsButton_Click">
-                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
-                    <Button.ContextMenu>
-                        <ContextMenu Placement="Top">
-                            <MenuItem Header="Mon Profil" Click="Profile_Click">
-                                <MenuItem.Icon>
-                                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                                </MenuItem.Icon>
-                            </MenuItem>
-                            <MenuItem Header="Paramètres" Click="Settings_Click">
-                                <MenuItem.Icon>
-                                    <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                                </MenuItem.Icon>
-                            </MenuItem>
-                            <MenuItem Header="Utilisateurs bloqués" Click="BlockedUsers_Click">
-                                <MenuItem.Icon>
-                                    <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
-                                </MenuItem.Icon>
-                            </MenuItem>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                </Button>
-
-                <!-- Notifications -->
-                <Button Grid.Column="1" x:Name="NotificationButton" Click="NotificationButton_Click" Style="{StaticResource IconButtonStyle}" ToolTip="Demandes d'amis">
-                     <Grid>
-                        <TextBlock Text="👥" FontSize="24" Foreground="{StaticResource TextBrush}"/>
-                        <Border Background="Red" CornerRadius="10" MinWidth="16" Height="16" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="-8,-5,0,0" Padding="4,0" Visibility="{Binding HasNotifications, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock Text="{Binding NotificationCount}" Foreground="White" FontSize="10" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/>
-                        </Border>
-                     </Grid>
-                </Button>
-
-                <!-- Salons (Chat Rooms) -->
-                <Button Grid.Column="2" x:Name="RoomsButton" Style="{StaticResource IconButtonStyle}" ToolTip="Salons de discussion" Click="RoomsButton_Click" Visibility="Visible">
-                    <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource TextBrush}"/>
-                </Button>
-
-                <!-- Add Friend -->
-                <Button Grid.Column="3" Style="{StaticResource IconButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
-                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
-                </Button>
-
-                <!-- Logout -->
-                <Button Grid.Column="4" Style="{StaticResource IconButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
-                    <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource TextBrush}"/>
-                </Button>
+                <!-- Rooms Control (Tab 2) -->
+                <controls:RoomListControl x:Name="RoomListControl" Visibility="Collapsed"/>
             </Grid>
-        </Border>
-    </Grid>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- BOTTOM NAVIGATION BAR                                            -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="4" Background="White" CornerRadius="0,0,20,20" Padding="8,12">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="-2" Opacity="0.05" Direction="90"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Settings -->
+                    <Button Grid.Column="0" x:Name="SettingsButton" Style="{StaticResource NavButtonStyle}" ToolTip="Paramètres" Click="SettingsButton_Click">
+                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <Button.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Mon Profil" Click="Profile_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Paramètres" Click="Settings_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator/>
+                                <MenuItem Header="Utilisateurs bloqués" Click="BlockedUsers_Click">
+                                    <MenuItem.Icon>
+                                        <TextBlock Text="&#xE72B;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                    </Button>
+
+                    <!-- Friend Requests -->
+                    <Button Grid.Column="1" x:Name="NotificationButton" Click="NotificationButton_Click" Style="{StaticResource NavButtonStyle}" ToolTip="Demandes d'amis">
+                        <Grid>
+                            <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="22" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <Border Background="{StaticResource PrimaryBrush}" CornerRadius="10" MinWidth="20" Height="20" 
+                                    HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-8,-8,0" Padding="4,0"
+                                    Visibility="{Binding HasNotifications, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <TextBlock Text="{Binding NotificationCount}" Foreground="White" FontSize="10" FontWeight="Bold" 
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+                    </Button>
+
+                    <!-- Rooms -->
+                    <Button Grid.Column="2" x:Name="RoomsButton" Style="{StaticResource NavButtonStyle}" ToolTip="Salons" Click="RoomsButton_Click" Visibility="Visible">
+                        <TextBlock Text="&#xE909;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Button>
+
+                    <!-- Add Friend -->
+                    <Button Grid.Column="3" Style="{StaticResource NavButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click">
+                        <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="{StaticResource PrimaryBrush}"/>
+                    </Button>
+
+                    <!-- Logout -->
+                    <Button Grid.Column="4" Style="{StaticResource NavButtonStyle}" Click="Logout_Click" ToolTip="Se déconnecter">
+                        <TextBlock Text="&#xE7E8;" FontFamily="Segoe MDL2 Assets" FontSize="22" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
 </Window>

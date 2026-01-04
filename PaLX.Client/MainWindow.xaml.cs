@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using System.Windows.Input;
 
 namespace PaLX.Client;
 
@@ -25,5 +26,25 @@ public partial class MainWindow : Window
             RegisterView.Visibility = Visibility.Collapsed;
             LoginView.Visibility = Visibility.Visible;
         };
+    }
+
+    // Window drag support
+    private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 1)
+        {
+            DragMove();
+        }
+    }
+
+    // Window control buttons
+    private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState.Minimized;
+    }
+
+    private void CloseButton_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

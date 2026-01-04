@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows;
@@ -14,17 +16,26 @@ public partial class MainWindow : Window
     private Process? _apiProcess;
     private bool _isApiRunning = false;
     private bool _isApiReady = false;
-    private HttpClient _httpClient = new HttpClient();
-    private DispatcherTimer _healthCheckTimer;
+    private readonly HttpClient _httpClient = new HttpClient();
+    private readonly DispatcherTimer _healthCheckTimer;
+    private readonly DispatcherTimer _statsTimer;
+    private readonly List<Process> _clientProcesses = new List<Process>();
+    private DateTime _apiStartTime;
+    private int _totalLaunched = 0;
 
     public MainWindow()
     {
         InitializeComponent();
         
-        // Initialize Timer
+        // Initialize Health Check Timer
         _healthCheckTimer = new DispatcherTimer();
         _healthCheckTimer.Interval = TimeSpan.FromSeconds(2);
         _healthCheckTimer.Tick += async (s, e) => await CheckApiHealth();
+
+        // Initialize Stats Timer
+        _statsTimer = new DispatcherTimer();
+        _statsTimer.Interval = TimeSpan.FromSeconds(1);
+        _statsTimer.Tick += (s, e) => UpdateStatistics();
 
         // Initial State
         UpdateButtonsState();
@@ -50,7 +61,7 @@ public partial class MainWindow : Window
             try
             {
                 _apiProcess.Kill();
-                _apiProcess.WaitForExit(); // Ensure it's dead
+                _apiProcess.WaitForExit();
             }
             catch { }
             finally
@@ -59,8 +70,10 @@ public partial class MainWindow : Window
                 _isApiRunning = false;
                 _isApiReady = false;
                 _healthCheckTimer.Stop();
+                _statsTimer.Stop();
                 UpdateApiStatus();
                 UpdateButtonsState();
+                ApiUptimeText.Text = "--:--:--";
             }
         }
         else
@@ -83,12 +96,14 @@ public partial class MainWindow : Window
             {
                 _apiProcess = Process.Start(psi);
                 _isApiRunning = true;
-                _isApiReady = false; // Not ready yet
+                _isApiReady = false;
+                _apiStartTime = DateTime.Now;
                 UpdateApiStatus();
                 UpdateButtonsState();
                 
                 // Start checking for health
                 _healthCheckTimer.Start();
+                _statsTimer.Start();
             }
             catch (Exception ex)
             {
@@ -101,16 +116,10 @@ public partial class MainWindow : Window
     {
         try
         {
-            // Try to fetch a simple endpoint. 
-            // Assuming API runs on localhost:5145 (http) or 7145 (https) based on default dotnet templates.
-            // Adjust port if necessary. Based on previous context, it seems to be 5145.
-            var response = await _httpClient.GetAsync("http://localhost:5145/api/health"); 
-            // Or just root if health endpoint doesn't exist, but usually 404 means server is up.
-            // Let's try a known endpoint or just root. If connection refused, it throws.
+            var response = await _httpClient.GetAsync("http://localhost:5145/api/health");
             
             if (response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.NotFound || response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
             {
-                // If we get a response (even 404 or 401), the server is reachable.
                 if (!_isApiReady)
                 {
                     _isApiReady = true;
@@ -121,7 +130,6 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Connection failed
             if (_isApiReady)
             {
                 _isApiReady = false;
@@ -129,6 +137,45 @@ public partial class MainWindow : Window
                 UpdateButtonsState();
             }
         }
+    }
+
+    private void UpdateStatistics()
+    {
+        // Update API Uptime
+        if (_isApiRunning)
+        {
+            var uptime = DateTime.Now - _apiStartTime;
+            ApiUptimeText.Text = uptime.ToString(@"hh\:mm\:ss");
+        }
+
+        // Clean up dead client processes
+        _clientProcesses.RemoveAll(p => p.HasExited);
+
+        // Update Active Clients count
+        int activeClients = _clientProcesses.Count;
+        ActiveClientsText.Text = activeClients.ToString();
+
+        // Update Total Launched
+        TotalLaunchedText.Text = _totalLaunched.ToString();
+
+        // Calculate memory usage of all client processes
+        long totalMemory = 0;
+        foreach (var process in _clientProcesses)
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Refresh();
+                    totalMemory += process.WorkingSet64;
+                }
+            }
+            catch { }
+        }
+        MemoryUsageText.Text = $"{totalMemory / (1024 * 1024)} MB";
+
+        // Update Stop All button state
+        StopAllButton.IsEnabled = activeClients > 0;
     }
 
     private void UpdateApiStatus()
@@ -158,67 +205,48 @@ public partial class MainWindow : Window
 
     private void UpdateButtonsState()
     {
-        if (AdminButton == null || ClientButton == null) return;
+        if (ClientButton == null) return;
 
         if (_isApiReady)
         {
-            AdminButton.IsEnabled = true;
             ClientButton.IsEnabled = true;
-            AdminButton.ToolTip = "Lancer le panneau d'administration";
-            ClientButton.ToolTip = "Lancer l'application client";
-            
-            AdminStatusText.Text = "Nouvelle instance";
-            ClientStatusText.Text = "Nouvelle instance";
+            ClientButton.ToolTip = "Lancer une nouvelle instance client";
+            ClientStatusText.Text = "Cliquez pour lancer";
         }
         else
         {
-            AdminButton.IsEnabled = false;
             ClientButton.IsEnabled = false;
-            AdminButton.ToolTip = "En attente du démarrage de l’API…";
-            ClientButton.ToolTip = "En attente du démarrage de l’API…";
-            
-            AdminStatusText.Text = "En attente API...";
+            ClientButton.ToolTip = "En attente du démarrage de l'API…";
             ClientStatusText.Text = "En attente API...";
         }
     }
 
-    private void Admin_Click(object sender, RoutedEventArgs e)
-    {
-        LaunchApp("PaLX.Admin");
-    }
-
     private void Client_Click(object sender, RoutedEventArgs e)
     {
-        LaunchApp("PaLX.Client");
+        LaunchClient();
     }
 
-    private void LaunchApp(string projectName)
+    private void LaunchClient()
     {
         var root = GetSolutionRoot();
-        var projectPath = Path.Combine(root, projectName);
-
-        // Try to find the executable directly
-        // Assuming Debug build for now as per dev environment
-        string exeName = projectName + ".exe";
+        var projectPath = Path.Combine(root, "PaLX.Client");
+        string exeName = "PaLX.Client.exe";
         
         // Check win-x64 first (RuntimeIdentifier)
         string binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", "win-x64", exeName);
         
         if (!File.Exists(binPath))
         {
-             // Standard path
-             binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", exeName);
+            binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", exeName);
         }
 
         if (!File.Exists(binPath))
         {
-            // Fallback to Release win-x64
             binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", "win-x64", exeName);
         }
 
         if (!File.Exists(binPath))
         {
-            // Fallback to Release standard
             binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", exeName);
         }
 
@@ -226,17 +254,24 @@ public partial class MainWindow : Window
         {
             try
             {
-                Process.Start(new ProcessStartInfo
+                var process = Process.Start(new ProcessStartInfo
                 {
                     FileName = binPath,
                     WorkingDirectory = Path.GetDirectoryName(binPath),
                     UseShellExecute = true 
                 });
+
+                if (process != null)
+                {
+                    _clientProcesses.Add(process);
+                    _totalLaunched++;
+                    UpdateStatistics();
+                }
                 return;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur lancement EXE : {ex.Message}");
+                MessageBox.Show($"Erreur lancement EXE : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -253,20 +288,70 @@ public partial class MainWindow : Window
 
         try
         {
-            Process.Start(psi);
+            var process = Process.Start(psi);
+            if (process != null)
+            {
+                _clientProcesses.Add(process);
+                _totalLaunched++;
+                UpdateStatistics();
+            }
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Erreur lors du lancement de {projectName} : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show($"Erreur lors du lancement du client : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void StopAllClients_Click(object sender, RoutedEventArgs e)
+    {
+        var result = MessageBox.Show(
+            $"Êtes-vous sûr de vouloir arrêter {_clientProcesses.Count} client(s) ?",
+            "Confirmation",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            StopAllClients();
+        }
+    }
+
+    private void StopAllClients()
+    {
+        int stopped = 0;
+        foreach (var process in _clientProcesses.ToList())
+        {
+            try
+            {
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(1000);
+                    stopped++;
+                }
+            }
+            catch { }
+        }
+        _clientProcesses.Clear();
+        UpdateStatistics();
+
+        if (stopped > 0)
+        {
+            MessageBox.Show($"{stopped} client(s) arrêté(s) avec succès.", "Information", MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
     protected override void OnClosed(EventArgs e)
     {
         base.OnClosed(e);
-        // Kill API on exit if running? Maybe user wants to keep it running.
-        // But usually a launcher manages the lifecycle.
-        // Let's ask or just kill it. For now, let's kill it to be clean.
+        
+        // Stop all clients
+        foreach (var process in _clientProcesses)
+        {
+            try { if (!process.HasExited) process.Kill(); } catch { }
+        }
+
+        // Kill API on exit
         if (_isApiRunning && _apiProcess != null && !_apiProcess.HasExited)
         {
             try { _apiProcess.Kill(); } catch { }

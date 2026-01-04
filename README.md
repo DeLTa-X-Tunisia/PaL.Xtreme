@@ -15,7 +15,43 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### �️ Administration & Stabilité (Dernière Mise à Jour)
+### 🎨 Modernisation du Chat - Interface WPF Native (Dernière Mise à Jour)
+*   **Migration WebView2 → WPF Natif** :
+    *   Remplacement complet du rendu HTML/WebView2 par des contrôles WPF natifs dans le Client.
+    *   Meilleure performance, fluidité et cohérence visuelle avec le reste de l'application.
+    *   Templates XAML personnalisés pour chaque type de message (Texte, Image, Audio, Vidéo, Fichier, Statut).
+
+*   **Affichage des Images** :
+    *   **Expéditeur** : Voit immédiatement la miniature de l'image envoyée.
+    *   **Destinataire** : Design moderne avec aperçu flouté, overlay sombre, et boutons "✓ Accepter" / "✗ Refuser" élégants.
+    *   **Images acceptées** : Affichage direct avec taille adaptative (max 200x200, petites images conservent leur taille naturelle).
+    *   **Clic pour agrandir** : Ouverture dans la visionneuse système.
+
+*   **Lecteur Audio Moderne** :
+    *   **Design** : Bouton Play/Pause circulaire, visualisation waveform stylisée, durée affichée.
+    *   **Fonctionnalité Play/Pause** : Clic pour jouer, re-clic pour mettre en pause, reprise possible.
+    *   **Fichiers Audio (.mp3, .wav, etc.)** : 
+        *   Expéditeur voit immédiatement le lecteur audio.
+        *   Destinataire : Template moderne avec icône musicale et boutons d'action.
+        *   Une fois accepté : Lecteur audio complet identique aux messages vocaux.
+
+*   **Lecteur Vidéo Intégré** :
+    *   Lecteur vidéo embarqué dans le chat avec contrôles Play/Pause.
+    *   Simple clic : Play/Pause dans le chat.
+    *   Double-clic : Ouverture dans le lecteur externe.
+
+*   **Messages de Statut Colorés** :
+    *   Couleurs dynamiques selon le statut : Vert (En ligne), Rouge (Occupé), Orange (Absent), Bleu (En appel), Magenta (Ne pas déranger).
+
+*   **Noms d'Affichage** :
+    *   Utilisation systématique des noms d'affichage ("User A", "User B") au lieu des identifiants techniques ("user1", "user2").
+
+### 🔧 Corrections & Optimisations
+*   **Correction Audio URL** : Résolution du bug où les URLs audio étaient corrompues par le convertisseur d'emojis (`:/ ` converti en 😕).
+*   **Rafraîchissement des Templates** : Les transferts acceptés/refusés mettent à jour instantanément leur apparence visuelle.
+*   **Ordre de Chargement** : Les informations du partenaire sont chargées AVANT l'historique pour afficher les bons noms.
+
+### 🗂️ Administration & Stabilité (Dernière Mise à Jour)
 *   **Gestion des Salons (Admin)** :
     *   **Parité Fonctionnelle** : Ajout des boutons "Éditer", "Masquer" et "Supprimer" dans la liste des salons de l'interface Admin, alignant les capacités de gestion sur celles du Client.
     *   **Contrôle Propriétaire** : Ces options sont dynamiquement visibles uniquement pour le créateur du salon.

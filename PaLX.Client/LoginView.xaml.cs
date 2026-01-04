@@ -11,10 +11,12 @@ namespace PaLX.Client
         public LoginView()
         {
             InitializeComponent();
-            PasswordBox.PasswordChanged += (s, e) => 
-            {
-                PasswordPlaceholder.Visibility = string.IsNullOrEmpty(PasswordBox.Password) ? Visibility.Visible : Visibility.Collapsed;
-            };
+        }
+
+        // Password placeholder visibility handler
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            PasswordPlaceholder.Visibility = string.IsNullOrEmpty(PasswordBox.Password) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public void SetCredentials(string username, string password)
@@ -31,8 +33,10 @@ namespace PaLX.Client
                 return;
             }
 
-            var btn = sender as Button;
-            if (btn != null) btn.IsEnabled = false;
+            // Show loading state
+            LoginButton.IsEnabled = false;
+            LoginButton.Content = "Connexion...";
+            LoadingPanel.Visibility = Visibility.Visible;
 
             try
             {
@@ -46,6 +50,8 @@ namespace PaLX.Client
                 
                 if (authResult != null)
                 {
+                    LoadingText.Text = "Initialisation...";
+                    
                     // Connect SignalR
                     await ApiService.Instance.ConnectSignalRAsync();
 
@@ -72,7 +78,9 @@ namespace PaLX.Client
             }
             finally
             {
-                if (btn != null) btn.IsEnabled = true;
+                LoginButton.IsEnabled = true;
+                LoginButton.Content = "Se connecter";
+                LoadingPanel.Visibility = Visibility.Collapsed;
             }
         }
 

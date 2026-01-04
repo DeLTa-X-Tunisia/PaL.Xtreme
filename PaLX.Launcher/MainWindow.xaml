@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="PaL.X Launcher" Height="450" Width="800"
+        Title="PaL.X Launcher" Height="620" Width="900"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanMinimize"
         Background="#f5f6fa"
@@ -14,6 +14,7 @@
         <SolidColorBrush x:Key="PrimaryBrush" Color="#E03E2F"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#2ecc71"/>
         <SolidColorBrush x:Key="DarkTextBrush" Color="#2c3e50"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#e74c3c"/>
         
         <Style x:Key="CardButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="White"/>
@@ -50,25 +51,124 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="StatCardStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#bdc3c7" BlurRadius="8" ShadowDepth="2" Opacity="0.15"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DangerButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#e74c3c"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#c0392b"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#a93226"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,40,0,20" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="0" Margin="0,30,0,15" HorizontalAlignment="Center">
             <TextBlock Text="PaL.X Launcher" FontSize="32" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center"/>
-            <TextBlock Text="Gérez votre environnement de développement" FontSize="16" Foreground="#7f8c8d" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+            <TextBlock Text="Lancez et gérez vos instances clients" FontSize="16" Foreground="#7f8c8d" HorizontalAlignment="Center" Margin="0,5,0,0"/>
         </StackPanel>
 
+        <!-- Statistics Bar -->
+        <Border Grid.Row="1" Background="#ecf0f1" Margin="40,10" CornerRadius="10" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- API Uptime -->
+                <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Temps API" FontSize="11" Foreground="#7f8c8d"/>
+                            <TextBlock x:Name="ApiUptimeText" Text="--:--:--" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Active Clients -->
+                <Border Grid.Column="1" Style="{StaticResource StatCardStyle}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#3498db" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Clients actifs" FontSize="11" Foreground="#7f8c8d"/>
+                            <TextBlock x:Name="ActiveClientsText" Text="0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Total Launched -->
+                <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#9b59b6" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Total lancés" FontSize="11" Foreground="#7f8c8d"/>
+                            <TextBlock x:Name="TotalLaunchedText" Text="0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Memory Usage -->
+                <Border Grid.Column="3" Style="{StaticResource StatCardStyle}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#e67e22" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Mémoire clients" FontSize="11" Foreground="#7f8c8d"/>
+                            <TextBlock x:Name="MemoryUsageText" Text="0 MB" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
         <!-- Cards -->
-        <Grid Grid.Row="1" Margin="40,20">
+        <Grid Grid.Row="2" Margin="40,20">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
@@ -86,21 +186,8 @@
                 </StackPanel>
             </Button>
 
-            <!-- Admin Card -->
-            <Button Grid.Column="1" x:Name="AdminButton" Style="{StaticResource CardButtonStyle}" Click="Admin_Click" IsEnabled="False" ToolTip="En attente du démarrage de l’API…">
-                <StackPanel>
-                    <Border Width="80" Height="80" CornerRadius="40" Background="#e8f6f3" Margin="0,0,0,15">
-                        <TextBlock Text="&#xE7EF;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="#1abc9c" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="Admin Panel" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="AdminStatusText" Text="En attente API..." FontSize="14" Foreground="#95a5a6" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#1abc9c" HorizontalAlignment="Center" Margin="0,10,0,0"/>
-                </StackPanel>
-            </Button>
-
             <!-- Client Card -->
-            <Button Grid.Column="2" x:Name="ClientButton" Style="{StaticResource CardButtonStyle}" Click="Client_Click" IsEnabled="False" ToolTip="En attente du démarrage de l’API…">
+            <Button Grid.Column="1" x:Name="ClientButton" Style="{StaticResource CardButtonStyle}" Click="Client_Click" IsEnabled="False" ToolTip="En attente du démarrage de l'API…">
                 <StackPanel>
                     <Border Width="80" Height="80" CornerRadius="40" Background="#eaf2f8" Margin="0,0,0,15">
                         <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="#3498db" 
@@ -113,7 +200,17 @@
             </Button>
         </Grid>
 
+        <!-- Stop All Clients Button -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
+            <Button x:Name="StopAllButton" Style="{StaticResource DangerButtonStyle}" Click="StopAllClients_Click" IsEnabled="False">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Arrêter tous les clients" FontSize="14"/>
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
         <!-- Footer -->
-        <TextBlock Grid.Row="2" Text="PaL.Xtreme © 2025" FontSize="12" Foreground="#bdc3c7" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+        <TextBlock Grid.Row="4" Text="PaL.Xtreme © 2026" FontSize="12" Foreground="#bdc3c7" HorizontalAlignment="Center" Margin="0,0,0,15"/>
     </Grid>
 </Window>

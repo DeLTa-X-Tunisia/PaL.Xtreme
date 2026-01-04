@@ -190,6 +190,57 @@ namespace PaLX.Client
             CheckUnreadConversations();
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // WINDOW CHROME HANDLERS
+        // ═══════════════════════════════════════════════════════════════
+        private void Header_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                MaximizeButton_Click(sender, e);
+            }
+            else
+            {
+                this.DragMove();
+            }
+        }
+
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void MaximizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+                MaximizeIcon.Text = "\uE922"; // Maximize icon
+            }
+            else
+            {
+                this.WindowState = WindowState.Maximized;
+                MaximizeIcon.Text = "\uE923"; // Restore icon
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
+        private void MainTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (MainTabControl == null) return;
+            
+            var tabIndex = MainTabControl.SelectedIndex;
+            
+            // Tab 0: Friends, Tab 1: Conversations, Tab 2: Rooms
+            FriendsList.Visibility = tabIndex == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ConversationsList.Visibility = tabIndex == 1 ? Visibility.Visible : Visibility.Collapsed;
+            RoomListControl.Visibility = tabIndex == 2 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private async void CheckUnreadConversations()
         {
             try
@@ -294,7 +345,7 @@ namespace PaLX.Client
         {
             try
             {
-                string soundPath = @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\client_start.mp3";
+                string soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Sounds", "startup.mp3");
                 if (File.Exists(soundPath))
                 {
                     _startupPlayer.Open(new Uri(soundPath));
@@ -557,6 +608,7 @@ namespace PaLX.Client
                     case "Absent": statusValue = 2; break;
                     case "En appel": statusValue = 3; break;
                     case "Ne pas déranger": statusValue = 4; break;
+                    case "Hors ligne": statusValue = 6; break;
                     default: statusValue = 6; break;
                 }
 
@@ -566,7 +618,7 @@ namespace PaLX.Client
                     try
                     {
                         if (statusValue == 6) _offlineSound?.Play();
-                        else _onlineSound?.Play();
+                        else if (_previousStatuses.ContainsKey(username) && _previousStatuses[username] == 6) _onlineSound?.Play();
                     }
                     catch { }
                     _blinkingUntil[username] = DateTime.Now.AddSeconds(5);
@@ -576,7 +628,32 @@ namespace PaLX.Client
                 _previousStatuses[username] = statusValue;
                 _lastSignalRUpdate[username] = DateTime.Now;
 
-                // Trigger refresh to update UI via ObservableCollection logic
+                // Immediately update UI for this friend without waiting for full refresh
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+                if (friend != null)
+                {
+                    // Update status immediately
+                    SolidColorBrush statusBrush = Brushes.Gray;
+                    string statusText = status;
+
+                    switch (statusValue)
+                    {
+                        case 0: statusBrush = Brushes.Green; statusText = "En ligne"; break;
+                        case 1: statusBrush = Brushes.Red; statusText = "Occupé"; break;
+                        case 2: statusBrush = Brushes.Orange; statusText = "Absent"; break;
+                        case 3: statusBrush = Brushes.DarkRed; statusText = "En appel"; break;
+                        case 4: statusBrush = Brushes.Purple; statusText = "Ne pas déranger"; break;
+                        default: statusBrush = Brushes.Gray; statusText = "Hors ligne"; break;
+                    }
+
+                    friend.StatusText = statusText;
+                    friend.StatusColor = statusBrush;
+                    friend.StatusValue = statusValue;
+                    friend.NameFontWeight = statusValue != 6 ? FontWeights.Bold : FontWeights.Normal;
+                    friend.IsBlinking = _blinkingUntil.ContainsKey(username) && DateTime.Now < _blinkingUntil[username];
+                }
+
+                // Also do a background refresh to sync any other changes
                 await LoadFriends();
             });
         }

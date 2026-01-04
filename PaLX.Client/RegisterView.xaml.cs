@@ -13,12 +13,17 @@ namespace PaLX.Client
         public RegisterView()
         {
             InitializeComponent();
-            PasswordBox.PasswordChanged += (s, e) => UpdatePasswordPlaceholder();
-            PasswordTxtBox.TextChanged += (s, e) => UpdatePasswordPlaceholder();
-            ConfirmPasswordBox.PasswordChanged += (s, e) => 
-            {
-                ConfirmPasswordPlaceholder.Visibility = string.IsNullOrEmpty(ConfirmPasswordBox.Password) ? Visibility.Visible : Visibility.Collapsed;
-            };
+        }
+
+        // Password placeholder visibility handlers
+        private void PasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            UpdatePasswordPlaceholder();
+        }
+
+        private void ConfirmPasswordBox_PasswordChanged(object sender, RoutedEventArgs e)
+        {
+            ConfirmPasswordPlaceholder.Visibility = string.IsNullOrEmpty(ConfirmPasswordBox.Password) ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void UpdatePasswordPlaceholder()
@@ -63,8 +68,8 @@ namespace PaLX.Client
                 return;
             }
 
-            var btn = sender as Button;
-            if (btn != null) btn.IsEnabled = false;
+            RegisterButton.IsEnabled = false;
+            RegisterButton.Content = "Création...";
 
             try
             {
@@ -83,7 +88,8 @@ namespace PaLX.Client
             }
             finally
             {
-                if (btn != null) btn.IsEnabled = true;
+                RegisterButton.IsEnabled = true;
+                RegisterButton.Content = "Créer mon compte";
             }
         }
 

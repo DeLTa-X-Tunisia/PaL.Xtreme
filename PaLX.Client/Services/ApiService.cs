@@ -75,6 +75,8 @@ namespace PaLX.Client.Services
 
         public HubConnection? GetHubConnection() => _hubConnection;
         public VoiceCallService? VoiceService { get; private set; }
+        
+        public string GetBaseUrl() => BaseUrl;
 
         private ApiService()
         {

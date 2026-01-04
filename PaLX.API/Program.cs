@@ -1,10 +1,28 @@
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using PaLX.API.Hubs;
 using PaLX.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION DES SECRETS (Variables d'environnement)
+// ═══════════════════════════════════════════════════════════════════════════
+var dbPassword = Environment.GetEnvironmentVariable("PALX_DB_PASSWORD") ?? "2012704"; // Fallback pour dev
+var jwtSecretKey = Environment.GetEnvironmentVariable("PALX_JWT_SECRET") 
+    ?? "k8Xp2sN9vQ4wY7zA1cF6hJ3mR0tU5iO8bL2eD9gK4nW7xZ1qP6"; // 48 chars = 384 bits
+
+// Override connection string with env variable password
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")?
+    .Replace("${DB_PASSWORD}", dbPassword) ?? throw new InvalidOperationException("Connection string missing");
+builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
+
+// Override JWT key
+var jwtKey = builder.Configuration["Jwt:Key"]?.Replace("${JWT_SECRET_KEY}", jwtSecretKey) ?? jwtSecretKey;
+builder.Configuration["Jwt:Key"] = jwtKey;
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -15,8 +33,43 @@ builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 
-// Configure JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing.");
+// ═══════════════════════════════════════════════════════════════════════════
+// RATE LIMITING (Protection anti brute-force et DDoS)
+// ═══════════════════════════════════════════════════════════════════════════
+builder.Services.AddRateLimiter(options =>
+{
+    // Global rate limit: 100 requests per minute per IP
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 10
+            }));
+
+    // Strict rate limit for auth endpoints: 5 attempts per minute
+    options.AddFixedWindowLimiter("auth", config =>
+    {
+        config.PermitLimit = 5;
+        config.Window = TimeSpan.FromMinutes(1);
+        config.QueueLimit = 0;
+    });
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "application/json";
+        await context.HttpContext.Response.WriteAsync(
+            "{\"error\": \"Trop de requêtes. Réessayez dans quelques instants.\"}", token);
+    };
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// JWT AUTHENTICATION
+// ═══════════════════════════════════════════════════════════════════════════
 var key = Encoding.UTF8.GetBytes(jwtKey);
 
 builder.Services.AddAuthentication(options =>
@@ -76,6 +129,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Rate Limiting Middleware (AVANT auth)
+app.UseRateLimiter();
 
 app.UseStaticFiles(); // Enable static files for uploads
 

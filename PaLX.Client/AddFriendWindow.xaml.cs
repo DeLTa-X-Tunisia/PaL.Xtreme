@@ -32,6 +32,23 @@ namespace PaLX.Client
             ApiService.Instance.OnFriendRemoved += OnFriendUpdate;
         }
 
+        // Window Chrome Handlers
+        private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2) return;
+            this.DragMove();
+        }
+
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
         public void SelectReceivedRequestsTab()
         {
             if (MainTabControl != null && MainTabControl.Items.Count > 1)
