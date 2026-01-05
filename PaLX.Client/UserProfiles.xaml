@@ -4,128 +4,333 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Compléter votre profil" Height="700" Width="400"
+        Title="Mon Profil" Height="580" Width="720"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource BackgroundBrush}"
-        ResizeMode="CanResize"
+        Background="Transparent"
+        ResizeMode="NoResize"
         WindowStyle="None"
-        MouseLeftButtonDown="Window_MouseLeftButtonDown">
-    
-    <Border Background="White" CornerRadius="10" Margin="20" Padding="20" MouseLeftButtonDown="Window_MouseLeftButtonDown">
-        <Border.Effect>
-            <DropShadowEffect Color="#bdc3c7" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
-        </Border.Effect>
-        
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/> <!-- Header/Avatar -->
-                <RowDefinition Height="*"/>    <!-- Form -->
-                <RowDefinition Height="Auto"/> <!-- Footer/Buttons -->
-            </Grid.RowDefinitions>
+        AllowsTransparency="True">
 
-            <!-- Header -->
-            <StackPanel Grid.Row="0" HorizontalAlignment="Center" Margin="0,0,0,20">
-                <Grid Width="80" Height="80" Cursor="Hand" MouseLeftButtonDown="Avatar_MouseLeftButtonDown" Background="Transparent">
-                    <Ellipse x:Name="AvatarEllipse" Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2" Fill="#ecf0f1"/>
-                    <TextBlock x:Name="AvatarPlaceholder" Text="👤" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    <Button Width="24" Height="24" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,0" 
-                            Background="{StaticResource PrimaryBrush}" BorderThickness="0" Cursor="Hand" ToolTip="Changer l'avatar"
-                            Click="UploadAvatar_Click">
+    <Window.Resources>
+        <!-- Modern TextBox Style -->
+        <Style x:Key="ModernTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="10">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#E03E2F"/>
+                                <Setter Property="Background" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="BorderBrush" Value="#BDC3C7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern ComboBox Style -->
+        <Style x:Key="ModernComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="14,12"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Height" Value="46"/>
+        </Style>
+
+        <!-- Modern DatePicker Style -->
+        <Style x:Key="ModernDatePicker" TargetType="DatePicker">
+            <Setter Property="Background" Value="#F8F9FA"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Foreground" Value="#2C3E50"/>
+            <Setter Property="Height" Value="46"/>
+        </Style>
+
+        <!-- Field Label Style -->
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#5D6D7E"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <!-- Primary Button Style -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#E03E2F"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#C0392B"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#A93226"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Secondary Button Style -->
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#7F8C8D"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="Padding" Value="24,12"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#F5F6FA"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#BDC3C7"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- Main Container with Shadow -->
+    <Border Background="White" CornerRadius="16" Margin="10" MouseLeftButtonDown="Window_MouseLeftButtonDown">
+        <Border.Effect>
+            <DropShadowEffect Color="#1A1A2E" BlurRadius="30" ShadowDepth="0" Opacity="0.15"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="240"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel - Avatar & Info -->
+            <Border Grid.Column="0" CornerRadius="16,0,0,16">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#E03E2F" Offset="0"/>
+                        <GradientStop Color="#C0392B" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+
+                <Grid>
+                    <!-- Close Button -->
+                    <Button HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" 
+                            Width="32" Height="32" Background="#20FFFFFF" BorderThickness="0" Cursor="Hand"
+                            Click="Cancel_Click" ToolTip="Fermer">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border Background="{TemplateBinding Background}" CornerRadius="12">
-                                    <TextBlock Text="&#xE70F;" FontFamily="Segoe MDL2 Assets" Foreground="White" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="8">
+                                    <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12" 
+                                               Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="bg" Property="Background" Value="#40FFFFFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
                             </ControlTemplate>
                         </Button.Template>
                     </Button>
+
+                    <!-- Avatar Section -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <!-- Avatar Container -->
+                        <Grid Width="120" Height="120" Cursor="Hand" MouseLeftButtonDown="Avatar_MouseLeftButtonDown">
+                            <Ellipse x:Name="AvatarEllipse" 
+                                     Stroke="White" StrokeThickness="4" 
+                                     Fill="#40FFFFFF">
+                                <Ellipse.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="15" ShadowDepth="0" Opacity="0.2"/>
+                                </Ellipse.Effect>
+                            </Ellipse>
+                            <TextBlock x:Name="AvatarPlaceholder" Text="👤" FontSize="50" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            
+                            <!-- Upload Button -->
+                            <Button Width="36" Height="36" HorizontalAlignment="Right" VerticalAlignment="Bottom" 
+                                    Margin="0,0,4,4" Background="White" BorderThickness="0" Cursor="Hand" 
+                                    ToolTip="Changer la photo" Click="UploadAvatar_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="uploadBg" Background="White" CornerRadius="18">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="Black" BlurRadius="8" ShadowDepth="0" Opacity="0.2"/>
+                                            </Border.Effect>
+                                            <TextBlock Text="&#xE722;" FontFamily="Segoe MDL2 Assets" 
+                                                       Foreground="#E03E2F" FontSize="16" 
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="uploadBg" Property="Background" Value="#FFF5F5"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+
+                        <!-- Title -->
+                        <TextBlock Text="Mon Profil" FontSize="22" FontWeight="Bold" 
+                                   Foreground="White" HorizontalAlignment="Center" Margin="0,20,0,4"/>
+                        <TextBlock Text="Personnalisez vos informations" FontSize="12" 
+                                   Foreground="#DDFFFFFF" HorizontalAlignment="Center" TextWrapping="Wrap" 
+                                   TextAlignment="Center" MaxWidth="180"/>
+
+                        <!-- Decorative element -->
+                        <Border Width="40" Height="3" Background="#40FFFFFF" CornerRadius="2" Margin="0,20,0,0"/>
+                    </StackPanel>
                 </Grid>
-                <TextBlock Text="Mon Profil" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextBrush}" Margin="0,10,0,0" HorizontalAlignment="Center"/>
-            </StackPanel>
+            </Border>
 
-            <!-- Form -->
-            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,20">
-                <StackPanel>
-                    <!-- Nom -->
-                    <TextBlock Text="Nom *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <TextBox x:Name="LastNameBox" Margin="0,0,0,15" Foreground="#007bff"/>
+            <!-- Right Panel - Form -->
+            <Grid Grid.Column="1" Margin="30,24,30,24">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                    <!-- Prénom -->
-                    <TextBlock Text="Prénom *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <TextBox x:Name="FirstNameBox" Margin="0,0,0,15" Foreground="#007bff"/>
-
-                    <!-- Email -->
-                    <TextBlock Text="Email *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <TextBox x:Name="EmailBox" Margin="0,0,0,15" Foreground="#007bff"/>
-
-                    <!-- Date de naissance -->
-                    <TextBlock Text="Date de naissance *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <DatePicker x:Name="DobPicker" Margin="0,0,0,15" Foreground="#007bff"/>
-
-                    <!-- Genre -->
-                    <TextBlock Text="Genre" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="GenderCombo" Margin="0,0,0,15" SelectedIndex="0" Foreground="#007bff">
-                        <ComboBoxItem Content="Homme"/>
-                        <ComboBoxItem Content="Femme"/>
-                        <ComboBoxItem Content="Autre"/>
-                    </ComboBox>
-
-                    <!-- Pays -->
-                    <TextBlock Text="Pays *" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <ComboBox x:Name="CountryCombo" Margin="0,0,0,15" IsEditable="True" Foreground="#007bff"/>
-
-                    <!-- Téléphone -->
-                    <TextBlock Text="Téléphone" Foreground="{StaticResource LightTextBrush}" FontSize="12" Margin="0,0,0,5"/>
-                    <TextBox x:Name="PhoneBox" Tag="+216 27 77 40 75" Margin="0,0,0,5" Foreground="#007bff"/>
-                    <TextBlock Text="Format suggéré: +216 XX XX XX XX" FontSize="10" Foreground="#95a5a6"/>
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                    <TextBlock Text="Informations personnelles" FontSize="18" FontWeight="Bold" Foreground="#2C3E50"/>
+                    <TextBlock Text="Les champs marqués * sont obligatoires" FontSize="12" Foreground="#95A5A6" Margin="0,4,0,0"/>
                 </StackPanel>
-            </ScrollViewer>
 
-            <!-- Footer -->
-            <Grid Grid.Row="2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                <!-- Form Fields - 2 Columns -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="16"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                <!-- Cancel Button -->
-                <Button Grid.Column="0" Click="Cancel_Click" Cursor="Hand" Background="Transparent" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Annuler" Margin="5,0,0,0" Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center"/>
+                    <!-- Row 1: Nom & Prénom -->
+                    <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,16">
+                        <TextBlock Text="Nom *" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="LastNameBox" Style="{StaticResource ModernTextBox}"/>
                     </StackPanel>
-                </Button>
-
-                <!-- Done Button -->
-                <Button Grid.Column="2" Click="Done_Click" Cursor="Hand" Background="Transparent" BorderThickness="0">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Terminé" Margin="0,0,5,0" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
-                        <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center"/>
+                    <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,16">
+                        <TextBlock Text="Prénom *" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="FirstNameBox" Style="{StaticResource ModernTextBox}"/>
                     </StackPanel>
-                </Button>
+
+                    <!-- Row 2: Email & Téléphone -->
+                    <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,16">
+                        <TextBlock Text="Email *" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="EmailBox" Style="{StaticResource ModernTextBox}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,16">
+                        <TextBlock Text="Téléphone" Style="{StaticResource FieldLabel}"/>
+                        <TextBox x:Name="PhoneBox" Style="{StaticResource ModernTextBox}" Tag="+216 XX XX XX XX"/>
+                    </StackPanel>
+
+                    <!-- Row 3: Date de naissance & Genre -->
+                    <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,16">
+                        <TextBlock Text="Date de naissance *" Style="{StaticResource FieldLabel}"/>
+                        <DatePicker x:Name="DobPicker" Style="{StaticResource ModernDatePicker}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,16">
+                        <TextBlock Text="Genre" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="GenderCombo" Style="{StaticResource ModernComboBox}" SelectedIndex="0">
+                            <ComboBoxItem Content="Homme"/>
+                            <ComboBoxItem Content="Femme"/>
+                            <ComboBoxItem Content="Autre"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <!-- Row 4: Pays (full width) -->
+                    <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3">
+                        <TextBlock Text="Pays *" Style="{StaticResource FieldLabel}"/>
+                        <ComboBox x:Name="CountryCombo" Style="{StaticResource ModernComboBox}" IsEditable="True"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Footer Buttons -->
+                <Grid Grid.Row="2" Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button Grid.Column="0" Content="Annuler" Style="{StaticResource SecondaryButton}" Click="Cancel_Click"/>
+                    <Button Grid.Column="2" Click="Done_Click" Style="{StaticResource PrimaryButton}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Enregistrer" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                       Margin="8,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Grid>
             </Grid>
 
             <!-- Validation Popup Overlay -->
-            <Grid x:Name="ValidationPopup" Grid.RowSpan="3" Visibility="Collapsed" Background="#7F000000">
-                <Border Background="White" CornerRadius="12" HorizontalAlignment="Center" VerticalAlignment="Center" Width="300" Padding="20">
+            <Grid x:Name="ValidationPopup" Grid.ColumnSpan="2" Visibility="Collapsed" Background="#7F000000">
+                <Border Background="White" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center" 
+                        Width="320" Padding="28">
                     <Border.Effect>
-                        <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.4"/>
+                        <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.3"/>
                     </Border.Effect>
                     <StackPanel>
-                        <Grid Width="50" Height="50" Margin="0,0,0,15">
-                            <Ellipse Fill="#FFF8E1"/>
-                            <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="24" Foreground="#F39C12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Grid Width="60" Height="60" Margin="0,0,0,16">
+                            <Ellipse Fill="#FFF3E0"/>
+                            <TextBlock Text="&#xE7BA;" FontFamily="Segoe MDL2 Assets" FontSize="28" 
+                                       Foreground="#F39C12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
-                        <TextBlock Text="Profil Incomplet" FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,10" Foreground="{StaticResource TextBrush}"/>
-                        <TextBlock x:Name="ValidationMessage" Text="Message here..." TextWrapping="Wrap" TextAlignment="Center" Foreground="{StaticResource LightTextBrush}" Margin="0,0,0,20"/>
-                        <Button Content="OK, je complète" Click="ClosePopup_Click" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0" Padding="10,8" Cursor="Hand">
-                            <Button.Resources>
-                                <Style TargetType="Border">
-                                    <Setter Property="CornerRadius" Value="6"/>
-                                </Style>
-                            </Button.Resources>
-                        </Button>
+                        <TextBlock Text="Profil Incomplet" FontWeight="Bold" FontSize="18" 
+                                   HorizontalAlignment="Center" Margin="0,0,0,8" Foreground="#2C3E50"/>
+                        <TextBlock x:Name="ValidationMessage" Text="Message here..." TextWrapping="Wrap" 
+                                   TextAlignment="Center" Foreground="#7F8C8D" FontSize="14" Margin="0,0,0,24"/>
+                        <Button Content="OK, je complète" Click="ClosePopup_Click" Style="{StaticResource PrimaryButton}" 
+                                HorizontalAlignment="Stretch"/>
                     </StackPanel>
                 </Border>
             </Grid>
