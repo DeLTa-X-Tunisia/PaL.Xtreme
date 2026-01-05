@@ -40,6 +40,7 @@ namespace PaLX.Client
             _voiceService.OnCallEnded += VoiceService_OnCallEnded;
             _voiceService.OnStatusChanged += VoiceService_OnStatusChanged;
             _voiceService.OnCallAccepted += VoiceService_OnCallAccepted;
+            _voiceService.OnCallCancelled += VoiceService_OnCallCancelled;
 
             LoadUserProfile();
 
@@ -163,6 +164,7 @@ namespace PaLX.Client
             _voiceService.OnCallEnded -= VoiceService_OnCallEnded;
             _voiceService.OnStatusChanged -= VoiceService_OnStatusChanged;
             _voiceService.OnCallAccepted -= VoiceService_OnCallAccepted;
+            _voiceService.OnCallCancelled -= VoiceService_OnCallCancelled;
             
             try 
             {
@@ -275,6 +277,25 @@ namespace PaLX.Client
                 _ringtonePlayer.Close();
                 _timer.Stop();
                 StatusText.Text = reason;
+                var closeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+                closeTimer.Tick += (s, e) => { closeTimer.Stop(); Close(); };
+                closeTimer.Start();
+            });
+        }
+
+        private void VoiceService_OnCallCancelled(string caller)
+        {
+            Dispatcher.Invoke(() => 
+            {
+                // Caller hung up before we answered
+                _ringtonePlayer.Stop();
+                _ringtonePlayer.Close();
+                _timer.Stop();
+                
+                var p = Participants.FirstOrDefault(x => x.Username == caller);
+                string displayName = p?.DisplayName ?? caller;
+                StatusText.Text = $"{displayName} a annulé l'appel";
+                
                 var closeTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
                 closeTimer.Tick += (s, e) => { closeTimer.Stop(); Close(); };
                 closeTimer.Start();

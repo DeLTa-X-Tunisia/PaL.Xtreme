@@ -25,6 +25,7 @@ namespace PaLX.Client.Services
         public event Action<string> OnIncomingCall;
         public event Action<string> OnCallAccepted;
         public event Action<string> OnCallDeclined;
+        public event Action<string> OnCallCancelled; // When caller hangs up before we answer
 
         public VoiceCallService(HubConnection hubConnection)
         {
@@ -124,7 +125,16 @@ namespace PaLX.Client.Services
 
             _hubConnection.On<string>("CallEnded", (sender) => 
             {
-                EndCall(sender, false);
+                // If we don't have a PeerConnection, this means caller hung up before we answered
+                if (!_peerConnections.ContainsKey(sender))
+                {
+                    // Notify that incoming call was cancelled
+                    OnCallCancelled?.Invoke(sender);
+                }
+                else
+                {
+                    EndCall(sender, false);
+                }
             });
         }
 
