@@ -15,7 +15,7 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.0)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.1)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
@@ -39,7 +39,11 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Picture-in-Picture** : Vidéo locale repositionnable avec label "Vous".
     *   **Indicateur Qualité HD** : Icône signal avec status de connexion.
     *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran (préparé), Raccrocher.
-    *   **Son Appel Vidéo** : `appel_video.mp3` en boucle pour appels entrants.
+    *   **Sons Appel Vidéo** : `appel_video.mp3` (sonnerie) + `end_video.mp3` (fin d'appel).
+
+*   **Corrections Stabilité v1.6.1** :
+    *   **Arrêt Sonnerie** : La musique d'appel s'arrête maintenant dès que l'appel est accepté/refusé/terminé.
+    *   **Synchronisation Caméra** : Caméra démarre uniquement après connexion WebRTC établie (évite crashs).
 
 ### 🎙️ Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
 *   **Thème Sombre Complet** :

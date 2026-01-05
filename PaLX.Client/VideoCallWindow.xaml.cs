@@ -178,6 +178,7 @@ namespace PaLX.Client
                 Dispatcher.Invoke(() =>
                 {
                     StopRingtone();  // Stop ringtone when call ends
+                    PlayEndCallSound();  // Play end call sound
                     ToastService.Info($"Appel terminé avec {_partnerDisplayName}");
                     Close();
                 });
@@ -290,6 +291,32 @@ namespace PaLX.Client
             catch { }
         }
 
+        private void PlayEndCallSound()
+        {
+            try
+            {
+                var possiblePaths = new[]
+                {
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "start_sound", "end_video.mp3"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "end_video.mp3"),
+                    @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\end_video.mp3"
+                };
+
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        var player = new MediaPlayer();
+                        player.Open(new Uri(path));
+                        player.Volume = 0.7;
+                        player.Play();
+                        break;
+                    }
+                }
+            }
+            catch { }
+        }
+
         private void StartDotsAnimation()
         {
             _dotsTimer = new DispatcherTimer
@@ -364,6 +391,7 @@ namespace PaLX.Client
         {
             _timer?.Stop();
             StopRingtone();
+            PlayEndCallSound();  // Play end call sound
             await _videoCallService.EndVideoCall();
             Close();
         }

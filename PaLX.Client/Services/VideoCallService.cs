@@ -237,9 +237,6 @@ namespace PaLX.Client.Services
                 OnVideoCallAccepted?.Invoke(callee, callId);
                 OnStatusChanged?.Invoke("Connexion WebRTC...");
                 
-                // Start camera early for faster preview (parallel with WebRTC init)
-                _ = Task.Run(() => StartCameraCapture());
-                
                 await InitializeWebRTC(true);
             });
 
@@ -266,9 +263,6 @@ namespace PaLX.Client.Services
                 
                 try
                 {
-                    // Start camera early for faster preview (parallel with WebRTC init)
-                    _ = Task.Run(() => StartCameraCapture());
-                    
                     await InitializeWebRTC(false);
                     
                     if (_peerConnection != null)
@@ -530,11 +524,7 @@ namespace PaLX.Client.Services
 
         private void StartMediaCapture()
         {
-            // Only start camera if not already running (may have been pre-started)
-            if (!_isCameraRunning)
-            {
-                StartCameraCapture();
-            }
+            StartCameraCapture();
             StartAudioCapture();
             StartAudioPlayback();
         }
