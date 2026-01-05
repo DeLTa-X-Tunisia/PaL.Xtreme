@@ -13,6 +13,7 @@ namespace PaLX.Client.Services
         private ConcurrentDictionary<string, PeerConnection> _peerConnections = new ConcurrentDictionary<string, PeerConnection>();
         private ConcurrentDictionary<string, Transceiver> _audioTransceivers = new ConcurrentDictionary<string, Transceiver>();
         private ConcurrentDictionary<string, LocalAudioTrack> _localAudioTracks = new ConcurrentDictionary<string, LocalAudioTrack>();
+        private HashSet<string> _pendingOutgoingCalls = new HashSet<string>(); // Track outgoing calls waiting for answer
         
         private HubConnection _hubConnection;
         private AudioTrackSource _audioSource;
@@ -76,6 +77,7 @@ namespace PaLX.Client.Services
 
             _hubConnection.On<string>("CallAccepted", async (sender) => 
             {
+                _pendingOutgoingCalls.Remove(sender); // No longer pending
                 _isCallActive = true;
                 ApiService.Instance.UpdateStatusAsync(3); // En appel
                 OnCallAccepted?.Invoke(sender);
@@ -89,6 +91,7 @@ namespace PaLX.Client.Services
 
             _hubConnection.On<string>("CallDeclined", (sender) => 
             {
+                _pendingOutgoingCalls.Remove(sender); // No longer pending
                 OnCallDeclined?.Invoke(sender);
                 EndCall(sender, false);
             });
@@ -140,6 +143,7 @@ namespace PaLX.Client.Services
 
         public async Task RequestCall(string receiver)
         {
+            _pendingOutgoingCalls.Add(receiver);
             await _hubConnection.SendAsync("RequestCall", receiver);
             OnStatusChanged?.Invoke($"Appel vers {receiver}...");
         }
@@ -266,12 +270,20 @@ namespace PaLX.Client.Services
                 if (remoteUser != null)
                 {
                     // End specific call
+                    _pendingOutgoingCalls.Remove(remoteUser); // Remove from pending if exists
+                    
                     if (_peerConnections.TryRemove(remoteUser, out var pc))
                     {
                         if (notifyRemote) _hubConnection.SendAsync("EndCall", remoteUser);
                         pc.Close();
                         pc.Dispose();
                     }
+                    else if (notifyRemote)
+                    {
+                        // No PeerConnection but we should still notify (pending call)
+                        _hubConnection.SendAsync("EndCall", remoteUser);
+                    }
+                    
                     _audioTransceivers.TryRemove(remoteUser, out _);
                     
                     if (_localAudioTracks.TryRemove(remoteUser, out var track))
@@ -281,7 +293,18 @@ namespace PaLX.Client.Services
                 }
                 else
                 {
-                    // End ALL calls
+                    // End ALL calls - including pending outgoing calls
+                    if (notifyRemote)
+                    {
+                        // First notify all pending outgoing calls (not yet connected)
+                        foreach (var pendingUser in _pendingOutgoingCalls)
+                        {
+                            _hubConnection.SendAsync("EndCall", pendingUser);
+                        }
+                    }
+                    _pendingOutgoingCalls.Clear();
+                    
+                    // Then end all active peer connections
                     foreach (var kvp in _peerConnections)
                     {
                         if (notifyRemote) _hubConnection.SendAsync("EndCall", kvp.Key);
@@ -298,7 +321,7 @@ namespace PaLX.Client.Services
                     _localAudioTracks.Clear();
                 }
 
-                if (_peerConnections.IsEmpty)
+                if (_peerConnections.IsEmpty && _pendingOutgoingCalls.Count == 0)
                 {
                     _isCallActive = false;
                     ApiService.Instance.UpdateStatusAsync(0); // Back to Online
