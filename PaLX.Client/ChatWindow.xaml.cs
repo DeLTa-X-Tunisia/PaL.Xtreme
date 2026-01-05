@@ -222,8 +222,9 @@ namespace PaLX.Client
                 return;
             }
 
-            // Open video call window
-            var videoWindow = new VideoCallWindow(_videoService, _partnerUser, _partnerAvatarPath);
+            // Open video call window - use display name for UI, username for signaling
+            string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+            var videoWindow = new VideoCallWindow(_videoService, _partnerUser, displayName, _partnerAvatarPath);
             videoWindow.Show();
         }
 
@@ -233,11 +234,14 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    // Show toast notification
-                    ToastService.Info($"📹 Appel vidéo de {caller}");
+                    // Use display name for UI
+                    string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : caller;
                     
-                    // Open video call window for incoming call
-                    var videoWindow = new VideoCallWindow(_videoService!, caller, callId, _partnerAvatarPath);
+                    // Show toast notification
+                    ToastService.Info($"📹 Appel vidéo de {displayName}");
+                    
+                    // Open video call window for incoming call - pass username for signaling, displayName for UI
+                    var videoWindow = new VideoCallWindow(_videoService!, caller, displayName, callId, _partnerAvatarPath);
                     videoWindow.Show();
                 });
             }

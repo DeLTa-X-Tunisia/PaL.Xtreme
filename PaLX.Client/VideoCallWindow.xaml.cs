@@ -17,7 +17,8 @@ namespace PaLX.Client
     public partial class VideoCallWindow : Window
     {
         private readonly VideoCallService _videoCallService;
-        private readonly string _partnerUsername;
+        private readonly string _partnerUsername;      // For SignalR signaling
+        private readonly string _partnerDisplayName;   // For UI display
         private readonly string? _partnerAvatar;
         private readonly bool _isIncoming;
         private readonly string _callId;
@@ -30,11 +31,12 @@ namespace PaLX.Client
         /// <summary>
         /// Create video call window for outgoing call
         /// </summary>
-        public VideoCallWindow(VideoCallService videoCallService, string partnerUsername, string? partnerAvatar)
+        public VideoCallWindow(VideoCallService videoCallService, string partnerUsername, string partnerDisplayName, string? partnerAvatar)
         {
             InitializeComponent();
             _videoCallService = videoCallService;
             _partnerUsername = partnerUsername;
+            _partnerDisplayName = partnerDisplayName;
             _partnerAvatar = partnerAvatar;
             _isIncoming = false;
             _callId = string.Empty;
@@ -49,11 +51,12 @@ namespace PaLX.Client
         /// <summary>
         /// Create video call window for incoming call
         /// </summary>
-        public VideoCallWindow(VideoCallService videoCallService, string callerUsername, string callId, string? callerAvatar)
+        public VideoCallWindow(VideoCallService videoCallService, string callerUsername, string callerDisplayName, string callId, string? callerAvatar)
         {
             InitializeComponent();
             _videoCallService = videoCallService;
             _partnerUsername = callerUsername;
+            _partnerDisplayName = callerDisplayName;
             _partnerAvatar = callerAvatar;
             _isIncoming = true;
             _callId = callId;
@@ -67,8 +70,8 @@ namespace PaLX.Client
 
         private void SetupWindow()
         {
-            // Set partner info
-            PartnerNameText.Text = _partnerUsername;
+            // Set partner display name for UI
+            PartnerNameText.Text = _partnerDisplayName;
             
             // Load partner avatar
             if (!string.IsNullOrEmpty(_partnerAvatar) && File.Exists(_partnerAvatar))
@@ -155,7 +158,7 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    ToastService.Warning($"{_partnerUsername} a refusé l'appel vidéo");
+                    ToastService.Warning($"{_partnerDisplayName} a refusé l'appel vidéo");
                     Close();
                 });
             };
@@ -164,7 +167,7 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    ToastService.Info($"Appel terminé avec {_partnerUsername}");
+                    ToastService.Info($"Appel terminé avec {_partnerDisplayName}");
                     Close();
                 });
             };
@@ -200,10 +203,11 @@ namespace PaLX.Client
 
         private async void StartOutgoingCall()
         {
-            CallStatusText.Text = $"Appel de {_partnerUsername}...";
+            CallStatusText.Text = $"Appel de {_partnerDisplayName}...";
             IncomingCallControls.Visibility = Visibility.Collapsed;
             ActiveCallControls.Visibility = Visibility.Visible;
             
+            // Use username for signaling
             await _videoCallService.RequestVideoCall(_partnerUsername);
         }
 

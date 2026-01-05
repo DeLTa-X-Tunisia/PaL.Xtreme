@@ -1,30 +1,40 @@
 // Copyright (c) 2026 Azizi Mounir. All rights reserved.
-// Video Call Service - Independent WebRTC video calling
+// Video Call Service - Real-time video calling with OpenCvSharp + NAudio
 
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.MixedReality.WebRTC;
+using NAudio.Wave;
+using OpenCvSharp;
+using OpenCvSharp.WpfExtensions;
 
 namespace PaLX.Client.Services
 {
     /// <summary>
-    /// Service for managing video calls with WebRTC
-    /// Independent from VoiceCallService
+    /// Service for managing video calls
+    /// Uses OpenCvSharp for camera capture and NAudio for audio
     /// </summary>
     public class VideoCallService : IDisposable
     {
         private readonly HubConnection _hubConnection;
-        private PeerConnection? _peerConnection;
-        private LocalVideoTrack? _localVideoTrack;
-        private LocalAudioTrack? _localAudioTrack;
-        private VideoTrackSource? _videoSource;
-        private AudioTrackSource? _audioSource;
-        private Transceiver? _videoTransceiver;
-        private Transceiver? _audioTransceiver;
-
+        
+        // Camera
+        private VideoCapture? _camera;
+        private Thread? _cameraThread;
+        private volatile bool _isCameraRunning;
+        
+        // Audio Capture (Microphone)
+        private WaveInEvent? _waveIn;
+        private BufferedWaveProvider? _audioBuffer;
+        
+        // Audio Playback (Speaker)
+        private WaveOutEvent? _waveOut;
+        private BufferedWaveProvider? _playbackBuffer;
+        
+        // Call State
         private bool _isCallActive = false;
         private bool _isVideoEnabled = true;
         private bool _isAudioEnabled = true;
@@ -77,10 +87,10 @@ namespace PaLX.Client.Services
                 _currentCallId = callId;
                 _isCallActive = true;
                 OnVideoCallAccepted?.Invoke(callee, callId);
-                OnStatusChanged?.Invoke("Connexion vidéo...");
+                OnStatusChanged?.Invoke("Connecté");
                 
-                // Initialize and create offer
-                await InitializePeerConnection(true);
+                // Start media capture
+                await StartMediaCaptureAsync();
             });
 
             // Video call declined
@@ -99,42 +109,36 @@ namespace PaLX.Client.Services
                 CleanupCall();
             });
 
-            // Receive WebRTC offer
-            _hubConnection.On<string, string, string>("ReceiveVideoOffer", async (sender, callId, sdp) =>
+            // Receive video frame from partner
+            _hubConnection.On<string, string, byte[]>("ReceiveVideoFrame", (sender, callId, frameData) =>
             {
-                if (_currentCallId != callId) return;
+                if (_currentCallId != callId || !_isCallActive) return;
                 
-                await InitializePeerConnection(false);
-                
-                if (_peerConnection != null)
+                try
                 {
-                    var sdpMsg = new SdpMessage { Type = SdpMessageType.Offer, Content = sdp };
-                    await _peerConnection.SetRemoteDescriptionAsync(sdpMsg);
-                    _peerConnection.CreateAnswer();
+                    // Decode JPEG frame
+                    using var mat = Cv2.ImDecode(frameData, ImreadModes.Color);
+                    if (mat != null && !mat.Empty())
+                    {
+                        var bitmap = mat.ToBitmapSource();
+                        bitmap.Freeze();
+                        OnRemoteVideoFrame?.Invoke(bitmap);
+                    }
                 }
+                catch { /* Frame decode error */ }
             });
 
-            // Receive WebRTC answer
-            _hubConnection.On<string, string, string>("ReceiveVideoAnswer", async (sender, callId, sdp) =>
+            // Receive audio data from partner
+            _hubConnection.On<string, string, byte[]>("ReceiveAudioData", (sender, callId, audioData) =>
             {
-                if (_currentCallId != callId || _peerConnection == null) return;
+                if (_currentCallId != callId || !_isCallActive) return;
                 
-                var sdpMsg = new SdpMessage { Type = SdpMessageType.Answer, Content = sdp };
-                await _peerConnection.SetRemoteDescriptionAsync(sdpMsg);
-            });
-
-            // Receive ICE candidate
-            _hubConnection.On<string, string, string, int, string>("ReceiveVideoIceCandidate", 
-                (sender, callId, candidate, sdpMlineIndex, sdpMid) =>
-            {
-                if (_currentCallId != callId || _peerConnection == null) return;
-                
-                _peerConnection.AddIceCandidate(new IceCandidate 
-                { 
-                    Content = candidate, 
-                    SdpMlineIndex = sdpMlineIndex, 
-                    SdpMid = sdpMid 
-                });
+                try
+                {
+                    // Add audio to playback buffer
+                    _playbackBuffer?.AddSamples(audioData, 0, audioData.Length);
+                }
+                catch { /* Audio playback error */ }
             });
 
             // Partner toggled video
@@ -143,6 +147,10 @@ namespace PaLX.Client.Services
                 if (_currentCallId == callId)
                 {
                     OnPartnerVideoToggled?.Invoke(isEnabled);
+                    if (!isEnabled)
+                    {
+                        OnRemoteVideoFrame?.Invoke(null);
+                    }
                 }
             });
 
@@ -169,7 +177,7 @@ namespace PaLX.Client.Services
 
             _currentCallId = Guid.NewGuid().ToString();
             _currentPartner = receiver;
-            OnStatusChanged?.Invoke($"Appel vidéo vers {receiver}...");
+            OnStatusChanged?.Invoke($"Appel en cours...");
             
             await _hubConnection.SendAsync("RequestVideoCall", receiver, _currentCallId);
         }
@@ -186,8 +194,8 @@ namespace PaLX.Client.Services
             OnStatusChanged?.Invoke("Connexion...");
             await _hubConnection.SendAsync("AcceptVideoCall", caller, callId);
             
-            // Initialize PC and wait for offer
-            await InitializePeerConnection(false);
+            // Start media capture
+            await StartMediaCaptureAsync();
         }
 
         /// <summary>
@@ -217,15 +225,15 @@ namespace PaLX.Client.Services
         public async Task ToggleVideo()
         {
             _isVideoEnabled = !_isVideoEnabled;
-            
-            if (_localVideoTrack != null)
-            {
-                _localVideoTrack.Enabled = _isVideoEnabled;
-            }
 
             if (!string.IsNullOrEmpty(_currentPartner))
             {
                 await _hubConnection.SendAsync("ToggleVideoStream", _currentPartner, _currentCallId, _isVideoEnabled);
+            }
+            
+            if (!_isVideoEnabled)
+            {
+                OnLocalVideoFrame?.Invoke(null);
             }
             
             OnStatusChanged?.Invoke(_isVideoEnabled ? "Caméra activée" : "Caméra désactivée");
@@ -237,11 +245,6 @@ namespace PaLX.Client.Services
         public async Task ToggleAudio()
         {
             _isAudioEnabled = !_isAudioEnabled;
-            
-            if (_localAudioTrack != null)
-            {
-                _localAudioTrack.Enabled = _isAudioEnabled;
-            }
 
             if (!string.IsNullOrEmpty(_currentPartner))
             {
@@ -251,78 +254,23 @@ namespace PaLX.Client.Services
             OnStatusChanged?.Invoke(_isAudioEnabled ? "Micro activé" : "Micro désactivé");
         }
 
-        private async Task InitializePeerConnection(bool isCaller)
+        private async Task StartMediaCaptureAsync()
         {
             await _connectionLock.WaitAsync();
             try
             {
-                if (_peerConnection != null) return;
-
-                _peerConnection = new PeerConnection();
-
-                var config = new PeerConnectionConfiguration
-                {
-                    IceServers = new System.Collections.Generic.List<IceServer>
-                    {
-                        new IceServer { Urls = { "stun:stun.l.google.com:19302" } },
-                        new IceServer { Urls = { "stun:stun1.l.google.com:19302" } },
-                        new IceServer { Urls = { "stun:stun2.l.google.com:19302" } }
-                    }
-                };
-
-                await _peerConnection.InitializeAsync(config);
-
-                // SDP ready callback
-                _peerConnection.LocalSdpReadytoSend += async (message) =>
-                {
-                    if (message.Type == SdpMessageType.Offer)
-                    {
-                        await _hubConnection.SendAsync("SendVideoOffer", _currentPartner, _currentCallId, message.Content);
-                    }
-                    else if (message.Type == SdpMessageType.Answer)
-                    {
-                        await _hubConnection.SendAsync("SendVideoAnswer", _currentPartner, _currentCallId, message.Content);
-                    }
-                };
-
-                // ICE candidate callback
-                _peerConnection.IceCandidateReadytoSend += async (candidate) =>
-                {
-                    await _hubConnection.SendAsync("SendVideoIceCandidate", _currentPartner, _currentCallId,
-                        candidate.Content, candidate.SdpMlineIndex, candidate.SdpMid);
-                };
-
-                // Connection state changed
-                _peerConnection.Connected += () =>
-                {
-                    OnStatusChanged?.Invoke("Connecté");
-                    _isCallActive = true;
-                };
-
-                // Video track added (remote)
-                _peerConnection.VideoTrackAdded += (track) =>
-                {
-                    track.I420AVideoFrameReady += (frame) =>
-                    {
-                        // Convert I420A frame to BitmapSource for WPF
-                        var bitmap = ConvertI420ToBitmap(frame);
-                        OnRemoteVideoFrame?.Invoke(bitmap);
-                    };
-                };
-
-                // Initialize local media
-                await InitializeLocalMedia();
-
-                // Create offer if caller
-                if (isCaller)
-                {
-                    _peerConnection.CreateOffer();
-                }
+                // Initialize camera
+                StartCameraCapture();
+                
+                // Initialize audio
+                StartAudioCapture();
+                StartAudioPlayback();
+                
+                OnStatusChanged?.Invoke("Connecté");
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"Erreur connexion: {ex.Message}");
-                CleanupCall();
+                OnError?.Invoke($"Erreur média: {ex.Message}");
             }
             finally
             {
@@ -330,129 +278,151 @@ namespace PaLX.Client.Services
             }
         }
 
-        private async Task InitializeLocalMedia()
+        private void StartCameraCapture()
         {
             try
             {
-                // Initialize video source
-                _videoSource = await DeviceVideoTrackSource.CreateAsync();
+                _camera = new VideoCapture(0);
                 
-                if (_videoSource != null)
+                if (!_camera.IsOpened())
                 {
-                    var videoSettings = new LocalVideoTrackInitConfig
-                    {
-                        trackName = "video_track"
-                    };
-                    _localVideoTrack = LocalVideoTrack.CreateFromSource(_videoSource, videoSettings);
-
-                    // Local preview
-                    _videoSource.I420AVideoFrameReady += (frame) =>
-                    {
-                        var bitmap = ConvertI420ToBitmap(frame);
-                        OnLocalVideoFrame?.Invoke(bitmap);
-                    };
-
-                    // Add video transceiver
-                    _videoTransceiver = _peerConnection?.AddTransceiver(MediaKind.Video);
-                    if (_videoTransceiver != null)
-                    {
-                        _videoTransceiver.LocalVideoTrack = _localVideoTrack;
-                        _videoTransceiver.DesiredDirection = Transceiver.Direction.SendReceive;
-                    }
+                    OnError?.Invoke("Impossible d'accéder à la caméra");
+                    return;
                 }
 
-                // Initialize audio source
-                _audioSource = await DeviceAudioTrackSource.CreateAsync();
-                
-                if (_audioSource != null)
+                // Set camera properties
+                _camera.Set(VideoCaptureProperties.FrameWidth, 640);
+                _camera.Set(VideoCaptureProperties.FrameHeight, 480);
+                _camera.Set(VideoCaptureProperties.Fps, 30);
+
+                _isCameraRunning = true;
+                _cameraThread = new Thread(CameraCaptureLoop)
                 {
-                    var audioSettings = new LocalAudioTrackInitConfig
-                    {
-                        trackName = "audio_track"
-                    };
-                    _localAudioTrack = LocalAudioTrack.CreateFromSource(_audioSource, audioSettings);
-
-                    // Add audio transceiver
-                    _audioTransceiver = _peerConnection?.AddTransceiver(MediaKind.Audio);
-                    if (_audioTransceiver != null)
-                    {
-                        _audioTransceiver.LocalAudioTrack = _localAudioTrack;
-                        _audioTransceiver.DesiredDirection = Transceiver.Direction.SendReceive;
-                    }
-                }
-
-                OnStatusChanged?.Invoke("Médias initialisés");
+                    IsBackground = true,
+                    Name = "VideoCallCameraThread"
+                };
+                _cameraThread.Start();
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"Erreur média: {ex.Message}");
+                OnError?.Invoke($"Erreur caméra: {ex.Message}");
             }
         }
 
-        private BitmapSource? ConvertI420ToBitmap(I420AVideoFrame frame)
+        private void CameraCaptureLoop()
+        {
+            using var frame = new Mat();
+            var lastSendTime = DateTime.Now;
+            var sendInterval = TimeSpan.FromMilliseconds(50); // ~20 FPS for network
+
+            while (_isCameraRunning && _camera != null && _camera.IsOpened())
+            {
+                try
+                {
+                    if (!_camera.Read(frame) || frame.Empty())
+                    {
+                        Thread.Sleep(10);
+                        continue;
+                    }
+
+                    // Local preview (higher FPS)
+                    if (_isVideoEnabled)
+                    {
+                        try
+                        {
+                            var localBitmap = frame.ToBitmapSource();
+                            localBitmap.Freeze();
+                            OnLocalVideoFrame?.Invoke(localBitmap);
+                        }
+                        catch { /* Preview error */ }
+                    }
+
+                    // Send to partner (throttled)
+                    if (_isCallActive && _isVideoEnabled && DateTime.Now - lastSendTime >= sendInterval)
+                    {
+                        lastSendTime = DateTime.Now;
+                        
+                        try
+                        {
+                            // Resize for network transmission
+                            using var resized = new Mat();
+                            Cv2.Resize(frame, resized, new OpenCvSharp.Size(320, 240));
+                            
+                            // Encode as JPEG
+                            var jpegData = resized.ToBytes(".jpg", new int[] { (int)ImwriteFlags.JpegQuality, 60 });
+                            
+                            if (jpegData != null && jpegData.Length > 0)
+                            {
+                                _hubConnection.SendAsync("SendVideoFrame", _currentPartner, _currentCallId, jpegData);
+                            }
+                        }
+                        catch { /* Send error */ }
+                    }
+
+                    Thread.Sleep(16); // ~60 FPS for local preview
+                }
+                catch (ThreadInterruptedException)
+                {
+                    break;
+                }
+                catch
+                {
+                    Thread.Sleep(100);
+                }
+            }
+        }
+
+        private void StartAudioCapture()
         {
             try
             {
-                int width = (int)frame.width;
-                int height = (int)frame.height;
-                
-                // Create BGRA buffer
-                byte[] bgraData = new byte[width * height * 4];
-                
-                // Convert I420 to BGRA
-                unsafe
+                _waveIn = new WaveInEvent
                 {
-                    byte* yPlane = (byte*)frame.dataY;
-                    byte* uPlane = (byte*)frame.dataU;
-                    byte* vPlane = (byte*)frame.dataV;
-                    
-                    int yStride = (int)frame.strideY;
-                    int uStride = (int)frame.strideU;
-                    int vStride = (int)frame.strideV;
+                    WaveFormat = new WaveFormat(16000, 16, 1), // 16kHz, 16-bit, mono
+                    BufferMilliseconds = 50
+                };
 
-                    for (int j = 0; j < height; j++)
+                _waveIn.DataAvailable += async (s, e) =>
+                {
+                    if (_isCallActive && _isAudioEnabled && e.BytesRecorded > 0)
                     {
-                        for (int i = 0; i < width; i++)
+                        try
                         {
-                            int y = yPlane[j * yStride + i];
-                            int u = uPlane[(j / 2) * uStride + (i / 2)];
-                            int v = vPlane[(j / 2) * vStride + (i / 2)];
-
-                            // YUV to RGB conversion
-                            int c = y - 16;
-                            int d = u - 128;
-                            int e = v - 128;
-
-                            int r = Clamp((298 * c + 409 * e + 128) >> 8);
-                            int g = Clamp((298 * c - 100 * d - 208 * e + 128) >> 8);
-                            int b = Clamp((298 * c + 516 * d + 128) >> 8);
-
-                            int idx = (j * width + i) * 4;
-                            bgraData[idx + 0] = (byte)b;     // B
-                            bgraData[idx + 1] = (byte)g;     // G
-                            bgraData[idx + 2] = (byte)r;     // R
-                            bgraData[idx + 3] = 255;         // A
+                            var audioData = new byte[e.BytesRecorded];
+                            Buffer.BlockCopy(e.Buffer, 0, audioData, 0, e.BytesRecorded);
+                            await _hubConnection.SendAsync("SendAudioData", _currentPartner, _currentCallId, audioData);
                         }
+                        catch { /* Send error */ }
                     }
-                }
+                };
 
-                // Create BitmapSource
-                return System.Windows.Media.Imaging.BitmapSource.Create(
-                    width, height,
-                    96, 96,
-                    System.Windows.Media.PixelFormats.Bgra32,
-                    null,
-                    bgraData,
-                    width * 4
-                );
+                _waveIn.StartRecording();
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                OnError?.Invoke($"Erreur micro: {ex.Message}");
             }
         }
 
-        private static int Clamp(int value) => Math.Max(0, Math.Min(255, value));
+        private void StartAudioPlayback()
+        {
+            try
+            {
+                _playbackBuffer = new BufferedWaveProvider(new WaveFormat(16000, 16, 1))
+                {
+                    BufferDuration = TimeSpan.FromSeconds(2),
+                    DiscardOnBufferOverflow = true
+                };
+
+                _waveOut = new WaveOutEvent();
+                _waveOut.Init(_playbackBuffer);
+                _waveOut.Play();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"Erreur audio: {ex.Message}");
+            }
+        }
 
         private void CleanupCall()
         {
@@ -462,21 +432,42 @@ namespace PaLX.Client.Services
             _isVideoEnabled = true;
             _isAudioEnabled = true;
 
-            _localVideoTrack?.Dispose();
-            _localVideoTrack = null;
+            // Stop camera
+            _isCameraRunning = false;
+            try
+            {
+                _cameraThread?.Interrupt();
+                _cameraThread?.Join(500);
+            }
+            catch { }
+            _cameraThread = null;
 
-            _localAudioTrack?.Dispose();
-            _localAudioTrack = null;
+            try
+            {
+                _camera?.Release();
+                _camera?.Dispose();
+            }
+            catch { }
+            _camera = null;
 
-            _videoSource?.Dispose();
-            _videoSource = null;
+            // Stop audio capture
+            try
+            {
+                _waveIn?.StopRecording();
+                _waveIn?.Dispose();
+            }
+            catch { }
+            _waveIn = null;
 
-            _audioSource?.Dispose();
-            _audioSource = null;
-
-            _peerConnection?.Close();
-            _peerConnection?.Dispose();
-            _peerConnection = null;
+            // Stop audio playback
+            try
+            {
+                _waveOut?.Stop();
+                _waveOut?.Dispose();
+            }
+            catch { }
+            _waveOut = null;
+            _playbackBuffer = null;
 
             OnLocalVideoFrame?.Invoke(null);
             OnRemoteVideoFrame?.Invoke(null);

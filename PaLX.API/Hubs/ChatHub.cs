@@ -802,6 +802,30 @@ namespace PaLX.API.Hubs
             }
         }
 
+        /// <summary>
+        /// Send video frame to partner (JPEG encoded)
+        /// </summary>
+        public async Task SendVideoFrame(string partner, string callId, byte[] frameData)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender) && frameData != null && frameData.Length > 0)
+            {
+                await Clients.User(partner).SendAsync("ReceiveVideoFrame", sender, callId, frameData);
+            }
+        }
+
+        /// <summary>
+        /// Send audio data to partner
+        /// </summary>
+        public async Task SendAudioData(string partner, string callId, byte[] audioData)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender) && audioData != null && audioData.Length > 0)
+            {
+                await Clients.User(partner).SendAsync("ReceiveAudioData", sender, callId, audioData);
+            }
+        }
+
         private async Task LogVideoCallEventAsync(string callId, string eventType, string details)
         {
             try
