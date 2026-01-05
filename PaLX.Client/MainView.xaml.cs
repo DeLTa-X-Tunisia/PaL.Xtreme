@@ -440,6 +440,10 @@ namespace PaLX.Client
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)
         {
+            // Ignore if sender is empty or if it's ourselves
+            if (string.IsNullOrEmpty(sender) || sender == _username)
+                return;
+                
             Dispatcher.Invoke(async () => 
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
@@ -464,6 +468,10 @@ namespace PaLX.Client
 
         private void OnVideoRequestReceived(int id, string sender, string filename, string url)
         {
+            // Ignore if sender is empty or if it's ourselves
+            if (string.IsNullOrEmpty(sender) || sender == _username)
+                return;
+                
             Dispatcher.Invoke(async () => 
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
@@ -488,6 +496,10 @@ namespace PaLX.Client
 
         private void OnAudioRequestReceived(int id, string sender, string filename, string url)
         {
+            // Ignore if sender is empty or if it's ourselves
+            if (string.IsNullOrEmpty(sender) || sender == _username)
+                return;
+                
             Dispatcher.Invoke(async () => 
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);
@@ -512,6 +524,10 @@ namespace PaLX.Client
 
         private void OnFileRequestReceived(int id, string sender, string filename, string url)
         {
+            // Ignore if sender is empty or if it's ourselves
+            if (string.IsNullOrEmpty(sender) || sender == _username)
+                return;
+                
             Dispatcher.Invoke(async () => 
             {
                 bool isWindowOpen = _openChatWindows.ContainsKey(sender);

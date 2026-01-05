@@ -877,8 +877,14 @@
                                                     <!-- Video Player Area -->
                                                     <Border CornerRadius="8" 
                                                             ClipToBounds="True" 
-                                                            Background="#1A1A2E"
                                                             MinHeight="180">
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                                <GradientStop Color="#1a1a2e" Offset="0"/>
+                                                                <GradientStop Color="#16213e" Offset="0.5"/>
+                                                                <GradientStop Color="#0f3460" Offset="1"/>
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
                                                         <Grid x:Name="VideoContainer" Tag="{Binding FileUrl}">
                                                             <!-- Embedded Video Player -->
                                                             <MediaElement x:Name="VideoPlayer"
@@ -891,33 +897,36 @@
                                                             
                                                             <!-- Play/Pause Overlay Button -->
                                                             <Border x:Name="VideoOverlay"
-                                                                    Background="#60000000"
+                                                                    Background="#40000000"
                                                                     Cursor="Hand"
                                                                     MouseLeftButtonUp="VideoPlay_Click"
                                                                     MouseLeftButtonDown="VideoPlay_MouseDown"
                                                                     Tag="{Binding FileUrl}">
                                                                 <Grid>
-                                                                    <!-- Play Button Circle -->
-                                                                    <Ellipse x:Name="PlayCircle"
-                                                                             Width="60" Height="60" 
-                                                                             Fill="#E03E2F" 
-                                                                             Opacity="0.95"
-                                                                             HorizontalAlignment="Center" 
-                                                                             VerticalAlignment="Center">
-                                                                        <Ellipse.Effect>
-                                                                            <DropShadowEffect Color="Black" BlurRadius="12" Opacity="0.5" ShadowDepth="2"/>
-                                                                        </Ellipse.Effect>
-                                                                    </Ellipse>
-                                                                    
-                                                                    <!-- Play Icon -->
-                                                                    <Path x:Name="PlayIcon"
-                                                                          Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
-                                                                          Fill="White" 
-                                                                          Width="24" Height="24"
-                                                                          Stretch="Uniform"
+                                                                    <!-- Play/Pause Button Container (hidden during playback) -->
+                                                                    <Grid x:Name="PlayButtonContainer"
                                                                           HorizontalAlignment="Center" 
-                                                                          VerticalAlignment="Center"
-                                                                          Margin="4,0,0,0"/>
+                                                                          VerticalAlignment="Center">
+                                                                        <!-- Play Button Circle -->
+                                                                        <Ellipse x:Name="PlayCircle"
+                                                                                 Width="60" Height="60" 
+                                                                                 Fill="#E03E2F" 
+                                                                                 Opacity="0.95">
+                                                                            <Ellipse.Effect>
+                                                                                <DropShadowEffect Color="Black" BlurRadius="12" Opacity="0.5" ShadowDepth="2"/>
+                                                                            </Ellipse.Effect>
+                                                                        </Ellipse>
+                                                                        
+                                                                        <!-- Play Icon -->
+                                                                        <Path x:Name="PlayIcon"
+                                                                              Data="M8,5.14V19.14L19,12.14L8,5.14Z" 
+                                                                              Fill="White" 
+                                                                              Width="24" Height="24"
+                                                                              Stretch="Uniform"
+                                                                              HorizontalAlignment="Center" 
+                                                                              VerticalAlignment="Center"
+                                                                              Margin="4,0,0,0"/>
+                                                                    </Grid>
                                                                     
                                                                     <!-- File Name at Bottom -->
                                                                     <Border Background="#90000000" 

@@ -133,6 +133,8 @@ namespace PaLX.Client
                 try { _audioRecorder.CancelRecording(); } catch { }
                 try { _audioPlayer.Stop(); } catch { }
                 await ApiService.Instance.LeaveChatAsync(_partnerUser);
+                
+                // Unsubscribe all events
                 ApiService.Instance.OnPrivateMessageReceived -= OnPrivateMessageReceived;
                 ApiService.Instance.OnAudioListened -= OnAudioListened;
                 ApiService.Instance.OnBuzzReceived -= OnBuzzReceived;
@@ -144,6 +146,20 @@ namespace PaLX.Client
                 ApiService.Instance.OnUserUnblockedBy -= OnUserUnblockedBy;
                 ApiService.Instance.OnChatCleared -= OnChatCleared;
                 ApiService.Instance.OnPartnerLeft -= OnPartnerLeft;
+                
+                // Unsubscribe transfer events (CRITICAL - was missing!)
+                ApiService.Instance.OnImageRequestReceived -= OnImageRequestReceived;
+                ApiService.Instance.OnImageRequestSent -= OnImageRequestSent;
+                ApiService.Instance.OnImageTransferUpdated -= OnImageTransferUpdated;
+                ApiService.Instance.OnVideoRequestReceived -= OnVideoRequestReceived;
+                ApiService.Instance.OnVideoRequestSent -= OnVideoRequestSent;
+                ApiService.Instance.OnVideoTransferUpdated -= OnVideoTransferUpdated;
+                ApiService.Instance.OnAudioRequestReceived -= OnAudioRequestReceived;
+                ApiService.Instance.OnAudioRequestSent -= OnAudioRequestSent;
+                ApiService.Instance.OnAudioTransferUpdated -= OnAudioTransferUpdated;
+                ApiService.Instance.OnFileRequestReceived -= OnFileRequestReceived;
+                ApiService.Instance.OnFileRequestSent -= OnFileRequestSent;
+                ApiService.Instance.OnFileTransferUpdated -= OnFileTransferUpdated;
             };
             
             // Initialize WPF native messages
@@ -1245,6 +1261,18 @@ namespace PaLX.Client
                 {
                     // Double-click: Open in external player
                     _lastVideoClickTime = DateTime.MinValue;
+                    
+                    // Pause the video in chat before opening external player
+                    if (overlay.Parent is Grid container)
+                    {
+                        var mediaElement = FindChild<MediaElement>(container);
+                        if (mediaElement != null)
+                        {
+                            mediaElement.Pause();
+                            SetVideoPlayButtonVisible(overlay, true);
+                        }
+                    }
+                    
                     await OpenMediaAsync(url, ".mp4");
                     return;
                 }
@@ -1259,10 +1287,11 @@ namespace PaLX.Client
                         var mediaElement = FindChild<MediaElement>(container);
                         if (mediaElement != null)
                         {
-                            // Stop any other playing video
+                            // Stop any other playing video and show its overlay
                             if (_currentVideoPlayer != null && _currentVideoPlayer != mediaElement)
                             {
                                 _currentVideoPlayer.Stop();
+                                ShowVideoOverlay(_currentVideoPlayer, true);
                             }
 
                             // Toggle play/pause
@@ -1270,6 +1299,8 @@ namespace PaLX.Client
                             if (state == MediaState.Play)
                             {
                                 mediaElement.Pause();
+                                // Show play button when paused
+                                SetVideoPlayButtonVisible(overlay, true);
                             }
                             else
                             {
@@ -1280,6 +1311,12 @@ namespace PaLX.Client
                                 }
                                 mediaElement.Play();
                                 _currentVideoPlayer = mediaElement;
+                                
+                                // Hide play button when playing (but keep overlay clickable)
+                                SetVideoPlayButtonVisible(overlay, false);
+                                
+                                // Scroll to make the video visible
+                                mediaElement.BringIntoView();
                             }
                         }
                     }
@@ -1297,6 +1334,55 @@ namespace PaLX.Client
             {
                 mediaElement.Stop();
                 mediaElement.Position = TimeSpan.Zero;
+                // Show play button when video ends
+                ShowVideoOverlay(mediaElement, true);
+            }
+        }
+
+        /// <summary>
+        /// Show or hide the video play button for a MediaElement
+        /// </summary>
+        private void ShowVideoOverlay(MediaElement mediaElement, bool show)
+        {
+            if (mediaElement.Parent is Grid container)
+            {
+                // Find the overlay Border
+                foreach (var child in container.Children)
+                {
+                    if (child is Border border && border.Name == "VideoOverlay")
+                    {
+                        SetVideoPlayButtonVisible(border, show);
+                        break;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Set visibility of play button elements inside overlay
+        /// </summary>
+        private void SetVideoPlayButtonVisible(Border overlay, bool visible)
+        {
+            // Set overlay background
+            overlay.Background = visible 
+                ? new SolidColorBrush(Color.FromArgb(0x40, 0x00, 0x00, 0x00))  // Semi-transparent when paused
+                : new SolidColorBrush(Colors.Transparent);  // Transparent when playing
+            
+            // Find and hide/show the PlayButtonContainer
+            if (overlay.Child is Grid grid)
+            {
+                foreach (var child in grid.Children)
+                {
+                    if (child is Grid playButtonContainer && playButtonContainer.Name == "PlayButtonContainer")
+                    {
+                        playButtonContainer.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                    // Also hide the bottom bar during playback
+                    if (child is Border bottomBar && bottomBar.VerticalAlignment == VerticalAlignment.Bottom)
+                    {
+                        bottomBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                }
             }
         }
 

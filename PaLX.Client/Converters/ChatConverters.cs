@@ -384,10 +384,20 @@ namespace PaLX.Client.Converters
                     return FileTransferTemplate; // Declined
                 }
                 
-                // For Video: Keep original behavior
+                // For Video:
+                // - Sender (IsMine=true): Always show video player (they have the URL)
+                // - Receiver + Accepted: Show video player
+                // - Receiver + Pending: Show elegant VideoPendingTemplate
+                // - Receiver + Declined: Show FileTransferTemplate
                 if (msg.Type == ChatMessageType.Video)
                 {
-                    return msg.TransferStatus == TransferStatus.Accepted ? VideoMessageTemplate : FileTransferTemplate;
+                    if (msg.IsMine)
+                        return VideoMessageTemplate; // Sender always sees their video
+                    if (msg.TransferStatus == TransferStatus.Accepted)
+                        return VideoMessageTemplate;
+                    if (msg.TransferStatus == TransferStatus.Pending)
+                        return VideoPendingTemplate ?? FileTransferTemplate; // Elegant pending template
+                    return FileTransferTemplate; // Declined
                 }
                 
                 return msg.Type switch
