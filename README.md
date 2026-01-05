@@ -15,7 +15,33 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### � Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.0)
+*   **Architecture WebRTC Professionnelle** :
+    *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
+    *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
+    *   **NAudio** : Capture et lecture audio haute qualité.
+    *   **Support TURN Server** : Configuration Coturn pour traversée NAT/firewall fiable.
+
+*   **Codec Audio Opus (Nouveau)** :
+    *   **Concentus 2.2.0** : Implémentation Opus pure managed .NET (pas de dépendances natives).
+    *   **Qualité Audio Supérieure** : 48kHz, bitrate adaptatif 24-64 kbps, FEC pour perte de paquets.
+    *   **Fallback G.711** : μ-law/A-law comme codec de secours pour compatibilité.
+
+*   **Architecture Modulaire** :
+    *   **IMediaCapture** : Abstraction pour capture vidéo/audio (IVideoCapture, IAudioCapture, IAudioPlayback).
+    *   **IMediaEncoder** : Interfaces encodeurs (IPaLXAudioEncoder, IPaLXVideoEncoder, IEncoderFactory).
+    *   **IWebRTCTransport** : Abstraction transport WebRTC avec WebRTCConfig, TurnServerConfig.
+    *   **EncoderFactory** : Factory pattern pour création dynamique des encodeurs.
+
+*   **Interface VideoCallWindow Premium** :
+    *   **Design Glass/Modern** : Effets de transparence, bordures gradient, ombres portées.
+    *   **Animations** : Boutons Accept/Decline pulsants, anneau avatar rotatif, animation "..." status.
+    *   **Picture-in-Picture** : Vidéo locale repositionnable avec label "Vous".
+    *   **Indicateur Qualité HD** : Icône signal avec status de connexion.
+    *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran (préparé), Raccrocher.
+    *   **Son Appel Vidéo** : `appel_video.mp3` en boucle pour appels entrants.
+
+### 🎙️ Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
 *   **Thème Sombre Complet** :
     *   **Toggle Mode Sombre** : Nouveau système de thème avec basculement Light/Dark en un clic.
     *   **Sauvegarde Automatique** : Les préférences de thème sont persistées localement.
