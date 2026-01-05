@@ -1,3 +1,12 @@
+// ============================================================================
+// PaL.Xtreme - Modern Instant Messaging Solution
+// Copyright © 2026 DeLTa-X-Tunisia. All Rights Reserved.
+// 
+// This software is proprietary and confidential.
+// Unauthorized copying, distribution, or use is strictly prohibited.
+// See LICENSE file for details.
+// ============================================================================
+
 using System.Text;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

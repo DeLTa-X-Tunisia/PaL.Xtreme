@@ -258,3 +258,41 @@ Si la base de données est initialisée via le DatabaseService, les utilisateurs
 ## 🤝 Contribution
 
 Projet maintenu par [DeLTa-X-Tunisia](https://github.com/DeLTa-X-Tunisia).
+---
+
+## ⚖️ Licence & Copyright
+
+```
+Copyright © 2026 DeLTa-X-Tunisia. Tous droits réservés.
+```
+
+### 🚫 Restrictions
+
+Ce logiciel est la propriété exclusive de **DeLTa-X-Tunisia**. 
+
+**Il est strictement interdit de :**
+- ❌ Copier, reproduire ou dupliquer le code source
+- ❌ Modifier, adapter ou créer des œuvres dérivées
+- ❌ Distribuer, publier ou partager le logiciel
+- ❌ Utiliser le code à des fins commerciales ou personnelles sans autorisation
+- ❌ Décompiler, désassembler ou effectuer de l'ingénierie inverse
+- ❌ Supprimer ou modifier les mentions de copyright
+
+### ✅ Utilisation autorisée
+
+L'accès à ce dépôt est accordé **uniquement** pour :
+- Consultation à des fins d'évaluation
+- Collaboration avec autorisation écrite préalable
+
+### ⚠️ Avertissement légal
+
+Toute violation de ces termes peut entraîner des poursuites judiciaires conformément aux lois sur la propriété intellectuelle en vigueur.
+
+Pour toute demande de licence ou autorisation, contactez : **[DeLTa-X-Tunisia](https://github.com/DeLTa-X-Tunisia)**
+
+---
+
+<p align="center">
+  <b>🔒 PaL.Xtreme - Propriété de DeLTa-X-Tunisia</b><br>
+  <sub>Développé avec ❤️ en Tunisie</sub>
+</p>

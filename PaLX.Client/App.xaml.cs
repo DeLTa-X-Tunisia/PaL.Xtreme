@@ -1,4 +1,13 @@
-﻿using System.Configuration;
+﻿// ============================================================================
+// PaL.Xtreme - Modern Instant Messaging Solution
+// Copyright © 2026 DeLTa-X-Tunisia. All Rights Reserved.
+// 
+// This software is proprietary and confidential.
+// Unauthorized copying, distribution, or use is strictly prohibited.
+// See LICENSE file for details.
+// ============================================================================
+
+using System.Configuration;
 using System.Data;
 using System.Windows;
 
