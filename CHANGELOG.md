@@ -7,6 +7,36 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.3.0] - 2026-01-05
+
+### ✨ Nouvelles fonctionnalités
+- **Mode Sombre** : Système de thème complet Light/Dark
+  - Toggle dans les paramètres pour basculer entre les thèmes
+  - Sauvegarde automatique des préférences utilisateur
+  - Palette dark moderne (#1A1A2E, #25253D, #EAEAEA)
+  - Utilisation de DynamicResource pour changement instantané
+
+- **Fenêtre Paramètres** : Nouvelle interface de configuration
+  - Design épuré et compact sans scroll
+  - Icônes colorées pour chaque option (🌙🔔🎵🔥)
+  - Options : Mode Sombre, Sons notification, Son démarrage
+  - Section À propos avec version et copyright
+  - Fenêtre non-modale (ne bloque plus l'application)
+
+### 🎨 Améliorations UI
+- **Barre de Navigation Moderne** :
+  - Design "floating" avec effet de profondeur
+  - Boutons avec fond arrondi stylisé
+  - Bouton central "+" mis en valeur avec ombre rouge
+  - Hover effect moderne avec SurfaceBrush
+
+- **Menu Contextuel Amélioré** (⚙️) :
+  - Icônes colorées avec fond (bleu/violet/rouge)
+  - Titres avec descriptions explicites
+  - Padding et espacement optimisés
+
+---
+
 ## [1.2.0] - 2026-01-05
 
 ### ✨ Nouvelles fonctionnalités

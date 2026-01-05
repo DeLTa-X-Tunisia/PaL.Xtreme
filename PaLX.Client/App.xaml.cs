@@ -10,6 +10,7 @@
 using System.Configuration;
 using System.Data;
 using System.Windows;
+using PaLX.Client.Services;
 
 namespace PaLX.Client;
 
@@ -21,7 +22,9 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // DatabaseService removed - API First
+        
+        // Initialize theme from saved preferences
+        ThemeService.Initialize();
     }
 
     protected override void OnExit(ExitEventArgs e)

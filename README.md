@@ -15,7 +15,29 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 🎨 Modernisation du Chat - Interface WPF Native (Dernière Mise à Jour)
+### � Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
+*   **Thème Sombre Complet** :
+    *   **Toggle Mode Sombre** : Nouveau système de thème avec basculement Light/Dark en un clic.
+    *   **Sauvegarde Automatique** : Les préférences de thème sont persistées localement.
+    *   **Couleurs Dark Mode** : Palette sombre moderne (fond #1A1A2E, cartes #25253D, texte clair #EAEAEA).
+    *   **DynamicResource** : Toutes les couleurs utilisent des ressources dynamiques pour un changement instantané.
+
+*   **Fenêtre Paramètres Moderne** :
+    *   **Design épuré** : Interface compacte sans scroll, avec icônes colorées pour chaque option.
+    *   **Options disponibles** : Mode Sombre, Sons de notification, Son de démarrage.
+    *   **Section À propos** : Version de l'application et copyright.
+    *   **Fenêtre non-modale** : Ne bloque plus l'application principale.
+
+*   **Barre de Navigation Modernisée** :
+    *   **Design "Floating"** : Barre de navigation flottante avec effet de profondeur.
+    *   **Boutons avec fond arrondi** : Chaque icône dans un cercle/carré arrondi stylisé.
+    *   **Bouton central accentué** : "Ajouter un ami" (+) mis en valeur au centre avec ombre rouge.
+    *   **Menu contextuel amélioré** : Menu ⚙️ avec icônes colorées, titres et descriptions :
+        *   👤 Mon Profil → "Modifier mes informations"
+        *   ⚙️ Paramètres → "Thème, sons, préférences"  
+        *   🚫 Utilisateurs bloqués → "Gérer la liste noire"
+
+### 🎨 Modernisation du Chat - Interface WPF Native
 *   **Migration WebView2 → WPF Natif** :
     *   Remplacement complet du rendu HTML/WebView2 par des contrôles WPF natifs dans le Client.
     *   Meilleure performance, fluidité et cohérence visuelle avec le reste de l'application.

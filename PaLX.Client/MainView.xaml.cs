@@ -977,9 +977,20 @@ namespace PaLX.Client
             userProfiles.Show();
         }
 
+        private SettingsWindow? _settingsWindow;
+        
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("Paramètres - Fonctionnalité à venir", "Info", MessageBoxButton.OK, MessageBoxImage.Information);
+            if (_settingsWindow == null || !_settingsWindow.IsLoaded)
+            {
+                _settingsWindow = new SettingsWindow();
+                _settingsWindow.Closed += (s, args) => _settingsWindow = null;
+                _settingsWindow.Show();
+            }
+            else
+            {
+                _settingsWindow.Activate();
+            }
         }
 
         private void BlockedUsers_Click(object sender, RoutedEventArgs e)
