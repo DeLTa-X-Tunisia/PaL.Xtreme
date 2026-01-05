@@ -209,7 +209,7 @@
                         </Button>
                         
                         <!-- Video Call -->
-                        <Button ToolTip="Appel Vidéo" Width="40" Height="40" Background="#20FFFFFF" Margin="0,0,6,0" Cursor="Hand">
+                        <Button Click="VideoCall_Click" ToolTip="Appel Vidéo" Width="40" Height="40" Background="#20FFFFFF" Margin="0,0,6,0" Cursor="Hand">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="bg" Background="{TemplateBinding Background}" CornerRadius="12">

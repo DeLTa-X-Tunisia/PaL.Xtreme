@@ -75,6 +75,7 @@ namespace PaLX.Client.Services
 
         public HubConnection? GetHubConnection() => _hubConnection;
         public VoiceCallService? VoiceService { get; private set; }
+        public VideoCallService? VideoService { get; private set; }
         
         public string GetBaseUrl() => BaseUrl;
 
@@ -369,6 +370,7 @@ namespace PaLX.Client.Services
                 .Build();
 
             VoiceService = new VoiceCallService(_hubConnection);
+            VideoService = new VideoCallService(_hubConnection);
 
             // ... (Existing ChatHub Handlers) ...
             _hubConnection.On<string, string>("ReceiveMessage", (user, message) => OnMessageReceived?.Invoke(user, message));

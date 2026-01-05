@@ -348,7 +348,7 @@
                             <TextBlock Text="PaL.Xtreme" FontSize="14" FontWeight="SemiBold" 
                                        Foreground="{DynamicResource TextBrush}"/>
                             <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock x:Name="VersionText" Text="v1.5.0" FontSize="11" 
+                                <TextBlock x:Name="VersionText" Text="v1.6.0" FontSize="11" 
                                            Foreground="{DynamicResource TextSecondaryBrush}"/>
                                 <TextBlock Text=" • " Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"/>
                                 <TextBlock Text="© 2026 Azizi Mounir" FontSize="11" 

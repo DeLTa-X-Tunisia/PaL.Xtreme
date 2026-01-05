@@ -32,6 +32,7 @@ namespace PaLX.Client
         private int _partnerStatus = 6; // Default Offline
         private bool _dndOverride = false;
         private int _partnerRoleLevel = 7; // Default to User
+        private string? _partnerAvatarPath;
         
         // Audio Recording
         private AudioRecorder _audioRecorder = new AudioRecorder();
@@ -41,6 +42,9 @@ namespace PaLX.Client
 
         // Voice Call
         private VoiceCallService _voiceService;
+
+        // Video Call
+        private VideoCallService? _videoService;
 
         // WPF Native Messages Collection
         private ObservableCollection<ChatMessageItem> _messages = new ObservableCollection<ChatMessageItem>();
@@ -64,6 +68,13 @@ namespace PaLX.Client
             // Init Voice Service
             _voiceService = ApiService.Instance.VoiceService!;
             // Incoming call handled by MainView
+
+            // Init Video Service
+            _videoService = ApiService.Instance.VideoService;
+            if (_videoService != null)
+            {
+                _videoService.OnIncomingVideoCall += OnIncomingVideoCall;
+            }
 
             Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
@@ -189,6 +200,47 @@ namespace PaLX.Client
             var win = new VoiceCallWindow(_voiceService, _partnerUser, false);
             win.Show();
             _voiceService.RequestCall(_partnerUser);
+        }
+
+        private void VideoCall_Click(object sender, RoutedEventArgs e)
+        {
+            if (_isBlocked || _isBlockedByPartner)
+            {
+                ToastService.Error("Impossible d'appeler cet utilisateur.");
+                return;
+            }
+
+            if (_videoService == null)
+            {
+                ToastService.Error("Service vidéo non disponible");
+                return;
+            }
+
+            if (_videoService.IsCallActive)
+            {
+                ToastService.Warning("Un appel vidéo est déjà en cours");
+                return;
+            }
+
+            // Open video call window
+            var videoWindow = new VideoCallWindow(_videoService, _partnerUser, _partnerAvatarPath);
+            videoWindow.Show();
+        }
+
+        private void OnIncomingVideoCall(string caller, string callId)
+        {
+            if (caller.Equals(_partnerUser, StringComparison.OrdinalIgnoreCase))
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    // Show toast notification
+                    ToastService.Info($"📹 Appel vidéo de {caller}");
+                    
+                    // Open video call window for incoming call
+                    var videoWindow = new VideoCallWindow(_videoService!, caller, callId, _partnerAvatarPath);
+                    videoWindow.Show();
+                });
+            }
         }
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)
@@ -784,6 +836,7 @@ namespace PaLX.Client
                 // Set Avatar
                 if (!string.IsNullOrEmpty(profile.AvatarPath) && System.IO.File.Exists(profile.AvatarPath))
                 {
+                    _partnerAvatarPath = profile.AvatarPath;
                     try
                     {
                         AvatarBrush.ImageSource = new BitmapImage(new Uri(profile.AvatarPath, UriKind.Absolute));

@@ -686,5 +686,144 @@ namespace PaLX.API.Hubs
                 await Clients.User(receiver).SendAsync("CallEnded", sender);
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VIDEO CALL SIGNALING - Independent from Voice Calls
+        // ═══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Request a video call to another user
+        /// </summary>
+        public async Task RequestVideoCall(string receiver, string callId)
+        {
+            var sender = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(sender)) return;
+
+            // Log to database
+            await LogVideoCallEventAsync(callId, "REQUEST", $"{sender} -> {receiver}");
+            
+            // Notify receiver
+            await Clients.User(receiver).SendAsync("IncomingVideoCall", sender, callId);
+        }
+
+        /// <summary>
+        /// Accept an incoming video call
+        /// </summary>
+        public async Task AcceptVideoCall(string caller, string callId)
+        {
+            var receiver = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(receiver)) return;
+
+            await LogVideoCallEventAsync(callId, "ACCEPTED", $"{receiver} accepted");
+            await Clients.User(caller).SendAsync("VideoCallAccepted", receiver, callId);
+        }
+
+        /// <summary>
+        /// Decline an incoming video call
+        /// </summary>
+        public async Task DeclineVideoCall(string caller, string callId)
+        {
+            var receiver = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(receiver)) return;
+
+            await LogVideoCallEventAsync(callId, "DECLINED", $"{receiver} declined");
+            await Clients.User(caller).SendAsync("VideoCallDeclined", receiver, callId);
+        }
+
+        /// <summary>
+        /// End an active video call
+        /// </summary>
+        public async Task EndVideoCall(string partner, string callId)
+        {
+            var sender = Context.UserIdentifier;
+            if (string.IsNullOrEmpty(sender)) return;
+
+            await LogVideoCallEventAsync(callId, "ENDED", $"{sender} ended call");
+            await Clients.User(partner).SendAsync("VideoCallEnded", sender, callId);
+        }
+
+        /// <summary>
+        /// Send WebRTC offer for video
+        /// </summary>
+        public async Task SendVideoOffer(string receiver, string callId, string sdp)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveVideoOffer", sender, callId, sdp);
+            }
+        }
+
+        /// <summary>
+        /// Send WebRTC answer for video
+        /// </summary>
+        public async Task SendVideoAnswer(string receiver, string callId, string sdp)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveVideoAnswer", sender, callId, sdp);
+            }
+        }
+
+        /// <summary>
+        /// Send ICE candidate for video connection
+        /// </summary>
+        public async Task SendVideoIceCandidate(string receiver, string callId, string candidate, int sdpMlineIndex, string sdpMid)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(receiver).SendAsync("ReceiveVideoIceCandidate", sender, callId, candidate, sdpMlineIndex, sdpMid);
+            }
+        }
+
+        /// <summary>
+        /// Toggle video stream on/off
+        /// </summary>
+        public async Task ToggleVideoStream(string partner, string callId, bool isEnabled)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(partner).SendAsync("PartnerVideoToggled", sender, callId, isEnabled);
+            }
+        }
+
+        /// <summary>
+        /// Toggle audio stream on/off during video call
+        /// </summary>
+        public async Task ToggleVideoAudio(string partner, string callId, bool isEnabled)
+        {
+            var sender = Context.UserIdentifier;
+            if (!string.IsNullOrEmpty(sender))
+            {
+                await Clients.User(partner).SendAsync("PartnerAudioToggled", sender, callId, isEnabled);
+            }
+        }
+
+        private async Task LogVideoCallEventAsync(string callId, string eventType, string details)
+        {
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                
+                // Try to find existing call or create log without foreign key
+                var sql = @"
+                    INSERT INTO ""VideoCallLogs"" (""VideoCallId"", ""Event"", ""Details"", ""Timestamp"")
+                    SELECT v.""Id"", @event, @details, NOW()
+                    FROM ""VideoCalls"" v
+                    WHERE v.""CallId""::text = @callId
+                    LIMIT 1";
+                
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("callId", callId);
+                cmd.Parameters.AddWithValue("event", eventType);
+                cmd.Parameters.AddWithValue("details", details);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch { /* Ignore logging errors */ }
+        }
     }
 }
