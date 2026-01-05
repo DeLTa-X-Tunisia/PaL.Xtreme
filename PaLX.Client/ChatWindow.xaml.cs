@@ -210,7 +210,7 @@ namespace PaLX.Client
 
         private void OnImageRequestSent(int id, string receiver, string filename, string url)
         {
-            if (receiver == _partnerUser)
+            if (string.Equals(receiver, _partnerUser, StringComparison.OrdinalIgnoreCase))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -267,7 +267,7 @@ namespace PaLX.Client
 
         private void OnVideoRequestSent(int id, string receiver, string filename, string url)
         {
-            if (receiver == _partnerUser)
+            if (string.Equals(receiver, _partnerUser, StringComparison.OrdinalIgnoreCase))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -325,7 +325,7 @@ namespace PaLX.Client
 
         private void OnAudioRequestSent(int id, string receiver, string filename, string url)
         {
-            if (receiver == _partnerUser)
+            if (string.Equals(receiver, _partnerUser, StringComparison.OrdinalIgnoreCase))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -381,7 +381,7 @@ namespace PaLX.Client
 
         private void OnFileRequestSent(int id, string receiver, string filename, string url)
         {
-            if (receiver == _partnerUser)
+            if (string.Equals(receiver, _partnerUser, StringComparison.OrdinalIgnoreCase))
             {
                 Dispatcher.Invoke(() =>
                 {
@@ -969,7 +969,13 @@ namespace PaLX.Client
                     if (!string.IsNullOrEmpty(url))
                     {
                         string fullUrl = $"{ApiService.BaseUrl}{url}";
-                        try { await ApiService.Instance.SendVideoRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        try 
+                        { 
+                            await ApiService.Instance.SendVideoRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length);
+                            // Scroll après envoi pour garantir visibilité
+                            await Task.Delay(100);
+                            ScrollToBottom();
+                        }
                         catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                     }
                     else
@@ -983,7 +989,12 @@ namespace PaLX.Client
                     if (!string.IsNullOrEmpty(url))
                     {
                         string fullUrl = $"{ApiService.BaseUrl}{url}";
-                        try { await ApiService.Instance.SendAudioRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        try 
+                        { 
+                            await ApiService.Instance.SendAudioRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length);
+                            await Task.Delay(100);
+                            ScrollToBottom();
+                        }
                         catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                     }
                     else
@@ -997,7 +1008,12 @@ namespace PaLX.Client
                     if (!string.IsNullOrEmpty(url))
                     {
                         string fullUrl = $"{ApiService.BaseUrl}{url}";
-                        try { await ApiService.Instance.SendImageRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        try 
+                        { 
+                            await ApiService.Instance.SendImageRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length);
+                            await Task.Delay(100);
+                            ScrollToBottom();
+                        }
                         catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                     }
                     else
@@ -1012,7 +1028,12 @@ namespace PaLX.Client
                     if (!string.IsNullOrEmpty(url))
                     {
                         string fullUrl = $"{ApiService.BaseUrl}{url}";
-                        try { await ApiService.Instance.SendFileRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length); }
+                        try 
+                        { 
+                            await ApiService.Instance.SendFileRequestAsync(_partnerUser, fullUrl, fileInfo.Name, fileInfo.Length);
+                            await Task.Delay(100);
+                            ScrollToBottom();
+                        }
                         catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                     }
                     else
@@ -1230,10 +1251,14 @@ namespace PaLX.Client
 
         private void ScrollToBottom()
         {
-            if (MessagesListBox.Items.Count > 0)
+            // Use BeginInvoke with lower priority to ensure UI has rendered the new item first
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, new Action(() =>
             {
-                MessagesListBox.ScrollIntoView(MessagesListBox.Items[MessagesListBox.Items.Count - 1]);
-            }
+                if (MessagesListBox.Items.Count > 0)
+                {
+                    MessagesListBox.ScrollIntoView(MessagesListBox.Items[MessagesListBox.Items.Count - 1]);
+                }
+            }));
         }
 
         // WPF Event Handlers for Templates
