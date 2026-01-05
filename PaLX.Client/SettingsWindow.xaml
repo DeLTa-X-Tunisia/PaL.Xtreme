@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Paramètres" Height="560" Width="400"
+        Title="Paramètres" Height="680" Width="420"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent"
@@ -109,9 +109,10 @@
             </Border>
 
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- CONTENT - No Scroll                                             -->
+            <!-- CONTENT - With Scroll                                           -->
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <StackPanel Grid.Row="1" Margin="20,16,20,20">
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="20,16,20,20">
                 
                 <!-- Section: Apparence -->
                 <TextBlock Text="APPARENCE" FontSize="10" FontWeight="Bold" 
@@ -198,6 +199,134 @@
                     </Grid>
                 </Border>
                 
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- Section: Audio & Vidéo                                          -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <TextBlock Text="AUDIO &amp; VIDÉO" FontSize="10" FontWeight="Bold" 
+                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                           Margin="4,12,0,8"/>
+                
+                <!-- Camera & Microphone Test -->
+                <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="16" Padding="16" Margin="0,0,0,8">
+                    <StackPanel>
+                        <!-- Camera Preview Section -->
+                        <Grid Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#E3F2FD" CornerRadius="8" Width="32" Height="32" Margin="0,0,10,0">
+                                    <TextBlock Text="📷" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Caméra" FontSize="13" FontWeight="SemiBold" 
+                                               Foreground="{DynamicResource TextBrush}"/>
+                                    <TextBlock x:Name="CameraStatusText" Text="Non testée" FontSize="10" 
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <Button x:Name="TestCameraButton" Grid.Column="1" Content="Tester" 
+                                    Click="TestCamera_Click" Cursor="Hand"
+                                    Background="{StaticResource PrimaryBrush}" Foreground="White"
+                                    Padding="14,6" FontSize="11" FontWeight="SemiBold">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="btnBorder" Background="{TemplateBinding Background}" 
+                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.85"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                        
+                        <!-- Camera Preview Box -->
+                        <Border x:Name="CameraPreviewBorder" Background="#1A1A1A" CornerRadius="12" 
+                                Height="140" Margin="0,0,0,14" ClipToBounds="True">
+                            <Grid>
+                                <!-- Placeholder when camera is off -->
+                                <StackPanel x:Name="CameraPlaceholder" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <Border Background="#333" CornerRadius="25" Width="50" Height="50" Margin="0,0,0,8">
+                                        <TextBlock Text="📹" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                    <TextBlock Text="Cliquez sur Tester" FontSize="11" Foreground="#888" 
+                                               HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                
+                                <!-- Camera Image (when active) -->
+                                <Image x:Name="CameraPreviewImage" Stretch="UniformToFill" Visibility="Collapsed"/>
+                            </Grid>
+                        </Border>
+                        
+                        <!-- Separator -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,14"/>
+                        
+                        <!-- Microphone Section -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#FCE4EC" CornerRadius="8" Width="32" Height="32" Margin="0,0,10,0">
+                                    <TextBlock Text="🎤" FontSize="15" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Microphone" FontSize="13" FontWeight="SemiBold" 
+                                               Foreground="{DynamicResource TextBrush}"/>
+                                    <TextBlock x:Name="MicStatusText" Text="Non testé" FontSize="10" 
+                                               Foreground="{DynamicResource TextSecondaryBrush}"/>
+                                </StackPanel>
+                            </StackPanel>
+                            
+                            <Button x:Name="TestMicButton" Grid.Column="1" Content="Tester" 
+                                    Click="TestMicrophone_Click" Cursor="Hand"
+                                    Background="{StaticResource PrimaryBrush}" Foreground="White"
+                                    Padding="14,6" FontSize="11" FontWeight="SemiBold">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="btnBorder" Background="{TemplateBinding Background}" 
+                                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.85"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </Grid>
+                        
+                        <!-- Microphone Level Meter -->
+                        <Grid Height="24" Margin="0,4,0,0">
+                            <Border Background="#2D2D2D" CornerRadius="6"/>
+                            <Border x:Name="MicLevelBar" CornerRadius="6" HorizontalAlignment="Left" Width="0">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                        <GradientStop Color="#4CAF50" Offset="0"/>
+                                        <GradientStop Color="#8BC34A" Offset="0.5"/>
+                                        <GradientStop Color="#FFEB3B" Offset="0.75"/>
+                                        <GradientStop Color="#FF5722" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                            </Border>
+                            <TextBlock x:Name="MicLevelText" Text="Niveau: --" FontSize="10" Foreground="#AAA"
+                                       VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
                 <!-- Section: À propos -->
                 <TextBlock Text="À PROPOS" FontSize="10" FontWeight="Bold" 
                            Foreground="{DynamicResource TextSecondaryBrush}" 
@@ -234,6 +363,7 @@
                         HorizontalAlignment="Stretch" Padding="0,12" Margin="0,16,0,0" Click="CloseButton_Click"/>
                 
             </StackPanel>
+            </ScrollViewer>
         </Grid>
     </Border>
 </Window>

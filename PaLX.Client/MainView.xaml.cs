@@ -1034,16 +1034,18 @@ namespace PaLX.Client
         
         private void Settings_Click(object sender, RoutedEventArgs e)
         {
-            if (_settingsWindow == null || !_settingsWindow.IsLoaded)
-            {
-                _settingsWindow = new SettingsWindow();
-                _settingsWindow.Closed += (s, args) => _settingsWindow = null;
-                _settingsWindow.Show();
-            }
-            else
+            // Check if window already exists and is visible
+            if (_settingsWindow != null && _settingsWindow.IsVisible)
             {
                 _settingsWindow.Activate();
+                _settingsWindow.Focus();
+                return;
             }
+            
+            // Create new window
+            _settingsWindow = new SettingsWindow();
+            _settingsWindow.Closed += (s, args) => _settingsWindow = null;
+            _settingsWindow.Show();
         }
 
         private void BlockedUsers_Click(object sender, RoutedEventArgs e)
