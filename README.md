@@ -15,14 +15,26 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.1)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.2)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
     *   **NAudio** : Capture et lecture audio haute qualité.
     *   **Support TURN Server** : Configuration Coturn pour traversée NAT/firewall fiable.
 
-*   **Codec Audio Opus (Nouveau)** :
+*   **Partage d'Écran (Nouveau v1.6.2)** :
+    *   **Capture Plein Écran** : Capture de l'écran principal via `Graphics.CopyFromScreen`.
+    *   **Qualité Optimisée** : Format 24bpp RGB, gestion correcte du stride, résolution 1920x1080.
+    *   **Bitrate Adapté** : 1500 kbps automatique pour le partage d'écran (vs 500 kbps caméra).
+    *   **Toggle Automatique** : Désactivation caméra lors du partage, réactivation à l'arrêt.
+
+*   **Gestion Statut "En appel" (Nouveau v1.6.2)** :
+    *   **Changement Automatique** : Statut passe à "En appel" dès connexion vidéo établie.
+    *   **Retour Automatique** : Statut revient à "En ligne" à la fin de l'appel.
+    *   **Vérification Avant Appel** : Message d'alerte si le contact est déjà en appel.
+    *   **Visibilité Contacts** : Les amis voient que l'utilisateur est occupé en appel.
+
+*   **Codec Audio Opus** :
     *   **Concentus 2.2.0** : Implémentation Opus pure managed .NET (pas de dépendances natives).
     *   **Qualité Audio Supérieure** : 48kHz, bitrate adaptatif 24-64 kbps, FEC pour perte de paquets.
     *   **Fallback G.711** : μ-law/A-law comme codec de secours pour compatibilité.
@@ -38,12 +50,15 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Animations** : Boutons Accept/Decline pulsants, anneau avatar rotatif, animation "..." status.
     *   **Picture-in-Picture** : Vidéo locale repositionnable avec label "Vous".
     *   **Indicateur Qualité HD** : Icône signal avec status de connexion.
-    *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran (préparé), Raccrocher.
+    *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran, Raccrocher.
     *   **Sons Appel Vidéo** : `appel_video.mp3` (sonnerie) + `end_video.mp3` (fin d'appel).
+    *   **Texte Connexion** : Affiche "Connecté à PaL.Xtreme" au lieu du détail technique.
 
-*   **Corrections Stabilité v1.6.1** :
-    *   **Arrêt Sonnerie** : La musique d'appel s'arrête maintenant dès que l'appel est accepté/refusé/terminé.
-    *   **Synchronisation Caméra** : Caméra démarre uniquement après connexion WebRTC établie (évite crashs).
+*   **Corrections Stabilité v1.6.2** :
+    *   **Partage d'écran** : Correction qualité image (format 24bpp, gestion stride).
+    *   **Crash Arrêt Partage** : Meilleure synchronisation threads lors du retour caméra.
+    *   **Arrêt Sonnerie** : La musique d'appel s'arrête dès que l'appel est accepté/refusé/terminé.
+    *   **Synchronisation Caméra** : Caméra démarre uniquement après connexion WebRTC établie.
 
 ### 🎙️ Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
 *   **Thème Sombre Complet** :

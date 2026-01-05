@@ -436,6 +436,31 @@ namespace PaLX.Client
             }
         }
 
+        private async void ScreenShareButton_Click(object sender, RoutedEventArgs e)
+        {
+            await _videoCallService.ToggleScreenShare();
+            bool isSharing = _videoCallService.IsScreenSharing;
+            
+            if (isSharing)
+            {
+                ScreenShareButton.Style = (Style)FindResource("MutedToggleStyle");
+                ScreenShareIcon.Text = "🖥️";
+                ScreenShareLabel.Text = "Partage";
+                // Hide camera toggle when screen sharing
+                ToggleVideoButton.IsEnabled = false;
+                ToggleVideoButton.Opacity = 0.5;
+            }
+            else
+            {
+                ScreenShareButton.Style = (Style)FindResource("ActiveToggleStyle");
+                ScreenShareIcon.Text = "🖥️";
+                ScreenShareLabel.Text = "Écran";
+                // Re-enable camera toggle
+                ToggleVideoButton.IsEnabled = true;
+                ToggleVideoButton.Opacity = 1.0;
+            }
+        }
+
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             if (_videoCallService.IsCallActive)

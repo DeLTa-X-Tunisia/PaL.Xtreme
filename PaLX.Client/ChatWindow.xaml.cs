@@ -193,7 +193,15 @@ namespace PaLX.Client
         {
             if (_isBlocked || _isBlockedByPartner)
             {
-                MessageBox.Show("Impossible d'appeler cet utilisateur.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                ToastService.Error("Impossible d'appeler cet utilisateur.");
+                return;
+            }
+            
+            // Check if partner is already in a call
+            string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+            if (_partnerStatus == 3) // En appel
+            {
+                ShowUserInCallDialog(displayName);
                 return;
             }
             
@@ -222,10 +230,25 @@ namespace PaLX.Client
                 return;
             }
 
-            // Open video call window - use display name for UI, username for signaling
+            // Check if partner is already in a call
             string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+            if (_partnerStatus == 3) // En appel
+            {
+                ShowUserInCallDialog(displayName);
+                return;
+            }
+
+            // Open video call window - use display name for UI, username for signaling
             var videoWindow = new VideoCallWindow(_videoService, _partnerUser, displayName, _partnerAvatarPath);
             videoWindow.Show();
+        }
+
+        private void ShowUserInCallDialog(string displayName)
+        {
+            new CustomAlertWindow(
+                $"📞 {displayName} est actuellement en appel.\n\nVeuillez réessayer plus tard.",
+                "Utilisateur en appel"
+            ).ShowDialog();
         }
 
         private void OnIncomingVideoCall(string caller, string callId)

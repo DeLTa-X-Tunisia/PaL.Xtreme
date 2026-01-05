@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
@@ -64,6 +65,11 @@ namespace PaLX.Client.Services
         private string _currentPartner = string.Empty;
         private readonly SemaphoreSlim _connectionLock = new(1, 1);
         
+        // Screen Share
+        private bool _isScreenSharing = false;
+        private Thread? _screenCaptureThread;
+        private volatile bool _isScreenCaptureRunning;
+        
         // Quality settings
         private int _targetBitrate = 500;
         private int _currentFps = 30;
@@ -85,6 +91,7 @@ namespace PaLX.Client.Services
         public event Action<BitmapSource?>? OnRemoteVideoFrame;
         public event Action<bool>? OnPartnerVideoToggled;
         public event Action<bool>? OnPartnerAudioToggled;
+        public event Action<bool>? OnScreenShareToggled;
         public event Action<string>? OnError;
         public event Action<int>? OnBitrateChanged;
         public event Action<AudioCodec>? OnAudioCodecChanged;
@@ -96,6 +103,7 @@ namespace PaLX.Client.Services
         public bool IsCallActive => _isCallActive;
         public bool IsVideoEnabled => _isVideoEnabled;
         public bool IsAudioEnabled => _isAudioEnabled;
+        public bool IsScreenSharing => _isScreenSharing;
         public string CurrentCallId => _currentCallId;
         public string CurrentPartner => _currentPartner;
         public int CurrentBitrate => _targetBitrate;
@@ -395,6 +403,61 @@ namespace PaLX.Client.Services
             OnStatusChanged?.Invoke(_isAudioEnabled ? "Micro activé" : "Micro désactivé");
         }
 
+        public async Task ToggleScreenShare()
+        {
+            if (!_isCallActive) return;
+            
+            _isScreenSharing = !_isScreenSharing;
+            
+            if (_isScreenSharing)
+            {
+                // Increase bitrate for screen share (text needs more quality)
+                if (_videoEncoder != null)
+                {
+                    _videoEncoder.TargetBitrate = 1500; // Higher bitrate for screen share
+                }
+                
+                // Stop camera first and wait for it to fully stop
+                StopCameraCapture();
+                Thread.Sleep(200); // Delay to ensure camera is fully released
+                
+                // Start screen capture
+                StartScreenCapture();
+                OnStatusChanged?.Invoke("Partage d'écran activé");
+            }
+            else
+            {
+                // Stop screen capture first and wait
+                StopScreenCapture();
+                Thread.Sleep(300); // Longer delay to ensure screen capture thread is fully stopped
+                
+                // Restore normal bitrate
+                if (_videoEncoder != null)
+                {
+                    _videoEncoder.TargetBitrate = _targetBitrate;
+                }
+                
+                // Restart camera in a try-catch to prevent crashes
+                try
+                {
+                    StartCameraCapture();
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke($"Erreur réactivation caméra: {ex.Message}");
+                }
+                OnStatusChanged?.Invoke("Partage d'écran désactivé");
+            }
+            
+            OnScreenShareToggled?.Invoke(_isScreenSharing);
+            
+            // Notify partner (optional - for UI indication)
+            if (!string.IsNullOrEmpty(_currentPartner))
+            {
+                await _hubConnection.SendAsync("ToggleVideoStream", _currentPartner, _currentCallId, true);
+            }
+        }
+
         #endregion
 
         #region WebRTC Initialization
@@ -471,8 +534,10 @@ namespace PaLX.Client.Services
                     switch (state)
                     {
                         case RTCPeerConnectionState.connected:
-                            OnStatusChanged?.Invoke($"Connecté (WebRTC + {_audioEncoder?.Codec})");
+                            OnStatusChanged?.Invoke("Connecté à PaL.Xtreme");
                             _isCallActive = true;
+                            // Set status to "En appel" (3)
+                            ApiService.Instance.UpdateStatusAsync(3);
                             StartMediaCapture();
                             break;
                         case RTCPeerConnectionState.disconnected:
@@ -533,6 +598,15 @@ namespace PaLX.Client.Services
         {
             try
             {
+                // Ensure previous camera is fully released
+                if (_camera != null)
+                {
+                    try { _camera.Release(); } catch { }
+                    try { _camera.Dispose(); } catch { }
+                    _camera = null;
+                    Thread.Sleep(100); // Small delay after disposing
+                }
+                
                 _camera = new VideoCapture(0);
                 
                 if (!_camera.IsOpened())
@@ -652,6 +726,189 @@ namespace PaLX.Client.Services
                 }
             }
             catch { }
+        }
+
+        #endregion
+
+        #region Screen Capture
+
+        private void StopCameraCapture()
+        {
+            _isCameraRunning = false;
+            
+            // Wait for thread to finish
+            if (_cameraThread != null && _cameraThread.IsAlive)
+            {
+                _cameraThread.Join(1000);
+            }
+            _cameraThread = null;
+            
+            // Release camera resources
+            try
+            {
+                _camera?.Release();
+                _camera?.Dispose();
+            }
+            catch { }
+            _camera = null;
+        }
+
+        private void StartScreenCapture()
+        {
+            try
+            {
+                _isScreenCaptureRunning = true;
+                _screenCaptureThread = new Thread(ScreenCaptureLoop)
+                {
+                    IsBackground = true,
+                    Name = "WebRTCScreenCaptureThread",
+                    Priority = ThreadPriority.AboveNormal
+                };
+                _screenCaptureThread.Start();
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"Erreur capture d'écran: {ex.Message}");
+            }
+        }
+
+        private void StopScreenCapture()
+        {
+            _isScreenCaptureRunning = false;
+            _isScreenSharing = false; // Ensure loop condition is false
+            
+            // Wait for thread to finish with timeout
+            try
+            {
+                if (_screenCaptureThread != null && _screenCaptureThread.IsAlive)
+                {
+                    if (!_screenCaptureThread.Join(2000)) // Longer timeout
+                    {
+                        // Thread didn't finish, try to interrupt
+                        try { _screenCaptureThread.Interrupt(); } catch { }
+                    }
+                }
+            }
+            catch { }
+            _screenCaptureThread = null;
+        }
+
+        private void ScreenCaptureLoop()
+        {
+            var frameInterval = TimeSpan.FromMilliseconds(1000.0 / 10); // 10 fps for screen share (better quality)
+            var lastFrameTime = DateTime.Now;
+            uint rtpTimestamp = 0;
+
+            // Get screen dimensions
+            int screenWidth = (int)System.Windows.SystemParameters.PrimaryScreenWidth;
+            int screenHeight = (int)System.Windows.SystemParameters.PrimaryScreenHeight;
+            
+            // Target resolution for encoding
+            int targetWidth = 1920;
+            int targetHeight = 1080;
+
+            while (_isScreenCaptureRunning && _isScreenSharing)
+            {
+                try
+                {
+                    var elapsed = DateTime.Now - lastFrameTime;
+                    if (elapsed < frameInterval)
+                    {
+                        Thread.Sleep(frameInterval - elapsed);
+                    }
+                    lastFrameTime = DateTime.Now;
+
+                    // Capture screen using Graphics.CopyFromScreen
+                    using var screenBitmap = new System.Drawing.Bitmap(screenWidth, screenHeight, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                    using (var graphics = System.Drawing.Graphics.FromImage(screenBitmap))
+                    {
+                        graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(screenWidth, screenHeight));
+                    }
+
+                    // Lock bits in BGR format (24bpp)
+                    var bmpData = screenBitmap.LockBits(
+                        new System.Drawing.Rectangle(0, 0, screenWidth, screenHeight),
+                        System.Drawing.Imaging.ImageLockMode.ReadOnly,
+                        System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+                    
+                    try
+                    {
+                        // Handle stride properly - copy row by row if stride doesn't match
+                        int expectedStride = screenWidth * 3;
+                        byte[] bgrData;
+                        
+                        if (bmpData.Stride == expectedStride)
+                        {
+                            // Stride matches, direct copy
+                            bgrData = new byte[screenHeight * expectedStride];
+                            System.Runtime.InteropServices.Marshal.Copy(bmpData.Scan0, bgrData, 0, bgrData.Length);
+                        }
+                        else
+                        {
+                            // Stride doesn't match, copy row by row
+                            bgrData = new byte[screenHeight * expectedStride];
+                            for (int y = 0; y < screenHeight; y++)
+                            {
+                                IntPtr rowPtr = bmpData.Scan0 + (y * bmpData.Stride);
+                                System.Runtime.InteropServices.Marshal.Copy(rowPtr, bgrData, y * expectedStride, expectedStride);
+                            }
+                        }
+                        
+                        screenBitmap.UnlockBits(bmpData);
+                        
+                        // Create Mat from BGR data
+                        using var mat = Mat.FromPixelData(screenHeight, screenWidth, MatType.CV_8UC3, bgrData);
+                        
+                        // Resize to target resolution
+                        using var resizedMat = new Mat();
+                        Cv2.Resize(mat, resizedMat, new OpenCvSharp.Size(targetWidth, targetHeight), 0, 0, InterpolationFlags.Linear);
+
+                        // Local preview
+                        try
+                        {
+                            var previewBitmap = resizedMat.ToBitmapSource();
+                            previewBitmap.Freeze();
+                            OnLocalVideoFrame?.Invoke(previewBitmap);
+                        }
+                        catch { }
+
+                        // Encode and send via WebRTC
+                        if (_isCallActive && _peerConnection != null && _videoEncoder != null)
+                        {
+                            try
+                            {
+                                byte[] frameData = new byte[resizedMat.Total() * resizedMat.ElemSize()];
+                                System.Runtime.InteropServices.Marshal.Copy(resizedMat.Data, frameData, 0, frameData.Length);
+                                
+                                lock (_encoderLock)
+                                {
+                                    var encodedFrame = _videoEncoder.Encode(frameData, targetWidth, targetHeight);
+                                    
+                                    if (encodedFrame != null && encodedFrame.Data.Length > 0)
+                                    {
+                                        rtpTimestamp += (uint)(90000 / 10);
+                                        _peerConnection.SendVideo(rtpTimestamp, encodedFrame.Data);
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                    catch
+                    {
+                        screenBitmap.UnlockBits(bmpData);
+                        throw;
+                    }
+                }
+                catch (ThreadInterruptedException)
+                {
+                    break;
+                }
+                catch
+                {
+                    Thread.Sleep(50);
+                }
+            }
         }
 
         #endregion
@@ -796,6 +1053,10 @@ namespace PaLX.Client.Services
             _currentPartner = string.Empty;
             _isVideoEnabled = true;
             _isAudioEnabled = true;
+            _isScreenSharing = false;
+            
+            // Reset status to Online (0)
+            try { ApiService.Instance.UpdateStatusAsync(0); } catch { }
 
             // Stop camera
             _isCameraRunning = false;
@@ -804,6 +1065,11 @@ namespace PaLX.Client.Services
 
             try { _camera?.Release(); _camera?.Dispose(); } catch { }
             _camera = null;
+
+            // Stop screen capture
+            _isScreenCaptureRunning = false;
+            try { _screenCaptureThread?.Join(500); } catch { }
+            _screenCaptureThread = null;
 
             // Stop audio
             try { _waveIn?.StopRecording(); _waveIn?.Dispose(); } catch { }
