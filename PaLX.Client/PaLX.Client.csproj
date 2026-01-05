@@ -28,6 +28,10 @@
     <Content Include="Assets\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="..\start_sound\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>start_sound\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
     <Content Include="$(NuGetPackageRoot)microsoft.mixedreality.webrtc\2.0.2\runtimes\win10-x64\native\mrwebrtc.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Visible>false</Visible>

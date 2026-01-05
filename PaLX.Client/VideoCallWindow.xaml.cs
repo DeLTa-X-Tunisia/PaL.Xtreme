@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using PaLX.Client.Services;
@@ -24,9 +25,12 @@ namespace PaLX.Client
         private readonly string _callId;
         
         private DispatcherTimer? _timer;
+        private DispatcherTimer? _dotsTimer;
         private int _callDuration = 0;
         private bool _isAudioMuted = false;
         private bool _isVideoDisabled = false;
+        private MediaPlayer? _ringtonePlayer;
+        private int _dotsCount = 0;
 
         /// <summary>
         /// Create video call window for outgoing call
@@ -72,6 +76,7 @@ namespace PaLX.Client
         {
             // Set partner display name for UI
             PartnerNameText.Text = _partnerDisplayName;
+            IncomingCallerName.Text = _partnerDisplayName;
             
             // Load partner avatar
             if (!string.IsNullOrEmpty(_partnerAvatar) && File.Exists(_partnerAvatar))
@@ -94,6 +99,9 @@ namespace PaLX.Client
             {
                 LoadDefaultAvatar();
             }
+            
+            // Start dots animation for status
+            StartDotsAnimation();
         }
 
         private void LoadDefaultAvatar()
@@ -203,9 +211,12 @@ namespace PaLX.Client
 
         private async void StartOutgoingCall()
         {
-            CallStatusText.Text = $"Appel de {_partnerDisplayName}...";
+            CallStatusText.Text = $"Appel de {_partnerDisplayName}";
             IncomingCallControls.Visibility = Visibility.Collapsed;
             ActiveCallControls.Visibility = Visibility.Visible;
+            
+            // Play outgoing call sound
+            PlayVideoCallSound();
             
             // Use username for signaling
             await _videoCallService.RequestVideoCall(_partnerUsername);
@@ -213,32 +224,93 @@ namespace PaLX.Client
 
         private void ShowIncomingCallUI()
         {
-            CallStatusText.Text = "Appel vidéo entrant...";
+            CallStatusText.Text = "Appel vidéo entrant";
             IncomingCallControls.Visibility = Visibility.Visible;
             ActiveCallControls.Visibility = Visibility.Collapsed;
             RecordingDot.Visibility = Visibility.Collapsed;
             
-            // Play ringtone sound
-            PlayRingtone();
+            // Play incoming ringtone sound
+            PlayVideoCallSound();
         }
 
-        private void PlayRingtone()
+        private void PlayVideoCallSound()
         {
             try
             {
-                var ringtonePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "ringtone.wav");
-                if (File.Exists(ringtonePath))
+                StopRingtone();
+                
+                // Try multiple paths for the video call sound
+                var possiblePaths = new[]
                 {
-                    var player = new System.Media.SoundPlayer(ringtonePath);
-                    player.PlayLooping();
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "start_sound", "appel_video.mp3"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "appel_video.mp3"),
+                    @"C:\Users\azizi\OneDrive\Desktop\PaL.Xtreme\start_sound\appel_video.mp3"
+                };
+
+                foreach (var path in possiblePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        _ringtonePlayer = new MediaPlayer();
+                        _ringtonePlayer.Open(new Uri(path));
+                        _ringtonePlayer.MediaEnded += (s, e) =>
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                _ringtonePlayer?.Stop();
+                                _ringtonePlayer?.Close();
+                                // Loop the sound for incoming calls
+                                if (_isIncoming && IncomingCallControls.Visibility == Visibility.Visible)
+                                {
+                                    _ringtonePlayer?.Open(new Uri(path));
+                                    _ringtonePlayer?.Play();
+                                }
+                            });
+                        };
+                        _ringtonePlayer.Volume = 0.7;
+                        _ringtonePlayer.Play();
+                        break;
+                    }
                 }
             }
             catch { }
         }
 
+        private void StopRingtone()
+        {
+            try
+            {
+                _ringtonePlayer?.Stop();
+                _ringtonePlayer?.Close();
+                _ringtonePlayer = null;
+            }
+            catch { }
+        }
+
+        private void StartDotsAnimation()
+        {
+            _dotsTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(400)
+            };
+            _dotsTimer.Tick += (s, e) =>
+            {
+                _dotsCount = (_dotsCount + 1) % 4;
+                DotsAnimation.Text = new string('.', _dotsCount);
+            };
+            _dotsTimer.Start();
+        }
+
+        private void StopDotsAnimation()
+        {
+            _dotsTimer?.Stop();
+            DotsAnimation.Text = "";
+        }
+
         private void StartTimer()
         {
             RecordingDot.Visibility = Visibility.Visible;
+            StopDotsAnimation();
             _callDuration = 0;
             _timer = new DispatcherTimer
             {
@@ -254,17 +326,23 @@ namespace PaLX.Client
             var minutes = _callDuration / 60;
             var seconds = _callDuration % 60;
             TimerText.Text = $"{minutes:D2}:{seconds:D2}";
+            
+            // Update quality indicator based on call duration (simulated)
+            if (_callDuration > 5)
+            {
+                QualityText.Text = "HD";
+                QualityText.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#00D26A"));
+            }
         }
 
         private async void AcceptCallButton_Click(object sender, RoutedEventArgs e)
         {
             // Stop ringtone
-            System.Media.SoundPlayer player = new();
-            player.Stop();
+            StopRingtone();
             
             IncomingCallControls.Visibility = Visibility.Collapsed;
             ActiveCallControls.Visibility = Visibility.Visible;
-            CallStatusText.Text = "Connexion...";
+            CallStatusText.Text = "Connexion";
             
             await _videoCallService.AcceptVideoCall(_partnerUsername, _callId);
             StartTimer();
@@ -273,8 +351,7 @@ namespace PaLX.Client
         private async void DeclineCallButton_Click(object sender, RoutedEventArgs e)
         {
             // Stop ringtone
-            System.Media.SoundPlayer player = new();
-            player.Stop();
+            StopRingtone();
             
             await _videoCallService.DeclineVideoCall(_partnerUsername, _callId);
             Close();
@@ -283,6 +360,7 @@ namespace PaLX.Client
         private async void EndCallButton_Click(object sender, RoutedEventArgs e)
         {
             _timer?.Stop();
+            StopRingtone();
             await _videoCallService.EndVideoCall();
             Close();
         }
@@ -366,6 +444,8 @@ namespace PaLX.Client
         protected override void OnClosed(EventArgs e)
         {
             _timer?.Stop();
+            _dotsTimer?.Stop();
+            StopRingtone();
             base.OnClosed(e);
         }
     }

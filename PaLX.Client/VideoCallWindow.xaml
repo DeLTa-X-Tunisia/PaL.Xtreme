@@ -4,9 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Appel Vidéo" Height="720" Width="960"
+        Title="Appel Vidéo" Height="720" Width="1080"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
-        ResizeMode="CanResizeWithGrip" MinHeight="500" MinWidth="700"
+        ResizeMode="CanResizeWithGrip" MinHeight="550" MinWidth="800"
         WindowStartupLocation="CenterScreen" Topmost="True"
         MouseLeftButtonDown="Window_MouseLeftButtonDown">
 
@@ -14,43 +14,49 @@
         <!-- Primary Colors -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#E03E2F"/>
         <SolidColorBrush x:Key="AccentBrush" Color="#FF6B5B"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#4CAF50"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#F44336"/>
-        <SolidColorBrush x:Key="WarningBrush" Color="#FF9800"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#00D26A"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#FF3B5C"/>
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFB800"/>
+        <SolidColorBrush x:Key="InfoBrush" Color="#00B4D8"/>
         
-        <!-- Dark Theme -->
-        <SolidColorBrush x:Key="BackgroundBrush" Color="#0D0D0D"/>
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#1A1A1A"/>
-        <SolidColorBrush x:Key="CardBrush" Color="#252525"/>
+        <!-- Dark Theme - More Depth -->
+        <SolidColorBrush x:Key="BackgroundBrush" Color="#0A0A0A"/>
+        <SolidColorBrush x:Key="SurfaceBrush" Color="#121212"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#1E1E1E"/>
+        <SolidColorBrush x:Key="CardHoverBrush" Color="#2A2A2A"/>
         <SolidColorBrush x:Key="TextBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#888888"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#9E9E9E"/>
+        <SolidColorBrush x:Key="GlassBrush" Color="#20FFFFFF"/>
         
-        <!-- Control Button Style -->
+        <!-- Control Button Style - Glass Effect -->
         <Style x:Key="ControlButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="56"/>
-            <Setter Property="Height" Value="56"/>
-            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="Width" Value="60"/>
+            <Setter Property="Height" Value="60"/>
+            <Setter Property="Background" Value="#30FFFFFF"/>
             <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
-            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#20FFFFFF"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="FontSize" Value="24"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                CornerRadius="28" Opacity="0.9">
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="30">
                             <Border.Effect>
-                                <DropShadowEffect Color="#000" BlurRadius="15" ShadowDepth="0" Opacity="0.4"/>
+                                <DropShadowEffect Color="#000" BlurRadius="20" ShadowDepth="0" Opacity="0.3"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Opacity" Value="1"/>
-                                <Setter TargetName="border" Property="Background" Value="#3A3A3A"/>
+                                <Setter TargetName="border" Property="Background" Value="#50FFFFFF"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#40FFFFFF"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#4A4A4A"/>
+                                <Setter TargetName="border" Property="Background" Value="#60FFFFFF"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -58,23 +64,46 @@
             </Setter>
         </Style>
         
-        <!-- End Call Button Style -->
+        <!-- End Call Button Style - Pulsing Red -->
         <Style x:Key="EndCallButtonStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Width" Value="64"/>
-            <Setter Property="Height" Value="64"/>
-            <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+            <Setter Property="Width" Value="70"/>
+            <Setter Property="Height" Value="70"/>
+            <Setter Property="Background" Value="#FF3B5C"/>
+            <Setter Property="BorderBrush" Value="#FF6B85"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="32">
-                            <Border.Effect>
-                                <DropShadowEffect Color="#F44336" BlurRadius="20" ShadowDepth="0" Opacity="0.5"/>
-                            </Border.Effect>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <Grid>
+                            <!-- Pulse Ring -->
+                            <Ellipse x:Name="PulseRing" Fill="Transparent" Stroke="#FF3B5C" StrokeThickness="2"
+                                     Width="85" Height="85" Opacity="0">
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                               From="0.6" To="0" Duration="0:0:1.5"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                               From="70" To="100" Duration="0:0:1.5"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                               From="70" To="100" Duration="0:0:1.5"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="2"
+                                    CornerRadius="35" Width="70" Height="70">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#FF3B5C" BlurRadius="25" ShadowDepth="0" Opacity="0.6"/>
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#FF5252"/>
+                                <Setter TargetName="border" Property="Background" Value="#FF5274"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -82,23 +111,46 @@
             </Setter>
         </Style>
         
-        <!-- Accept Call Button Style -->
+        <!-- Accept Call Button Style - Pulsing Green -->
         <Style x:Key="AcceptCallButtonStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Width" Value="64"/>
-            <Setter Property="Height" Value="64"/>
-            <Setter Property="Background" Value="{StaticResource SuccessBrush}"/>
+            <Setter Property="Width" Value="70"/>
+            <Setter Property="Height" Value="70"/>
+            <Setter Property="Background" Value="#00D26A"/>
+            <Setter Property="BorderBrush" Value="#4DE89B"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="32">
-                            <Border.Effect>
-                                <DropShadowEffect Color="#4CAF50" BlurRadius="20" ShadowDepth="0" Opacity="0.5"/>
-                            </Border.Effect>
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <Grid>
+                            <!-- Pulse Ring -->
+                            <Ellipse x:Name="PulseRing" Fill="Transparent" Stroke="#00D26A" StrokeThickness="2"
+                                     Width="85" Height="85" Opacity="0">
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                               From="0.6" To="0" Duration="0:0:1.5"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                               From="70" To="100" Duration="0:0:1.5"/>
+                                                <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                               From="70" To="100" Duration="0:0:1.5"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="2"
+                                    CornerRadius="35" Width="70" Height="70">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#00D26A" BlurRadius="25" ShadowDepth="0" Opacity="0.6"/>
+                                </Border.Effect>
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#66BB6A"/>
+                                <Setter TargetName="border" Property="Background" Value="#33E085"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -108,133 +160,281 @@
         
         <!-- Active Toggle Style (when enabled) -->
         <Style x:Key="ActiveToggleStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="Background" Value="#30FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#30FFFFFF"/>
         </Style>
         
         <!-- Muted Toggle Style (when disabled) -->
         <Style x:Key="MutedToggleStyle" TargetType="Button" BasedOn="{StaticResource ControlButtonStyle}">
-            <Setter Property="Background" Value="{StaticResource DangerBrush}"/>
+            <Setter Property="Background" Value="#FF3B5C"/>
+            <Setter Property="BorderBrush" Value="#FF6B85"/>
+        </Style>
+        
+        <!-- Small Control Button Style -->
+        <Style x:Key="SmallControlButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="44"/>
+            <Setter Property="Height" Value="44"/>
+            <Setter Property="Background" Value="#25FFFFFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="22">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#40FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </Window.Resources>
 
-    <!-- Main Container -->
-    <Border CornerRadius="16" Background="{StaticResource BackgroundBrush}" ClipToBounds="True">
+    <!-- Main Container with Gradient Border -->
+    <Border CornerRadius="20" ClipToBounds="True">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#0A0A0A" Offset="0"/>
+                <GradientStop Color="#151515" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
         <Border.Effect>
-            <DropShadowEffect Color="#000" BlurRadius="50" ShadowDepth="0" Opacity="0.6"/>
+            <DropShadowEffect Color="#000" BlurRadius="60" ShadowDepth="0" Opacity="0.7"/>
         </Border.Effect>
         
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>      <!-- Video Area -->
-                <RowDefinition Height="Auto"/>   <!-- Controls -->
-            </Grid.RowDefinitions>
+        <!-- Subtle Border Glow -->
+        <Border CornerRadius="20" BorderThickness="1">
+            <Border.BorderBrush>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#30FFFFFF" Offset="0"/>
+                    <GradientStop Color="#10FFFFFF" Offset="0.5"/>
+                    <GradientStop Color="#20FFFFFF" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.BorderBrush>
+        
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>      <!-- Video Area -->
+                    <RowDefinition Height="Auto"/>   <!-- Controls -->
+                </Grid.RowDefinitions>
             
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- VIDEO AREA                                                       -->
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <Grid Grid.Row="0" Background="{StaticResource SurfaceBrush}">
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- VIDEO AREA                                                       -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <Grid Grid.Row="0">
+                    <!-- Background Gradient -->
+                    <Grid.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Color="#0A0A0A" Offset="0"/>
+                            <GradientStop Color="#151515" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Grid.Background>
                 
-                <!-- Remote Video (Full Screen) -->
-                <Image x:Name="RemoteVideoImage" Stretch="UniformToFill" 
-                       HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                    <!-- Remote Video (Full Screen) -->
+                    <Image x:Name="RemoteVideoImage" Stretch="UniformToFill" 
+                           HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
                 
-                <!-- Remote Video Placeholder -->
-                <StackPanel x:Name="RemoteVideoPlaceholder" 
-                            VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <Border Background="{StaticResource CardBrush}" CornerRadius="60" 
-                            Width="120" Height="120" Margin="0,0,0,20">
-                        <Image x:Name="PartnerAvatarImage" Stretch="UniformToFill"
-                               Width="120" Height="120">
-                            <Image.Clip>
-                                <EllipseGeometry Center="60,60" RadiusX="60" RadiusY="60"/>
-                            </Image.Clip>
-                        </Image>
-                    </Border>
-                    <TextBlock x:Name="PartnerNameText" Text="Utilisateur" 
-                               Foreground="{StaticResource TextBrush}" 
-                               FontSize="24" FontWeight="SemiBold" 
-                               HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="CallStatusText" Text="Connexion..." 
-                               Foreground="{StaticResource TextSecondaryBrush}" 
-                               FontSize="14" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                </StackPanel>
+                <!-- Remote Video Placeholder - Enhanced -->
+                <Grid x:Name="RemoteVideoPlaceholder" 
+                      VerticalAlignment="Center" HorizontalAlignment="Center">
+                    
+                    <!-- Animated Background Circles -->
+                    <Ellipse Width="200" Height="200" Opacity="0.05">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush>
+                                <GradientStop Color="#E03E2F" Offset="0"/>
+                                <GradientStop Color="Transparent" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                       From="200" To="300" Duration="0:0:2" AutoReverse="True"/>
+                                        <DoubleAnimation Storyboard.TargetProperty="Height"
+                                                       From="200" To="300" Duration="0:0:2" AutoReverse="True"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                    
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <!-- Avatar with Ring -->
+                        <Grid Width="140" Height="140" Margin="0,0,0,24">
+                            <!-- Spinning Ring -->
+                            <Ellipse x:Name="AvatarRing" Width="140" Height="140" 
+                                     StrokeThickness="3" Fill="Transparent">
+                                <Ellipse.Stroke>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#E03E2F" Offset="0"/>
+                                        <GradientStop Color="#FF6B5B" Offset="0.5"/>
+                                        <GradientStop Color="Transparent" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Ellipse.Stroke>
+                                <Ellipse.RenderTransform>
+                                    <RotateTransform x:Name="RingRotation" CenterX="70" CenterY="70"/>
+                                </Ellipse.RenderTransform>
+                                <Ellipse.Triggers>
+                                    <EventTrigger RoutedEvent="Loaded">
+                                        <BeginStoryboard>
+                                            <Storyboard RepeatBehavior="Forever">
+                                                <DoubleAnimation Storyboard.TargetName="RingRotation"
+                                                               Storyboard.TargetProperty="Angle"
+                                                               From="0" To="360" Duration="0:0:3"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Ellipse.Triggers>
+                            </Ellipse>
+                            
+                            <!-- Avatar -->
+                            <Border Background="{StaticResource CardBrush}" CornerRadius="60" 
+                                    Width="120" Height="120">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#E03E2F" BlurRadius="30" Opacity="0.3" ShadowDepth="0"/>
+                                </Border.Effect>
+                                <Image x:Name="PartnerAvatarImage" Stretch="UniformToFill"
+                                       Width="120" Height="120">
+                                    <Image.Clip>
+                                        <EllipseGeometry Center="60,60" RadiusX="60" RadiusY="60"/>
+                                    </Image.Clip>
+                                </Image>
+                            </Border>
+                        </Grid>
+                        
+                        <!-- Partner Name -->
+                        <TextBlock x:Name="PartnerNameText" Text="Utilisateur" 
+                                   Foreground="{StaticResource TextBrush}" 
+                                   FontSize="28" FontWeight="SemiBold" 
+                                   HorizontalAlignment="Center"/>
+                        
+                        <!-- Call Status with Animation -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,0">
+                            <TextBlock x:Name="CallStatusText" Text="Connexion..." 
+                                       Foreground="{StaticResource TextSecondaryBrush}" 
+                                       FontSize="15"/>
+                            <TextBlock x:Name="DotsAnimation" Text="" 
+                                       Foreground="{StaticResource TextSecondaryBrush}" 
+                                       FontSize="15" Margin="2,0,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
                 
                 <!-- Partner Video Disabled Overlay -->
                 <Border x:Name="PartnerVideoDisabledOverlay" Visibility="Collapsed"
-                        Background="#80000000" VerticalAlignment="Center" HorizontalAlignment="Center"
-                        CornerRadius="12" Padding="20,10">
-                    <TextBlock Text="📹 Caméra désactivée" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
+                        Background="#90000000" VerticalAlignment="Center" HorizontalAlignment="Center"
+                        CornerRadius="16" Padding="24,16">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="📹" FontSize="20" Margin="0,0,10,0"/>
+                        <TextBlock Text="Caméra désactivée" Foreground="{StaticResource TextSecondaryBrush}" 
+                                   FontSize="15" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Border>
                 
-                <!-- Local Video (Picture-in-Picture) -->
+                <!-- Local Video (Picture-in-Picture) - Enhanced -->
                 <Border x:Name="LocalVideoBorder" 
-                        Width="200" Height="150" Margin="20"
+                        Width="220" Height="165" Margin="24"
                         VerticalAlignment="Top" HorizontalAlignment="Right"
-                        CornerRadius="12" Background="{StaticResource CardBrush}"
-                        BorderBrush="#333" BorderThickness="2"
-                        Cursor="Hand" MouseLeftButtonDown="LocalVideo_MouseLeftButtonDown">
+                        CornerRadius="16" Background="{StaticResource CardBrush}"
+                        BorderThickness="2" Cursor="Hand" 
+                        MouseLeftButtonDown="LocalVideo_MouseLeftButtonDown">
+                    <Border.BorderBrush>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#40FFFFFF" Offset="0"/>
+                            <GradientStop Color="#20FFFFFF" Offset="1"/>
+                        </LinearGradientBrush>
+                    </Border.BorderBrush>
                     <Border.Effect>
-                        <DropShadowEffect Color="#000" BlurRadius="15" ShadowDepth="3" Opacity="0.4"/>
+                        <DropShadowEffect Color="#000" BlurRadius="25" ShadowDepth="5" Opacity="0.5"/>
                     </Border.Effect>
                     <Grid ClipToBounds="True">
-                        <Border CornerRadius="10">
+                        <Border CornerRadius="14">
                             <Image x:Name="LocalVideoImage" Stretch="UniformToFill"/>
                         </Border>
                         
                         <!-- Local Video Disabled -->
                         <Border x:Name="LocalVideoDisabled" Visibility="Collapsed" 
-                                Background="{StaticResource CardBrush}" CornerRadius="10">
+                                Background="{StaticResource CardBrush}" CornerRadius="14">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                <TextBlock Text="📹" FontSize="24" HorizontalAlignment="Center"/>
+                                <Border Background="#30FFFFFF" CornerRadius="25" Width="50" Height="50" Margin="0,0,0,8">
+                                    <TextBlock Text="📹" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
                                 <TextBlock Text="Caméra off" Foreground="{StaticResource TextSecondaryBrush}" 
-                                           FontSize="11" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                           FontSize="12" HorizontalAlignment="Center"/>
                             </StackPanel>
                         </Border>
                         
-                        <!-- "Vous" Label -->
-                        <Border Background="#80000000" CornerRadius="6" Padding="8,4"
-                                VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="8">
-                            <TextBlock Text="Vous" Foreground="White" FontSize="11" FontWeight="Medium"/>
+                        <!-- "Vous" Label - Glass Style -->
+                        <Border Background="#50000000" CornerRadius="8" Padding="10,5"
+                                VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="10">
+                            <Border.Effect>
+                                <BlurEffect Radius="0"/>
+                            </Border.Effect>
+                            <TextBlock Text="Vous" Foreground="White" FontSize="12" FontWeight="Medium"/>
                         </Border>
                     </Grid>
                 </Border>
                 
-                <!-- Timer -->
-                <Border Background="#80000000" CornerRadius="8" Padding="12,6"
-                        VerticalAlignment="Top" HorizontalAlignment="Left" Margin="20">
+                <!-- Top Bar - Glass Style -->
+                <Border Background="#40000000" CornerRadius="0,0,16,16" Padding="20,12"
+                        VerticalAlignment="Top" HorizontalAlignment="Left" Margin="0">
+                    <Border.Effect>
+                        <BlurEffect Radius="0"/>
+                    </Border.Effect>
                     <StackPanel Orientation="Horizontal">
-                        <Ellipse x:Name="RecordingDot" Width="8" Height="8" Fill="#F44336" Margin="0,0,8,0">
-                            <Ellipse.Triggers>
-                                <EventTrigger RoutedEvent="Loaded">
-                                    <BeginStoryboard>
-                                        <Storyboard RepeatBehavior="Forever">
-                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                           From="1" To="0.3" Duration="0:0:0.8"
-                                                           AutoReverse="True"/>
-                                        </Storyboard>
-                                    </BeginStoryboard>
-                                </EventTrigger>
-                            </Ellipse.Triggers>
-                        </Ellipse>
-                        <TextBlock x:Name="TimerText" Text="00:00" Foreground="White" 
-                                   FontSize="14" FontWeight="SemiBold" FontFamily="Consolas"/>
+                        <!-- Timer -->
+                        <Border Background="#30FFFFFF" CornerRadius="20" Padding="14,8" Margin="0,0,12,0">
+                            <StackPanel Orientation="Horizontal">
+                                <Ellipse x:Name="RecordingDot" Width="10" Height="10" Fill="#FF3B5C" Margin="0,0,10,0">
+                                    <Ellipse.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                   From="1" To="0.3" Duration="0:0:0.8"
+                                                                   AutoReverse="True"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Ellipse.Triggers>
+                                </Ellipse>
+                                <TextBlock x:Name="TimerText" Text="00:00" Foreground="White" 
+                                           FontSize="15" FontWeight="SemiBold" FontFamily="Consolas"/>
+                            </StackPanel>
+                        </Border>
+                        
+                        <!-- Connection Quality Indicator -->
+                        <Border x:Name="QualityIndicator" Background="#30FFFFFF" CornerRadius="20" Padding="12,8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📶" FontSize="14" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="QualityText" Text="HD" Foreground="#00D26A" 
+                                           FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
                 
-                <!-- Close Button -->
+                <!-- Close Button - Enhanced -->
                 <Button x:Name="CloseButton" Click="CloseButton_Click"
-                        Width="36" Height="36" Background="#40FFFFFF"
-                        VerticalAlignment="Top" HorizontalAlignment="Right" Margin="20,20,240,0"
+                        Width="40" Height="40" Background="#30FFFFFF"
+                        VerticalAlignment="Top" HorizontalAlignment="Right" Margin="270,20,0,0"
                         Cursor="Hand" ToolTip="Fermer">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
-                                <TextBlock Text="✕" Foreground="White" FontSize="14" 
+                            <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="20">
+                                <TextBlock Text="✕" Foreground="White" FontSize="16" FontWeight="Light"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                                    <Setter TargetName="border" Property="Background" Value="#FF3B5C"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -243,75 +443,107 @@
             </Grid>
             
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- CONTROLS BAR                                                     -->
+            <!-- CONTROLS BAR - Floating Glass Style                              -->
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="1" Background="{StaticResource BackgroundBrush}" Padding="30,20">
+            <Border Grid.Row="1" Background="Transparent" Padding="30,20,30,30">
                 <Grid>
                     <!-- Incoming Call Controls -->
                     <StackPanel x:Name="IncomingCallControls" Visibility="Collapsed"
                                 Orientation="Horizontal" HorizontalAlignment="Center">
-                        <StackPanel Margin="0,0,40,0">
+                        
+                        <!-- Incoming Call Info -->
+                        <Border Background="#20FFFFFF" CornerRadius="40" Padding="20,15,40,15" Margin="0,0,20,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📹" FontSize="24" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Appel vidéo entrant" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+                                    <TextBlock x:Name="IncomingCallerName" Text="" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                        
+                        <StackPanel Margin="0,0,30,0">
                             <Button x:Name="DeclineCallButton" Style="{StaticResource EndCallButtonStyle}"
                                     Click="DeclineCallButton_Click" ToolTip="Refuser">
-                                <TextBlock Text="📞" FontSize="24" RenderTransformOrigin="0.5,0.5">
+                                <TextBlock Text="📞" FontSize="26" RenderTransformOrigin="0.5,0.5">
                                     <TextBlock.RenderTransform>
                                         <RotateTransform Angle="135"/>
                                     </TextBlock.RenderTransform>
                                 </TextBlock>
                             </Button>
                             <TextBlock Text="Refuser" Foreground="{StaticResource TextSecondaryBrush}" 
-                                       FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                       FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>
                         </StackPanel>
                         <StackPanel>
                             <Button x:Name="AcceptCallButton" Style="{StaticResource AcceptCallButtonStyle}"
                                     Click="AcceptCallButton_Click" ToolTip="Accepter">
-                                <TextBlock Text="📹" FontSize="24"/>
+                                <TextBlock Text="📹" FontSize="26"/>
                             </Button>
                             <TextBlock Text="Accepter" Foreground="{StaticResource TextSecondaryBrush}" 
-                                       FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                       FontSize="12" HorizontalAlignment="Center" Margin="0,10,0,0"/>
                         </StackPanel>
                     </StackPanel>
                     
-                    <!-- Active Call Controls -->
-                    <StackPanel x:Name="ActiveCallControls" Orientation="Horizontal" HorizontalAlignment="Center">
-                    <!-- Mute Audio -->
-                    <StackPanel Margin="0,0,20,0">
-                        <Button x:Name="MuteAudioButton" Style="{StaticResource ActiveToggleStyle}"
-                                Click="MuteAudioButton_Click" ToolTip="Couper le micro">
-                            <TextBlock x:Name="MuteAudioIcon" Text="🎤" FontSize="22"/>
-                        </Button>
-                        <TextBlock x:Name="MuteAudioLabel" Text="Micro" 
-                                   Foreground="{StaticResource TextSecondaryBrush}" 
-                                   FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                    </StackPanel>
-                    
-                    <!-- Toggle Video -->
-                    <StackPanel Margin="0,0,20,0">
-                        <Button x:Name="ToggleVideoButton" Style="{StaticResource ActiveToggleStyle}"
-                                Click="ToggleVideoButton_Click" ToolTip="Activer/Désactiver la caméra">
-                            <TextBlock x:Name="ToggleVideoIcon" Text="📹" FontSize="22"/>
-                        </Button>
-                        <TextBlock x:Name="ToggleVideoLabel" Text="Caméra" 
-                                   Foreground="{StaticResource TextSecondaryBrush}" 
-                                   FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                    </StackPanel>
-                    
-                    <!-- End Call -->
-                    <StackPanel Margin="20,0,0,0">
-                        <Button x:Name="EndCallButton" Style="{StaticResource EndCallButtonStyle}"
-                                Click="EndCallButton_Click" ToolTip="Terminer l'appel">
-                            <TextBlock Text="📞" FontSize="24" RenderTransformOrigin="0.5,0.5">
-                                <TextBlock.RenderTransform>
-                                    <RotateTransform Angle="135"/>
-                                </TextBlock.RenderTransform>
-                            </TextBlock>
-                        </Button>
-                        <TextBlock Text="Raccrocher" Foreground="{StaticResource TextSecondaryBrush}" 
-                                   FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
-                    </StackPanel>
-                </StackPanel>
+                    <!-- Active Call Controls - Glass Container -->
+                    <Border x:Name="ActiveCallControls" Background="#25FFFFFF" CornerRadius="40" 
+                            Padding="30,15" HorizontalAlignment="Center">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#000" BlurRadius="30" ShadowDepth="0" Opacity="0.4"/>
+                        </Border.Effect>
+                        <StackPanel Orientation="Horizontal">
+                            <!-- Mute Audio -->
+                            <StackPanel Margin="0,0,25,0">
+                                <Button x:Name="MuteAudioButton" Style="{StaticResource ActiveToggleStyle}"
+                                        Click="MuteAudioButton_Click" ToolTip="Couper le micro">
+                                    <TextBlock x:Name="MuteAudioIcon" Text="🎤" FontSize="24"/>
+                                </Button>
+                                <TextBlock x:Name="MuteAudioLabel" Text="Micro" 
+                                           Foreground="{StaticResource TextSecondaryBrush}" 
+                                           FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </StackPanel>
+                            
+                            <!-- Toggle Video -->
+                            <StackPanel Margin="0,0,25,0">
+                                <Button x:Name="ToggleVideoButton" Style="{StaticResource ActiveToggleStyle}"
+                                        Click="ToggleVideoButton_Click" ToolTip="Activer/Désactiver la caméra">
+                                    <TextBlock x:Name="ToggleVideoIcon" Text="📹" FontSize="24"/>
+                                </Button>
+                                <TextBlock x:Name="ToggleVideoLabel" Text="Caméra" 
+                                           Foreground="{StaticResource TextSecondaryBrush}" 
+                                           FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </StackPanel>
+                            
+                            <!-- Screen Share (Future) -->
+                            <StackPanel Margin="0,0,25,0">
+                                <Button x:Name="ScreenShareButton" Style="{StaticResource ActiveToggleStyle}"
+                                        IsEnabled="False" Opacity="0.5" ToolTip="Partage d'écran (bientôt)">
+                                    <TextBlock Text="🖥️" FontSize="24"/>
+                                </Button>
+                                <TextBlock Text="Écran" Foreground="{StaticResource TextSecondaryBrush}" 
+                                           FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0" Opacity="0.5"/>
+                            </StackPanel>
+                            
+                            <!-- Separator -->
+                            <Rectangle Width="1" Height="50" Fill="#30FFFFFF" Margin="10,5,35,5"/>
+                            
+                            <!-- End Call -->
+                            <StackPanel>
+                                <Button x:Name="EndCallButton" Style="{StaticResource EndCallButtonStyle}"
+                                        Click="EndCallButton_Click" ToolTip="Terminer l'appel">
+                                    <TextBlock Text="📞" FontSize="26" RenderTransformOrigin="0.5,0.5">
+                                        <TextBlock.RenderTransform>
+                                            <RotateTransform Angle="135"/>
+                                        </TextBlock.RenderTransform>
+                                    </TextBlock>
+                                </Button>
+                                <TextBlock Text="Raccrocher" Foreground="{StaticResource TextSecondaryBrush}" 
+                                           FontSize="11" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
-        </Grid>
+            </Grid>
+        </Border>
     </Border>
 </Window>
