@@ -192,12 +192,32 @@ namespace PaLX.API.Hubs
             var username = Context.UserIdentifier;
             if (!string.IsNullOrEmpty(username))
             {
-                // Update UserSessions to Offline (6)
-                await UpdateUserSessionStatusAsync(username, 6);
-                // Broadcast Offline Status
+                // Close session and set Offline status
+                await CloseUserSessionAsync(username);
+                // Broadcast Offline Status to ALL connected clients
                 await Clients.All.SendAsync("UserStatusChanged", username, "Hors ligne");
             }
             await base.OnDisconnectedAsync(exception);
+        }
+
+        private async Task CloseUserSessionAsync(string username)
+        {
+            try
+            {
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                // Close the session by setting DéconnectéLe AND DisplayedStatus to Offline (6)
+                var sql = @"
+                    UPDATE ""UserSessions"" 
+                    SET ""DisplayedStatus"" = 6, 
+                        ""DéconnectéLe"" = NOW()
+                    WHERE ""UserId"" = (SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u)
+                      AND ""DéconnectéLe"" IS NULL";
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("u", username);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch { /* Ignore DB errors during signalr events */ }
         }
 
         private async Task<int> GetUserSessionStatusAsync(string username)

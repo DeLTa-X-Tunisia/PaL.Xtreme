@@ -1,0 +1,147 @@
+<Window x:Class="PaLX.Client.ToastNotification"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Toast"
+        Width="350"
+        Height="Auto"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize">
+    
+    <Window.Resources>
+        <!-- Animation for slide in -->
+        <Storyboard x:Key="SlideIn">
+            <DoubleAnimation Storyboard.TargetProperty="(Window.Opacity)"
+                           From="0" To="1" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <ThicknessAnimation Storyboard.TargetName="ToastBorder"
+                               Storyboard.TargetProperty="Margin"
+                               From="50,0,0,0" To="0,0,0,0" Duration="0:0:0.3">
+                <ThicknessAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseOut"/>
+                </ThicknessAnimation.EasingFunction>
+            </ThicknessAnimation>
+        </Storyboard>
+        
+        <!-- Animation for slide out -->
+        <Storyboard x:Key="SlideOut">
+            <DoubleAnimation Storyboard.TargetProperty="(Window.Opacity)"
+                           From="1" To="0" Duration="0:0:0.3">
+                <DoubleAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <ThicknessAnimation Storyboard.TargetName="ToastBorder"
+                               Storyboard.TargetProperty="Margin"
+                               From="0,0,0,0" To="50,0,0,0" Duration="0:0:0.3">
+                <ThicknessAnimation.EasingFunction>
+                    <QuadraticEase EasingMode="EaseIn"/>
+                </ThicknessAnimation.EasingFunction>
+            </ThicknessAnimation>
+        </Storyboard>
+    </Window.Resources>
+    
+    <Border x:Name="ToastBorder"
+            CornerRadius="12"
+            Margin="0"
+            Padding="16"
+            Background="#FF2D2D2D"
+            BorderThickness="1"
+            BorderBrush="#FF3D3D3D">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="3" Opacity="0.5"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            
+            <!-- Icon Container -->
+            <Border x:Name="IconBorder" 
+                    Grid.Column="0"
+                    Width="40" Height="40"
+                    CornerRadius="20"
+                    Background="#FF4CAF50"
+                    VerticalAlignment="Center"
+                    Margin="0,0,14,0">
+                <TextBlock x:Name="IconText"
+                          Text="✓"
+                          FontSize="20"
+                          FontWeight="Bold"
+                          Foreground="White"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"/>
+            </Border>
+            
+            <!-- Content -->
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock x:Name="TitleText"
+                          Text="Succès"
+                          FontSize="14"
+                          FontWeight="SemiBold"
+                          Foreground="White"
+                          TextWrapping="Wrap"/>
+                <TextBlock x:Name="MessageText"
+                          Text="Opération réussie"
+                          FontSize="12"
+                          Foreground="#FFAAAAAA"
+                          TextWrapping="Wrap"
+                          Margin="0,4,0,0"/>
+            </StackPanel>
+            
+            <!-- Close Button -->
+            <Button x:Name="CloseButton"
+                    Grid.Column="2"
+                    Width="28" Height="28"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Cursor="Hand"
+                    VerticalAlignment="Top"
+                    Margin="10,0,0,0"
+                    Click="CloseButton_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CloseBorder" 
+                                Background="Transparent" 
+                                CornerRadius="14">
+                            <TextBlock Text="✕" 
+                                      FontSize="14" 
+                                      Foreground="#FF888888"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CloseBorder" Property="Background" Value="#FF444444"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+            
+            <!-- Progress Bar for auto-close -->
+            <Border Grid.Column="0" Grid.ColumnSpan="3"
+                    VerticalAlignment="Bottom"
+                    Margin="-16,-16,-16,-16"
+                    CornerRadius="0,0,12,12"
+                    ClipToBounds="True">
+                <Border x:Name="ProgressBar"
+                        Height="3"
+                        Background="#FF4CAF50"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Bottom"
+                        CornerRadius="0,0,0,12"/>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

@@ -58,13 +58,13 @@ namespace PaLX.Client
 
             if (string.IsNullOrEmpty(UsernameBox.Text) || string.IsNullOrEmpty(password) || string.IsNullOrEmpty(ConfirmPasswordBox.Password))
             {
-                MessageBox.Show("Veuillez remplir tous les champs.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ToastService.Warning("Veuillez remplir tous les champs.");
                 return;
             }
 
             if (password != ConfirmPasswordBox.Password)
             {
-                MessageBox.Show("Les mots de passe ne correspondent pas.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ToastService.Warning("Les mots de passe ne correspondent pas.");
                 return;
             }
 
@@ -76,14 +76,14 @@ namespace PaLX.Client
                 bool success = await ApiService.Instance.RegisterAsync(UsernameBox.Text, password, ConfirmPasswordBox.Password);
                 if (success)
                 {
-                    MessageBox.Show("Inscription réussie ! Vous pouvez maintenant vous connecter.", "Succès", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ToastService.Success("Inscription réussie ! Vous pouvez maintenant vous connecter.");
                     AutoFillUsername = UsernameBox.Text;
                     AutoFillPassword = password;
                     SwitchToLogin?.Invoke(this, e);
                 }
                 else
                 {
-                    MessageBox.Show("Erreur lors de l'inscription. Le nom d'utilisateur est peut-être déjà pris.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ToastService.Error("Erreur lors de l'inscription. Le nom d'utilisateur est peut-être déjà pris.");
                 }
             }
             finally

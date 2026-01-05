@@ -138,7 +138,7 @@ namespace PaLX.Client
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Erreur lors du chargement de l'image : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ToastService.Error($"Erreur lors du chargement de l'image : {ex.Message}");
                 }
             }
         }
@@ -280,10 +280,11 @@ namespace PaLX.Client
                 };
 
                 await ApiService.Instance.UpdateUserProfileAsync(profile);
+                ToastService.Success("Profil sauvegardé avec succès !");
             }
             catch (System.Exception ex)
             {
-                MessageBox.Show($"Erreur lors de la sauvegarde : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+                ToastService.Error($"Erreur lors de la sauvegarde : {ex.Message}");
             }
         }
     }

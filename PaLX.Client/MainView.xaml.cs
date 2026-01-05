@@ -628,16 +628,29 @@ namespace PaLX.Client
                     default: statusValue = 6; break;
                 }
 
-                // Play sound if status changed or new
-                if (!_previousStatuses.ContainsKey(username) || _previousStatuses[username] != statusValue)
+                // Get previous status (default to offline if unknown)
+                int previousStatus = _previousStatuses.ContainsKey(username) ? _previousStatuses[username] : 6;
+                bool statusChanged = previousStatus != statusValue;
+
+                if (statusChanged)
                 {
+                    // Play appropriate sound
                     try
                     {
-                        if (statusValue == 6) _offlineSound?.Play();
-                        else if (_previousStatuses.ContainsKey(username) && _previousStatuses[username] == 6) _onlineSound?.Play();
+                        if (statusValue == 6)
+                        {
+                            // User went OFFLINE
+                            _offlineSound?.Play();
+                        }
+                        else if (previousStatus == 6 && statusValue == 0)
+                        {
+                            // User came ONLINE (was offline, now online)
+                            _onlineSound?.Play();
+                            // Only blink when coming online, not when going offline
+                            _blinkingUntil[username] = DateTime.Now.AddSeconds(3);
+                        }
                     }
                     catch { }
-                    _blinkingUntil[username] = DateTime.Now.AddSeconds(5);
                 }
 
                 // Update tracking to prevent overwriting by polling
@@ -809,18 +822,30 @@ namespace PaLX.Client
                     }
 
                     bool isBlinking = false;
-                    if (_previousStatuses.ContainsKey(f.Username))
+                    int previousStatus = _previousStatuses.ContainsKey(f.Username) ? _previousStatuses[f.Username] : 6;
+                    bool statusChanged = previousStatus != effectiveStatusValue;
+                    
+                    // Only trigger sounds/blinking from polling if not recently updated by SignalR
+                    bool recentlyUpdatedBySignalR = _lastSignalRUpdate.ContainsKey(f.Username) && 
+                        (DateTime.Now - _lastSignalRUpdate[f.Username]).TotalSeconds < 10;
+                    
+                    if (statusChanged && !recentlyUpdatedBySignalR)
                     {
-                        if (_previousStatuses[f.Username] != effectiveStatusValue)
+                        try
                         {
-                            _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(5);
-                            try
+                            if (effectiveStatusValue == 6)
                             {
-                                if (effectiveStatusValue == 0) _onlineSound?.Play();
-                                else if (effectiveStatusValue == 6) _offlineSound?.Play();
+                                // User went OFFLINE - play sound, no blinking
+                                _offlineSound?.Play();
                             }
-                            catch { }
+                            else if (previousStatus == 6 && effectiveStatusValue == 0)
+                            {
+                                // User came ONLINE - play sound and blink
+                                _onlineSound?.Play();
+                                _blinkingUntil[f.Username] = DateTime.Now.AddSeconds(3);
+                            }
                         }
+                        catch { }
                     }
                     _previousStatuses[f.Username] = effectiveStatusValue;
 

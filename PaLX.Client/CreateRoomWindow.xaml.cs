@@ -43,7 +43,7 @@ namespace PaLX.Client
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur chargement catégories: {ex.Message}");
+                ToastService.Error($"Erreur chargement catégories: {ex.Message}");
             }
         }
 
@@ -67,13 +67,13 @@ namespace PaLX.Client
         {
             if (string.IsNullOrWhiteSpace(RoomNameBox.Text))
             {
-                MessageBox.Show("Le nom du salon est requis.");
+                ToastService.Warning("Le nom du salon est requis.");
                 return;
             }
 
             if (CategoryCombo.SelectedItem == null)
             {
-                MessageBox.Show("Veuillez sélectionner une catégorie.");
+                ToastService.Warning("Veuillez sélectionner une catégorie.");
                 return;
             }
 
@@ -106,19 +106,19 @@ namespace PaLX.Client
                 if (_editingRoomId.HasValue)
                 {
                     await _apiService.UpdateRoomAsync(_editingRoomId.Value, dto);
-                    MessageBox.Show("Salon modifié avec succès !");
+                    ToastService.Success("Salon modifié avec succès !");
                 }
                 else
                 {
                     await _apiService.CreateRoomAsync(dto);
-                    MessageBox.Show("Salon créé avec succès !");
+                    ToastService.Success("Salon créé avec succès !");
                 }
                 DialogResult = true;
                 Close();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Erreur: {ex.Message}");
+                ToastService.Error($"Erreur: {ex.Message}");
             }
         }
     }
