@@ -263,12 +263,12 @@ Projet maintenu par [DeLTa-X-Tunisia](https://github.com/DeLTa-X-Tunisia).
 ## ⚖️ Licence & Copyright
 
 ```
-Copyright © 2026 DeLTa-X-Tunisia. Tous droits réservés.
+Copyright © 2026 Azizi Mounir. Tous droits réservés.
 ```
 
 ### 🚫 Restrictions
 
-Ce logiciel est la propriété exclusive de **DeLTa-X-Tunisia**. 
+Ce logiciel est la propriété exclusive de **Azizi Mounir**. 
 
 **Il est strictement interdit de :**
 - ❌ Copier, reproduire ou dupliquer le code source
@@ -288,11 +288,11 @@ L'accès à ce dépôt est accordé **uniquement** pour :
 
 Toute violation de ces termes peut entraîner des poursuites judiciaires conformément aux lois sur la propriété intellectuelle en vigueur.
 
-Pour toute demande de licence ou autorisation, contactez : **[DeLTa-X-Tunisia](https://github.com/DeLTa-X-Tunisia)**
+Pour toute demande de licence ou autorisation, contactez : **Azizi Mounir** via [GitHub](https://github.com/DeLTa-X-Tunisia)
 
 ---
 
 <p align="center">
-  <b>🔒 PaL.Xtreme - Propriété de DeLTa-X-Tunisia</b><br>
-  <sub>Développé avec ❤️ en Tunisie</sub>
+  <b>🔒 PaL.Xtreme - Propriété de Azizi Mounir</b><br>
+  <sub>Développé avec ❤️ en Tunisie 🇹🇳</sub>
 </p>

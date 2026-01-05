@@ -1,6 +1,6 @@
 // ============================================================================
 // PaL.Xtreme - Modern Instant Messaging Solution
-// Copyright © 2026 DeLTa-X-Tunisia. All Rights Reserved.
+// Copyright © 2026 Azizi Mounir. All Rights Reserved.
 // 
 // This software is proprietary and confidential.
 // Unauthorized copying, distribution, or use is strictly prohibited.
