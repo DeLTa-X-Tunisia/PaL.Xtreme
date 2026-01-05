@@ -28,6 +28,27 @@ namespace PaLX.Client
         }
 
         /// <summary>
+        /// Affiche une notification de changement de statut d'un ami
+        /// </summary>
+        public static void FriendStatus(string friendName, string? avatarPath, bool isOnline)
+        {
+            if (Application.Current?.Dispatcher == null) return;
+
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    var toast = new FriendStatusToast(friendName, avatarPath, isOnline);
+                    toast.Show();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"FriendStatusToast error: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
         /// Affiche une notification de succès
         /// </summary>
         public static void Success(string message, string title = "Succès", int durationMs = 4000)

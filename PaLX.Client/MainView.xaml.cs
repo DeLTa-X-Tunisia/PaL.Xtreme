@@ -32,6 +32,10 @@ namespace PaLX.Client
         private Dictionary<string, ChatWindow> _openChatWindows = new Dictionary<string, ChatWindow>();
         private ObservableCollection<Friend> _friendsCollection = new ObservableCollection<Friend>();
         private ObservableCollection<ConversationItem> _conversationsCollection = new ObservableCollection<ConversationItem>();
+        
+        // Anti-duplicate toast tracking
+        private Dictionary<string, DateTime> _lastStatusToastTime = new Dictionary<string, DateTime>();
+        private const int STATUS_TOAST_COOLDOWN_MS = 3000; // 3 seconds cooldown per user
 
         // Notification Properties
         public static readonly DependencyProperty NotificationCountProperty =
@@ -632,15 +636,33 @@ namespace PaLX.Client
                 int previousStatus = _previousStatuses.ContainsKey(username) ? _previousStatuses[username] : 6;
                 bool statusChanged = previousStatus != statusValue;
 
+                // Get friend info for toast notification
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
+
+                // Check if we should show toast (anti-duplicate cooldown)
+                bool canShowToast = true;
+                if (_lastStatusToastTime.ContainsKey(username))
+                {
+                    var timeSinceLastToast = (DateTime.Now - _lastStatusToastTime[username]).TotalMilliseconds;
+                    canShowToast = timeSinceLastToast > STATUS_TOAST_COOLDOWN_MS;
+                }
+
                 if (statusChanged)
                 {
-                    // Play appropriate sound
+                    // Play appropriate sound and show toast
                     try
                     {
-                        if (statusValue == 6)
+                        if (statusValue == 6 && previousStatus != 6)
                         {
-                            // User went OFFLINE
+                            // User went OFFLINE (was online/away/etc, now offline)
                             _offlineSound?.Play();
+                            
+                            // Show offline toast (with cooldown check)
+                            if (friend != null && canShowToast)
+                            {
+                                ToastService.FriendStatus(friend.Name, friend.AvatarPath, false);
+                                _lastStatusToastTime[username] = DateTime.Now;
+                            }
                         }
                         else if (previousStatus == 6 && statusValue == 0)
                         {
@@ -648,6 +670,13 @@ namespace PaLX.Client
                             _onlineSound?.Play();
                             // Only blink when coming online, not when going offline
                             _blinkingUntil[username] = DateTime.Now.AddSeconds(3);
+                            
+                            // Show online toast (with cooldown check)
+                            if (friend != null && canShowToast)
+                            {
+                                ToastService.FriendStatus(friend.Name, friend.AvatarPath, true);
+                                _lastStatusToastTime[username] = DateTime.Now;
+                            }
                         }
                     }
                     catch { }
@@ -658,7 +687,6 @@ namespace PaLX.Client
                 _lastSignalRUpdate[username] = DateTime.Now;
 
                 // Immediately update UI for this friend without waiting for full refresh
-                var friend = _friendsCollection.FirstOrDefault(f => f.Username == username);
                 if (friend != null)
                 {
                     // Update status immediately
