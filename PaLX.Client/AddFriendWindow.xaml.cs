@@ -156,9 +156,9 @@ namespace PaLX.Client
 
         private void Block_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string requester)
+            if (sender is Button btn && btn.Tag is FriendDto user)
             {
-                var blockWindow = new BlockUserWindow(_currentUsername, requester);
+                var blockWindow = new BlockUserWindow(_currentUsername, user.Username, user.DisplayName);
                 if (blockWindow.ShowDialog() == true)
                 {
                     LoadRequests();

@@ -401,6 +401,18 @@ namespace PaLX.Client
                 if (msg != null)
                 {
                     msg.TransferStatus = isAccepted ? TransferStatus.Accepted : TransferStatus.Declined;
+                    if (isAccepted && !string.IsNullOrEmpty(url))
+                    {
+                        msg.FileUrl = url;
+                    }
+                    
+                    // Force template refresh by removing and re-adding the item
+                    int index = _messages.IndexOf(msg);
+                    if (index >= 0)
+                    {
+                        _messages.RemoveAt(index);
+                        _messages.Insert(index, msg);
+                    }
                 }
             });
         }
@@ -587,7 +599,7 @@ namespace PaLX.Client
                     UpdateBlockUi();
 
                     string text = $"🔓 Vous avez débloqué {PartnerName.Text} • Accès rétabli • {DateTime.Now:HH:mm}";
-                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, DateTime.Now);
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, "status-unblock");
                     _messages.Add(statusMsg);
                     ScrollToBottom();
                 });
@@ -604,7 +616,7 @@ namespace PaLX.Client
                     UpdateBlockUi();
 
                     string text = $"🔓 {PartnerName.Text} vous a débloqué • Accès rétabli • {DateTime.Now:HH:mm}";
-                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, DateTime.Now);
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, "status-unblock");
                     _messages.Add(statusMsg);
                     ScrollToBottom();
                 });
@@ -1135,7 +1147,8 @@ namespace PaLX.Client
                     else
                         text = $"🔓 {partnerName} vous a débloqué – {msg.Timestamp:dd/MM/yyyy HH:mm}";
                     
-                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, msg.Timestamp);
+                    var statusMsg = ChatMessageItem.CreateStatusMessage(text, "status-unblock");
+                    statusMsg.Timestamp = msg.Timestamp;
                     _messages.Add(statusMsg);
                 }
                 else
@@ -1544,6 +1557,33 @@ namespace PaLX.Client
                     else
                         await ApiService.Instance.RespondToFileRequestAsync(transferId, false);
                 }
+            }
+        }
+
+        private async void OpenFile_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is ChatMessageItem msg)
+            {
+                // L'expéditeur peut toujours ouvrir, le destinataire seulement si accepté
+                if (!msg.IsMine && msg.TransferStatus != TransferStatus.Accepted)
+                {
+                    return; // Le destinataire ne peut pas ouvrir avant acceptation
+                }
+                
+                string? url = msg.FileUrl;
+                if (string.IsNullOrEmpty(url))
+                {
+                    return;
+                }
+                
+                // Obtenir l'extension du fichier original
+                string ext = System.IO.Path.GetExtension(msg.FileName);
+                if (string.IsNullOrEmpty(ext))
+                {
+                    ext = ".bin"; // Extension par défaut
+                }
+                
+                await OpenMediaAsync(url, ext);
             }
         }
 

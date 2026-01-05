@@ -12,15 +12,16 @@ namespace PaLX.Client
 
         public event Action? UserBlocked;
 
-        public BlockUserWindow(string blockerUsername, string blockedUsername)
+        public BlockUserWindow(string blockerUsername, string blockedUsername, string? displayName = null)
         {
             InitializeComponent();
             _blockerUsername = blockerUsername;
             _blockedUsername = blockedUsername;
-            TargetUserText.Text = blockedUsername;
+            // Show display name if provided, otherwise fall back to username
+            TargetUserText.Text = !string.IsNullOrEmpty(displayName) ? displayName : blockedUsername;
         }
 
-        public BlockUserWindow(string blockerUsername, BlockedUserDto info) : this(blockerUsername, info.Username)
+        public BlockUserWindow(string blockerUsername, BlockedUserDto info) : this(blockerUsername, info.Username, info.DisplayName)
         {
             // Pre-fill data
             BlockTypeCombo.SelectedIndex = info.BlockType;

@@ -326,7 +326,7 @@
                                             </Button>
                                             <!-- Block -->
                                             <Button Style="{StaticResource IconButtonStyle}" Width="35" Height="35" Background="#f4f6f6"
-                                                    Click="Block_Click" Tag="{Binding Username}" ToolTip="Bloquer">
+                                                    Click="Block_Click" Tag="{Binding}" ToolTip="Bloquer">
                                                 <TextBlock Text="&#xE728;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#7f8c8d"/>
                                             </Button>
                                         </StackPanel>

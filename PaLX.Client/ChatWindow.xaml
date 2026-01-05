@@ -350,6 +350,10 @@
                             <converters:AudioIconConverter x:Key="AudioIconConverter"/>
                             <converters:StatusToBackgroundConverter x:Key="StatusToBackgroundConverter"/>
                             <converters:StatusToForegroundConverter x:Key="StatusToForegroundConverter"/>
+                            <converters:FileExtensionToIconConverter x:Key="FileExtensionToIconConverter"/>
+                            <converters:FileExtensionToColorConverter x:Key="FileExtensionToColorConverter"/>
+                            <converters:FileExtensionToBackgroundConverter x:Key="FileExtensionToBackgroundConverter"/>
+                            <converters:CanOpenFileConverter x:Key="CanOpenFileConverter"/>
                             
                             <SolidColorBrush x:Key="PrimaryBrush" Color="#E03E2F"/>
                             <SolidColorBrush x:Key="AcceptBrush" Color="#4CAF50"/>
@@ -1202,35 +1206,66 @@
                                                                FontWeight="SemiBold"
                                                                Foreground="{StaticResource PrimaryBrush}"
                                                                Margin="0,0,0,6"/>
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <Border Grid.Column="0" 
-                                                                Width="44" Height="44" 
-                                                                Background="#F5F5F5" 
-                                                                CornerRadius="8"
-                                                                Margin="0,0,10,0">
-                                                            <Path Data="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
-                                                                  Fill="#666666"
-                                                                  Width="22" Height="22"
-                                                                  Stretch="Uniform"
-                                                                  HorizontalAlignment="Center"
-                                                                  VerticalAlignment="Center"/>
-                                                        </Border>
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding FileName}"
-                                                                       FontSize="13"
-                                                                       FontWeight="Medium"
-                                                                       Foreground="#333333"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       MaxWidth="180"/>
-                                                            <TextBlock Text="{Binding FileSize}"
-                                                                       FontSize="11"
-                                                                       Foreground="#888888"/>
-                                                        </StackPanel>
-                                                    </Grid>
+                                                    <!-- File info clickable area -->
+                                                    <Border x:Name="FileClickArea" 
+                                                            Background="Transparent"
+                                                            Cursor="Hand"
+                                                            MouseLeftButtonUp="OpenFile_Click">
+                                                        <Grid>
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="Auto"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <!-- Modern file type icon -->
+                                                            <Border Grid.Column="0" 
+                                                                    Width="48" Height="48" 
+                                                                    Background="{Binding FileExtension, Converter={StaticResource FileExtensionToBackgroundConverter}}" 
+                                                                    CornerRadius="10"
+                                                                    Margin="0,0,12,0">
+                                                                <Path Data="{Binding FileExtension, Converter={StaticResource FileExtensionToIconConverter}}"
+                                                                      Fill="{Binding FileExtension, Converter={StaticResource FileExtensionToColorConverter}}"
+                                                                      Width="24" Height="24"
+                                                                      Stretch="Uniform"
+                                                                      HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                            </Border>
+                                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding FileName}"
+                                                                           FontSize="13"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#333333"
+                                                                           TextTrimming="CharacterEllipsis"
+                                                                           MaxWidth="160"/>
+                                                                <TextBlock Text="{Binding FileSize}"
+                                                                           FontSize="11"
+                                                                           Foreground="#888888"
+                                                                           Margin="0,2,0,0"/>
+                                                            </StackPanel>
+                                                            <!-- Open file button (visible when IsMine OR Accepted) -->
+                                                            <Border Grid.Column="2"
+                                                                    Width="32" Height="32"
+                                                                    Background="#F0F0F0"
+                                                                    CornerRadius="16"
+                                                                    Margin="8,0,0,0"
+                                                                    VerticalAlignment="Center"
+                                                                    ToolTip="Ouvrir le fichier">
+                                                                <Border.Visibility>
+                                                                    <MultiBinding Converter="{StaticResource CanOpenFileConverter}">
+                                                                        <Binding Path="IsMine"/>
+                                                                        <Binding Path="TransferStatus"/>
+                                                                    </MultiBinding>
+                                                                </Border.Visibility>
+                                                                <Path Data="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z"
+                                                                      Fill="#666666"
+                                                                      Width="14" Height="14"
+                                                                      Stretch="Uniform"
+                                                                      HorizontalAlignment="Center"
+                                                                      VerticalAlignment="Center"/>
+                                                            </Border>
+                                                        </Grid>
+                                                    </Border>
+                                                    <!-- Progress bar -->
                                                     <Grid Margin="0,8,0,0"
                                                           Visibility="{Binding TransferStatus, Converter={StaticResource TransferStatusToVisibilityConverter}, ConverterParameter=accepted}">
                                                         <Border Background="#E0E0E0" Height="4" CornerRadius="2"/>
@@ -1240,6 +1275,7 @@
                                                                 HorizontalAlignment="Left"
                                                                 Width="{Binding TransferProgress, Converter={StaticResource ProgressToWidthConverter}, ConverterParameter=200}"/>
                                                     </Grid>
+                                                    <!-- Accept/Decline buttons -->
                                                     <StackPanel Orientation="Horizontal" 
                                                                 HorizontalAlignment="Center"
                                                                 Margin="0,10,0,0">
