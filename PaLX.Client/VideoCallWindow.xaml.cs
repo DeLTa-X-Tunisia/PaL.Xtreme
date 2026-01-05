@@ -157,6 +157,7 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
+                    StopRingtone();  // Stop ringtone when call is accepted
                     CallStatusText.Text = "Connecté";
                     StartTimer();
                 });
@@ -166,6 +167,7 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
+                    StopRingtone();  // Stop ringtone when call is declined
                     ToastService.Warning($"{_partnerDisplayName} a refusé l'appel vidéo");
                     Close();
                 });
@@ -175,6 +177,7 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
+                    StopRingtone();  // Stop ringtone when call ends
                     ToastService.Info($"Appel terminé avec {_partnerDisplayName}");
                     Close();
                 });
