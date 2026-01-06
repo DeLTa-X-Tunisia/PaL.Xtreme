@@ -13,15 +13,18 @@
 			"problemMatcher": [
 				"$msCompile"
 			],
-			"group": "build"
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			}
 		},
 		{
-			"label": "build_admin",
+			"label": "build_api",
 			"type": "shell",
 			"command": "dotnet",
 			"args": [
 				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
+				"PaLX.API/PaLX.API.csproj"
 			],
 			"isBackground": false,
 			"problemMatcher": [
@@ -30,12 +33,12 @@
 			"group": "build"
 		},
 		{
-			"label": "build_admin_fix",
+			"label": "build_launcher",
 			"type": "shell",
 			"command": "dotnet",
 			"args": [
 				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
+				"PaLX.Launcher/PaLX.Launcher.csproj"
 			],
 			"isBackground": false,
 			"problemMatcher": [
@@ -44,180 +47,12 @@
 			"group": "build"
 		},
 		{
-			"label": "build_client_final",
+			"label": "build_all",
 			"type": "shell",
 			"command": "dotnet",
 			"args": [
 				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_final",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_clean",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_client_menu",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_menu",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_client_adjust",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_adjust",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_client_combo",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_combo",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_client_profiles",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_profiles",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_client_resize",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Client/PaLX.Client.csproj"
-			],
-			"isBackground": false,
-			"problemMatcher": [
-				"$msCompile"
-			],
-			"group": "build"
-		},
-		{
-			"label": "build_admin_resize",
-			"type": "shell",
-			"command": "dotnet",
-			"args": [
-				"build",
-				"PaLX.Admin/PaLX.Admin.csproj"
+				"PaL.Xtreme.sln"
 			],
 			"isBackground": false,
 			"problemMatcher": [

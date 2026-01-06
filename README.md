@@ -1,15 +1,16 @@
 # PaL.Xtreme
 
-PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger. Le projet est divisé en deux applications distinctes : une pour les clients et une pour les administrateurs, partageant une base de données PostgreSQL commune.
+PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger.
 
 ## 🏗 Structure du Projet
 
-La solution se compose de quatre projets principaux :
+La solution se compose de trois projets principaux :
 
 *   **PaLX.API** : Le cœur du système. Une API REST (ASP.NET Core) qui gère l'authentification, la base de données PostgreSQL, et la communication temps réel via SignalR.
-*   **PaLX.Launcher** : Le point d'entrée unique. Il vérifie l'état du serveur (Health Check), joue le son de bienvenue et lance l'application appropriée (Client ou Admin) selon le rôle de l'utilisateur.
-*   **PaLX.Client** : L'application destinée aux utilisateurs finaux. Elle permet de se connecter, de gérer son statut, de gérer ses amis et son profil.
-*   **PaLX.Admin** : L'application d'administration. Elle offre les mêmes fonctionnalités sociales que le client, adaptées aux besoins de gestion (rôles 1 à 6), avec une identification visuelle distincte.
+*   **PaLX.Launcher** : Le point d'entrée unique. Il vérifie l'état du serveur (Health Check), joue le son de bienvenue et lance l'application Client.
+*   **PaLX.Client** : L'application principale. Elle permet de se connecter, de gérer son statut, de gérer ses amis, son profil, et d'effectuer des appels vidéo/audio.
+
+> **Note** : Une interface d'administration (modération, rôles, abonnements) sera ajoutée ultérieurement.
 
 ## 🌟 Nouveautés & Améliorations Récentes
 
