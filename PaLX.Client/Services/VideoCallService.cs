@@ -534,7 +534,7 @@ namespace PaLX.Client.Services
                     switch (state)
                     {
                         case RTCPeerConnectionState.connected:
-                            OnStatusChanged?.Invoke("Connecté à PaL.Xtreme");
+                            OnStatusChanged?.Invoke("Juste un instant...");
                             _isCallActive = true;
                             // Set status to "En appel" (3)
                             ApiService.Instance.UpdateStatusAsync(3);
@@ -948,7 +948,7 @@ namespace PaLX.Client.Services
                 };
 
                 _waveIn.StartRecording();
-                OnStatusChanged?.Invoke($"Audio capture démarrée ({_audioEncoder?.Codec})");
+                OnStatusChanged?.Invoke("La parole est à vous!");
             }
             catch (Exception ex)
             {

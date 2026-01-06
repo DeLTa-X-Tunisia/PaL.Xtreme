@@ -160,6 +160,12 @@ namespace PaLX.Client
                 ApiService.Instance.VoiceService.OnIncomingCall += OnIncomingCall;
             }
             
+            // Subscribe to Video Call
+            if (ApiService.Instance.VideoService != null)
+            {
+                ApiService.Instance.VideoService.OnIncomingVideoCall += OnIncomingVideoCall;
+            }
+            
             // Friend Sync
             ApiService.Instance.OnFriendRequestAccepted += OnFriendAdded;
             ApiService.Instance.OnFriendRequestReceived += OnFriendRequestReceived;
@@ -342,6 +348,29 @@ namespace PaLX.Client
             {
                 var callWindow = new VoiceCallWindow(ApiService.Instance.VoiceService!, sender, true);
                 callWindow.Show();
+            });
+        }
+
+        private void OnIncomingVideoCall(string caller, string callId)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // Get display name from friends list if available
+                var friend = _friendsCollection.FirstOrDefault(f => f.Username.Equals(caller, StringComparison.OrdinalIgnoreCase));
+                string displayName = friend?.Name ?? caller;
+                string? avatarPath = friend?.AvatarPath;
+                
+                // Show toast notification
+                ToastService.Info($"📹 Appel vidéo de {displayName}");
+                
+                // Open video call window for incoming call
+                var videoWindow = new VideoCallWindow(
+                    ApiService.Instance.VideoService!,
+                    caller,
+                    displayName,
+                    callId,
+                    avatarPath);
+                videoWindow.Show();
             });
         }
 

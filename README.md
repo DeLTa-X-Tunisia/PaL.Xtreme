@@ -15,7 +15,7 @@ La solution se compose de quatre projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.2)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.3)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
@@ -33,6 +33,12 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Retour Automatique** : Statut revient à "En ligne" à la fin de l'appel.
     *   **Vérification Avant Appel** : Message d'alerte si le contact est déjà en appel.
     *   **Visibilité Contacts** : Les amis voient que l'utilisateur est occupé en appel.
+
+*   **Améliorations UX v1.6.3** :
+    *   **Bouton Minimiser** : Fenêtre d'appel vidéo peut être minimisée (bouton bien espacé du bouton fermer).
+    *   **Notifications Globales** : Appels entrants notifiés même si la fenêtre de chat n'est pas ouverte.
+    *   **Blocage Appels Hors Ligne** : Impossible d'appeler un utilisateur hors ligne (statut 6).
+    *   **Messages Utilisateur** : "Juste un instant..." et "La parole est à vous!" plus naturels.
 
 *   **Codec Audio Opus** :
     *   **Concentus 2.2.0** : Implémentation Opus pure managed .NET (pas de dépendances natives).
@@ -52,13 +58,15 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Indicateur Qualité HD** : Icône signal avec status de connexion.
     *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran, Raccrocher.
     *   **Sons Appel Vidéo** : `appel_video.mp3` (sonnerie) + `end_video.mp3` (fin d'appel).
-    *   **Texte Connexion** : Affiche "Connecté à PaL.Xtreme" au lieu du détail technique.
+    *   **Messages Naturels** : "Juste un instant..." et "La parole est à vous!" orientés utilisateur.
 
-*   **Corrections Stabilité v1.6.2** :
+*   **Corrections Stabilité v1.6.3** :
     *   **Partage d'écran** : Correction qualité image (format 24bpp, gestion stride).
     *   **Crash Arrêt Partage** : Meilleure synchronisation threads lors du retour caméra.
     *   **Arrêt Sonnerie** : La musique d'appel s'arrête dès que l'appel est accepté/refusé/terminé.
     *   **Synchronisation Caméra** : Caméra démarre uniquement après connexion WebRTC établie.
+    *   **Boutons Espacés** : Minimize et Close bien positionnés (plus de superposition).
+    *   **Logique Appel Corrigée** : Vérification statut hors ligne (6) uniquement, pas les autres statuts.
 
 ### 🎙️ Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
 *   **Thème Sombre Complet** :

@@ -197,8 +197,18 @@ namespace PaLX.Client
                 return;
             }
             
-            // Check if partner is already in a call
+            // Check if partner is offline (status 6 = Hors ligne)
             string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+            if (_partnerStatus == 6)
+            {
+                new CustomAlertWindow(
+                    $"{displayName} est actuellement hors ligne.\n\nVous ne pouvez pas l'appeler pour le moment.",
+                    "Utilisateur hors ligne"
+                ).ShowDialog();
+                return;
+            }
+            
+            // Check if partner is already in a call
             if (_partnerStatus == 3) // En appel
             {
                 ShowUserInCallDialog(displayName);
@@ -230,8 +240,18 @@ namespace PaLX.Client
                 return;
             }
 
-            // Check if partner is already in a call
+            // Check if partner is offline (status 6 = Hors ligne)
             string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : _partnerUser;
+            if (_partnerStatus == 6)
+            {
+                new CustomAlertWindow(
+                    $"{displayName} est actuellement hors ligne.\n\nVous ne pouvez pas l'appeler pour le moment.",
+                    "Utilisateur hors ligne"
+                ).ShowDialog();
+                return;
+            }
+
+            // Check if partner is already in a call
             if (_partnerStatus == 3) // En appel
             {
                 ShowUserInCallDialog(displayName);
