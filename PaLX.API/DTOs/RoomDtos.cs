@@ -56,6 +56,7 @@ namespace PaLX.API.DTOs
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+        public string AvatarPath { get; set; } = string.Empty;
         public string RoleName { get; set; } = "Membre";
         public string RoleColor { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;

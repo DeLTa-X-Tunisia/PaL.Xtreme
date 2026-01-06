@@ -1,15 +1,17 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
+using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using PaLX.Client.Services;
-using PaLX.Client.Controls;
+using PaLX.Admin.Services;
+using PaLX.Admin.Controls;
 
-namespace PaLX.Client
+namespace PaLX.Admin
 {
     public partial class RoomWindow : Window
     {
@@ -35,12 +37,6 @@ namespace PaLX.Client
             RoomNameText.Text = room.Name;
             CategoryText.Text = room.CategoryName;
             OwnerNameText.Text = room.OwnerName;
-            
-            // Show 18+ badge if adult room
-            if (room.Is18Plus && AdultBadge != null)
-            {
-                AdultBadge.Visibility = Visibility.Visible;
-            }
             
             // Setup Uptime Timer
             _uptimeTimer = new DispatcherTimer();
@@ -87,7 +83,6 @@ namespace PaLX.Client
         private void UptimeTimer_Tick(object? sender, EventArgs? e)
         {
             var elapsed = DateTime.Now - _room.CreatedAt;
-            // Format: "1j 2h 30m" or "02:30:00"
             if (elapsed.TotalDays >= 1)
                 UptimeText.Text = $"{(int)elapsed.TotalDays}j {elapsed.Hours}h {elapsed.Minutes}m";
             else
@@ -103,56 +98,6 @@ namespace PaLX.Client
             TotalCountText.Text = total.ToString();
             MenCountText.Text = men.ToString();
             WomenCountText.Text = women.ToString();
-            
-            // Update sidebar badge
-            if (MemberCountBadge != null) 
-                MemberCountBadge.Text = total.ToString();
-        }
-
-        // Window Management
-        private void Header_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            if (e.ChangedButton == MouseButton.Left)
-            {
-                if (e.ClickCount == 2)
-                {
-                    // Double-click to maximize/restore
-                    Maximize_Click(sender, e);
-                }
-                else
-                {
-                    this.DragMove();
-                }
-            }
-        }
-
-        private void Minimize_Click(object sender, RoutedEventArgs e)
-        {
-            this.WindowState = WindowState.Minimized;
-        }
-
-        private void Maximize_Click(object sender, RoutedEventArgs e)
-        {
-            if (this.WindowState == WindowState.Maximized)
-            {
-                this.WindowState = WindowState.Normal;
-                MaximizeIcon.Text = "\uE922"; // Maximize icon
-                MaximizeButton.ToolTip = "Agrandir";
-            }
-            else
-            {
-                this.WindowState = WindowState.Maximized;
-                MaximizeIcon.Text = "\uE923"; // Restore icon
-                MaximizeButton.ToolTip = "Restaurer";
-            }
-        }
-
-        private void MessageInput_KeyDown(object sender, KeyEventArgs e)
-        {
-            if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(MessageInput.Text))
-            {
-                Send_Click(sender, e);
-            }
         }
 
         private void SpeakingTimer_Tick(object? sender, EventArgs e)
@@ -191,12 +136,6 @@ namespace PaLX.Client
             {
                 _apiService.VoiceService.EndCall();
             }
-
-            try
-            {
-                await _apiService.LeaveRoomAsync(_roomId);
-            }
-            catch { }
 
             await _apiService.LeaveRoomGroupAsync(_roomId);
         }
@@ -276,7 +215,6 @@ namespace PaLX.Client
                 Content = m.Content,
                 Timestamp = m.Timestamp,
                 RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
-                RoleName = m.RoleName,
                 MessageType = m.MessageType
             };
         }
@@ -315,8 +253,8 @@ namespace PaLX.Client
                 if (!Members.Any(m => m.UserId == member.UserId))
                 {
                     Members.Add(MapMember(member));
-                    UpdateCounts();
                     AddSystemMessage($"{member.DisplayName} a rejoint le salon.");
+                    UpdateCounts();
                 }
             });
         }
@@ -333,13 +271,8 @@ namespace PaLX.Client
                         _apiService.VoiceService.DisconnectPeer(member.Username);
                     }
                     Members.Remove(member);
-                    UpdateCounts();
                     AddSystemMessage($"{member.DisplayName} a quitté le salon.");
-                }
-                else
-                {
-                    // Force refresh if member not found (sync issue)
-                    LoadMembers();
+                    UpdateCounts();
                 }
             });
         }
@@ -491,12 +424,11 @@ namespace PaLX.Client
 
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
         public string AvatarPath { get; set; } = string.Empty;
-        public string RoleName { get; set; }
-        public Brush RoleColor { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public Brush RoleColor { get; set; } = Brushes.Black;
         public DateTime LastMicOnTime { get; set; }
-        public string Gender { get; set; } = "Unknown";
         
         public bool IsMicOn 
         { 
@@ -525,6 +457,7 @@ namespace PaLX.Client
             set { _speakingTime = value; OnPropertyChanged(nameof(SpeakingTime)); }
         }
 
+        public string Gender { get; set; } = string.Empty;
         public bool CanModerate { get; set; } = true;
 
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
@@ -534,16 +467,47 @@ namespace PaLX.Client
     public class RoomMessageViewModel
     {
         public int Id { get; set; }
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
         public string AvatarPath { get; set; } = string.Empty;
-        public string Content { get; set; }
+        public string Content { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
-        public Brush RoleColor { get; set; }
-        public string RoleName { get; set; } = "Membre";
+        public Brush RoleColor { get; set; } = Brushes.Black;
         public string MessageType { get; set; } = "Text";
         
         public bool IsSystem => MessageType == "System";
         public Visibility BubbleVisibility => IsSystem ? Visibility.Collapsed : Visibility.Visible;
         public Visibility SystemVisibility => IsSystem ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>
+    /// Convertit une URL en ImageSource pour les avatars
+    /// </summary>
+    public class UrlToImageSourceConverter : IValueConverter
+    {
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is string url && !string.IsNullOrEmpty(url))
+            {
+                try
+                {
+                    var bitmap = new BitmapImage();
+                    bitmap.BeginInit();
+                    bitmap.UriSource = new Uri(url, UriKind.Absolute);
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.EndInit();
+                    return bitmap;
+                }
+                catch
+                {
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

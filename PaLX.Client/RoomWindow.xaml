@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:PaLX.Client.Converters"
         mc:Ignorable="d"
         Title="Salon de Discussion" Height="750" Width="1100"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -12,6 +13,7 @@
     
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:UrlToImageSourceConverter x:Key="UrlToImageSourceConverter"/>
         
         <!-- Color Palette -->
         <SolidColorBrush x:Key="PrimaryRed" Color="#E03E2F"/>
@@ -298,8 +300,35 @@
                                             <!-- Avatar with Role Color Border -->
                                             <Border Width="42" Height="42" CornerRadius="21" Margin="0,0,12,0" VerticalAlignment="Top"
                                                     BorderThickness="2.5" BorderBrush="{Binding RoleColor}">
-                                                <Border CornerRadius="19" Background="#F0F0F0">
-                                                    <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18"/>
+                                                <Border CornerRadius="19">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="#F0F0F0"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding AvatarPath, Converter={StaticResource UrlToImageSourceConverter}}" Value="{x:Null}">
+                                                                    <Setter Property="Background" Value="#F0F0F0"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Grid>
+                                                        <Image Source="{Binding AvatarPath, Converter={StaticResource UrlToImageSourceConverter}}" Stretch="UniformToFill"/>
+                                                        <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding AvatarPath}" Value="">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding AvatarPath}" Value="{x:Null}">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </Grid>
                                                 </Border>
                                             </Border>
 
@@ -438,8 +467,34 @@
                                     <!-- Avatar with Role Color -->
                                     <Grid Grid.Column="0" Margin="0,0,10,0">
                                         <Border Width="40" Height="40" CornerRadius="20" BorderThickness="2.5" BorderBrush="{Binding RoleColor}">
-                                            <Border CornerRadius="18" Background="#F0F0F0">
-                                                <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16"/>
+                                            <Border CornerRadius="18">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="#F0F0F0"/>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
+                                                    <Image Source="{Binding AvatarPath, Converter={StaticResource UrlToImageSourceConverter}}" Stretch="UniformToFill">
+                                                        <Image.Clip>
+                                                            <EllipseGeometry Center="18,18" RadiusX="18" RadiusY="18"/>
+                                                        </Image.Clip>
+                                                    </Image>
+                                                    <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding AvatarPath}" Value="">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                    <DataTrigger Binding="{Binding AvatarPath}" Value="{x:Null}">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
                                             </Border>
                                         </Border>
                                         <!-- Mic Active Indicator -->

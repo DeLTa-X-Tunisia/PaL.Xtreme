@@ -16,7 +16,7 @@ La solution se compose de trois projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.4)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.5)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
@@ -47,6 +47,18 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Header Gradient Rouge** : Identique au ChatWindow (#E03E2F → #8B2920).
     *   **Badge 18+** : Indicateur visible pour les salons adultes.
     *   **Statistiques Modernes** : Compteurs (Total/Hommes/Femmes) dans des pilules semi-transparentes.
+    *   **Bouton Plein Écran** : Agrandir/Restaurer avec double-clic sur le header.
+
+### 🖼️ Avatars Chatroom (Nouveau v1.6.5)
+*   **Photos de Profil Réelles** :
+    *   **Liste des Membres** : Avatar circulaire avec bordure colorée selon le rôle.
+    *   **Bulles de Messages** : Photo de profil à côté de chaque message.
+    *   **Fallback Élégant** : Icône 👤 si l'utilisateur n'a pas d'avatar.
+    *   **Temps Réel** : Avatars transmis via SignalR pour les nouveaux membres.
+
+*   **Nettoyage Membres Fantômes** :
+    *   **Déconnexion Propre** : Suppression automatique des RoomMembers à la déconnexion.
+    *   **Startup Cleanup** : Nettoyage des membres non-propriétaires au démarrage du serveur.
 
 *   **Zone de Messages Améliorée** :
     *   **Bulles Modernes** : Fond blanc, coins arrondis (16px), ombre subtile.
