@@ -344,7 +344,7 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 2.  **Configuration de la Base de Données** :
     *   Assurez-vous que PostgreSQL est lancé.
     *   La chaîne de connexion se trouve dans DatabaseService.cs (dans les deux projets).
-    *   Par défaut : Host=localhost;Username=postgres;Password=2012704;Database=PaL.X.
+    *   Par défaut : Host=localhost;Username=postgres;Password=VotreMDP;Database=VotreDB.
 
 3.  **Lancement** :
     *   Ouvrez le dossier dans VS Code ou la solution dans Visual Studio.
