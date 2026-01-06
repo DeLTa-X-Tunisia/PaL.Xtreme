@@ -24,6 +24,7 @@ namespace PaLX.Client.Services
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
+        public string RoleName { get; set; } = "Membre";
         public string RoleColor { get; set; } = "#000000";
         public string Content { get; set; } = string.Empty;
         public string MessageType { get; set; } = "Text";

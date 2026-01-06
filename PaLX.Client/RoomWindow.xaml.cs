@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using PaLX.Client.Services;
@@ -34,6 +35,12 @@ namespace PaLX.Client
             RoomNameText.Text = room.Name;
             CategoryText.Text = room.CategoryName;
             OwnerNameText.Text = room.OwnerName;
+            
+            // Show 18+ badge if adult room
+            if (room.Is18Plus && AdultBadge != null)
+            {
+                AdultBadge.Visibility = Visibility.Visible;
+            }
             
             // Setup Uptime Timer
             _uptimeTimer = new DispatcherTimer();
@@ -96,6 +103,32 @@ namespace PaLX.Client
             TotalCountText.Text = total.ToString();
             MenCountText.Text = men.ToString();
             WomenCountText.Text = women.ToString();
+            
+            // Update sidebar badge
+            if (MemberCountBadge != null) 
+                MemberCountBadge.Text = total.ToString();
+        }
+
+        // Window Management
+        private void Header_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left)
+            {
+                this.DragMove();
+            }
+        }
+
+        private void Minimize_Click(object sender, RoutedEventArgs e)
+        {
+            this.WindowState = WindowState.Minimized;
+        }
+
+        private void MessageInput_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(MessageInput.Text))
+            {
+                Send_Click(sender, e);
+            }
         }
 
         private void SpeakingTimer_Tick(object? sender, EventArgs e)
@@ -217,6 +250,7 @@ namespace PaLX.Client
                 Content = m.Content,
                 Timestamp = m.Timestamp,
                 RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
+                RoleName = m.RoleName,
                 MessageType = m.MessageType
             };
         }
@@ -477,6 +511,7 @@ namespace PaLX.Client
         public string Content { get; set; }
         public DateTime Timestamp { get; set; }
         public Brush RoleColor { get; set; }
+        public string RoleName { get; set; } = "Membre";
         public string MessageType { get; set; } = "Text";
         
         public bool IsSystem => MessageType == "System";

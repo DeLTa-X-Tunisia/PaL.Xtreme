@@ -16,7 +16,7 @@ La solution se compose de trois projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.3)
+### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.4)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
@@ -40,6 +40,35 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Notifications Globales** : Appels entrants notifiés même si la fenêtre de chat n'est pas ouverte.
     *   **Blocage Appels Hors Ligne** : Impossible d'appeler un utilisateur hors ligne (statut 6).
     *   **Messages Utilisateur** : "Juste un instant..." et "La parole est à vous!" plus naturels.
+
+### 💬 Chatroom Modernisée (Nouveau v1.6.4)
+*   **Design Cohérent PaL.Xtreme** :
+    *   **Fenêtre Sans Bordure** : Style moderne avec coins arrondis (20px) et ombre portée.
+    *   **Header Gradient Rouge** : Identique au ChatWindow (#E03E2F → #8B2920).
+    *   **Badge 18+** : Indicateur visible pour les salons adultes.
+    *   **Statistiques Modernes** : Compteurs (Total/Hommes/Femmes) dans des pilules semi-transparentes.
+
+*   **Zone de Messages Améliorée** :
+    *   **Bulles Modernes** : Fond blanc, coins arrondis (16px), ombre subtile.
+    *   **Avatars avec Rôle** : Bordure colorée selon le rôle (Owner=Rouge, Admin=Orange, Mod=Bleu, etc.).
+    *   **Badge de Rôle** : Affichage du nom du rôle à côté du pseudo.
+    *   **Messages Système** : Style distinct centré avec icône info.
+
+*   **Sidebar Membres Premium** :
+    *   **Liste Interactive** : Hover effect sur les membres.
+    *   **Indicateur Micro Actif** : Point vert lumineux sur l'avatar quand le micro est ON.
+    *   **Timer de Parole** : Badge rouge avec le temps de parole en cours.
+    *   **Animation Pulsante** : Icône micro animée pour visualiser qui parle.
+    *   **Rôle Visuel** : Point coloré + nom du rôle sous chaque pseudo.
+
+*   **Contrôles Utilisateur Redessinés** :
+    *   **Boutons Toggle Circulaires** : Plus grands (52px), effet ombre au survol.
+    *   **Timer de Parole Personnel** : Bandeau rouge avec effet glow quand actif.
+    *   **Interactions Fluides** : Envoi avec Enter, déplacement fenêtre par le header.
+
+*   **Améliorations Backend** :
+    *   **RoleName dans les Messages** : API retourne maintenant le nom du rôle pour chaque message.
+    *   **DTOs Enrichis** : `RoomMessageDto` inclut `RoleName` pour l'affichage du badge.
 
 *   **Codec Audio Opus** :
     *   **Concentus 2.2.0** : Implémentation Opus pure managed .NET (pas de dépendances natives).

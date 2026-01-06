@@ -344,18 +344,19 @@ namespace PaLX.API.Services
                 timestamp = reader.GetDateTime(1);
             }
 
-            // Get User Info for DTO
+            // Get User Info for DTO (including role name)
             var userSql = @"
                 SELECT u.""Username"", 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
-                       rr.""Color""
+                       rr.""Color"",
+                       COALESCE(rr.""Name"", 'Membre') as RoleName
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
                 WHERE rm.""RoomId"" = @rid AND rm.""UserId"" = @uid";
 
-            string username = "", displayName = "", roleColor = "#000000";
+            string username = "", displayName = "", roleColor = "#000000", roleName = "Membre";
             using (var cmd = new NpgsqlCommand(userSql, conn))
             {
                 cmd.Parameters.AddWithValue("rid", roomId);
@@ -366,6 +367,7 @@ namespace PaLX.API.Services
                     username = reader.GetString(0);
                     displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(1).ToLower());
                     roleColor = reader.IsDBNull(2) ? "#000000" : reader.GetString(2);
+                    roleName = reader.GetString(3);
                 }
             }
 
@@ -376,6 +378,7 @@ namespace PaLX.API.Services
                 UserId = userId,
                 Username = username,
                 DisplayName = displayName,
+                RoleName = roleName,
                 RoleColor = roleColor,
                 Content = content,
                 MessageType = type,
@@ -399,7 +402,8 @@ namespace PaLX.API.Services
                 SELECT m.""Id"", m.""UserId"", m.""Content"", m.""MessageType"", m.""Timestamp"", m.""AttachmentUrl"",
                        u.""Username"", 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
-                       rr.""Color""
+                       rr.""Color"",
+                       COALESCE(rr.""Name"", 'Membre') as RoleName
                 FROM ""RoomMessages"" m
                 JOIN ""Users"" u ON m.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
@@ -427,7 +431,8 @@ namespace PaLX.API.Services
                     AttachmentUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
                     Username = reader.GetString(6),
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(7).ToLower()),
-                    RoleColor = reader.IsDBNull(8) ? "#000000" : reader.GetString(8)
+                    RoleColor = reader.IsDBNull(8) ? "#000000" : reader.GetString(8),
+                    RoleName = reader.GetString(9)
                 });
             }
             
