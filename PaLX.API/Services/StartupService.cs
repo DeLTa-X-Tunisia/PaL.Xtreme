@@ -74,6 +74,13 @@ namespace PaLX.API.Services
                     WHERE ""DéconnectéLe"" IS NULL";
                 using var cmd = new NpgsqlCommand(sql, conn);
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
+
+                // Clean up all non-owner RoomMembers on startup (no one is in rooms when server starts)
+                var cleanupSql = @"DELETE FROM ""RoomMembers"" WHERE ""RoleId"" != 1";
+                using var cmdCleanup = new NpgsqlCommand(cleanupSql, conn);
+                var deleted = await cmdCleanup.ExecuteNonQueryAsync(cancellationToken);
+                if (deleted > 0)
+                    Console.WriteLine($"StartupService: Cleaned {deleted} room members from previous session.");
             }
             catch (Exception ex)
             {

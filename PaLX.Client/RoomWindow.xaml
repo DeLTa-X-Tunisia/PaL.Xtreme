@@ -238,8 +238,11 @@
                             <Rectangle Width="1" Height="28" Fill="#40FFFFFF" Margin="0,0,12,0"/>
                             
                             <!-- Window Controls -->
-                            <Button Click="Minimize_Click" Style="{StaticResource HeaderButtonStyle}" Width="36" Height="32">
+                            <Button Click="Minimize_Click" Style="{StaticResource HeaderButtonStyle}" Width="36" Height="32" ToolTip="Réduire">
                                 <TextBlock Text="&#xE921;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="White"/>
+                            </Button>
+                            <Button x:Name="MaximizeButton" Click="Maximize_Click" Style="{StaticResource HeaderButtonStyle}" Width="36" Height="32" ToolTip="Agrandir">
+                                <TextBlock x:Name="MaximizeIcon" Text="&#xE922;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="White"/>
                             </Button>
                             <Button Click="Leave_Click" ToolTip="Quitter le salon" Width="36" Height="32" Cursor="Hand">
                                 <Button.Template>

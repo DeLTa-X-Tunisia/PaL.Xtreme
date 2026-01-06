@@ -206,6 +206,30 @@ namespace PaLX.API.Hubs
             {
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
+                
+                // Get user ID first
+                int userId = 0;
+                var getUserIdSql = @"SELECT ""Id"" FROM ""Users"" WHERE ""Username"" = @u";
+                using (var cmdUserId = new NpgsqlCommand(getUserIdSql, conn))
+                {
+                    cmdUserId.Parameters.AddWithValue("u", username);
+                    var result = await cmdUserId.ExecuteScalarAsync();
+                    if (result != null) userId = (int)result;
+                }
+
+                if (userId > 0)
+                {
+                    // Remove user from all rooms they joined (except if they are owner)
+                    var leaveRoomsSql = @"
+                        DELETE FROM ""RoomMembers"" 
+                        WHERE ""UserId"" = @uid AND ""RoleId"" != 1";
+                    using (var cmdLeave = new NpgsqlCommand(leaveRoomsSql, conn))
+                    {
+                        cmdLeave.Parameters.AddWithValue("uid", userId);
+                        await cmdLeave.ExecuteNonQueryAsync();
+                    }
+                }
+
                 // Close the session by setting DéconnectéLe AND DisplayedStatus to Offline (6)
                 var sql = @"
                     UPDATE ""UserSessions"" 

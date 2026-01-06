@@ -114,13 +114,37 @@ namespace PaLX.Client
         {
             if (e.ChangedButton == MouseButton.Left)
             {
-                this.DragMove();
+                if (e.ClickCount == 2)
+                {
+                    // Double-click to maximize/restore
+                    Maximize_Click(sender, e);
+                }
+                else
+                {
+                    this.DragMove();
+                }
             }
         }
 
         private void Minimize_Click(object sender, RoutedEventArgs e)
         {
             this.WindowState = WindowState.Minimized;
+        }
+
+        private void Maximize_Click(object sender, RoutedEventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+                MaximizeIcon.Text = "\uE922"; // Maximize icon
+                MaximizeButton.ToolTip = "Agrandir";
+            }
+            else
+            {
+                this.WindowState = WindowState.Maximized;
+                MaximizeIcon.Text = "\uE923"; // Restore icon
+                MaximizeButton.ToolTip = "Restaurer";
+            }
         }
 
         private void MessageInput_KeyDown(object sender, KeyEventArgs e)
