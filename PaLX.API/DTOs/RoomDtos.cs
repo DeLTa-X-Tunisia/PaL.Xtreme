@@ -32,6 +32,12 @@ namespace PaLX.API.DTOs
         public int SubscriptionLevel { get; set; }
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
+        
+        /// <summary>
+        /// Rôle de l'utilisateur connecté dans ce salon (null si aucun rôle)
+        /// Valeurs possibles: "SuperAdmin", "Admin", "Moderator", null
+        /// </summary>
+        public string? UserRole { get; set; }
     }
 
     public class RoomMemberDto

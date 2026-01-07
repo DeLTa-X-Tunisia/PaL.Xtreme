@@ -21,7 +21,10 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Table Unique `RoomAdmins`** : Remplace les tables `RoomRoleRequests` et `RoomMemberRoles`.
     *   **Attribution Directe** : Le propriétaire attribue les rôles immédiatement, sans workflow de demande/acceptation.
     *   **Trois Niveaux** : SuperAdmin 👑, Admin ⭐, Moderator 🔧.
-
+*   **Permissions Différenciées** :
+    *   **RoomOwner** : Toutes les fonctions (Modifier ✏️, Cacher/Afficher 👁️, Supprimer 🗑️).
+    *   **Admin/Moderator** : Accès uniquement à "Modifier" pour gérer le salon.
+    *   **Utilisateur simple** : Aucun accès aux fonctions d'administration.
 *   **API Rationalisée** :
     *   `GET /rooms/{id}/roles` : Liste les admins d'un salon.
     *   `POST /rooms/{id}/roles/assign` : Attribution directe (UPSERT).

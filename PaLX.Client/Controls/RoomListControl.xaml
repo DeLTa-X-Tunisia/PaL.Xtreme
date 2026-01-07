@@ -110,11 +110,15 @@
                                     <TextBlock Text="{Binding MaxUsers}" FontSize="12" Foreground="Gray"/>
                                 </StackPanel>
 
-                                <!-- Owner Actions -->
-                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Visibility="{Binding IsOwner, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <!-- Edit Button: Visible for Owner OR Admin/Moderator -->
+                                <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Visibility="{Binding CanEdit, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <Button Content="✏️" ToolTip="Modifier" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="EditRoom_Click" Tag="{Binding}" FontSize="14"/>
-                                    <Button Content="{Binding VisibilityIcon}" ToolTip="{Binding VisibilityTooltip}" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="HideRoom_Click" Tag="{Binding}" Margin="5,0" FontSize="14"/>
-                                    <Button Content="🗑️" ToolTip="Supprimer" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="DeleteRoom_Click" Tag="{Binding}" Foreground="Red" FontSize="14"/>
+                                </StackPanel>
+                                
+                                <!-- Owner-Only Actions: Hide/Show & Delete -->
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Visibility="{Binding IsOwner, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Button Content="{Binding VisibilityIcon}" ToolTip="{Binding VisibilityTooltip}" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="HideRoom_Click" Tag="{Binding}" FontSize="14"/>
+                                    <Button Content="🗑️" ToolTip="Supprimer" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="DeleteRoom_Click" Tag="{Binding}" Foreground="Red" Margin="5,0,0,0" FontSize="14"/>
                                 </StackPanel>
                             </StackPanel>
                         </Grid>

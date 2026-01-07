@@ -71,7 +71,8 @@ namespace PaLX.Client.Controls
                         Is18Plus = r.Is18Plus,
                         IsActive = r.IsActive,
                         SubscriptionLevel = r.SubscriptionLevel,
-                        CreatedAt = r.CreatedAt
+                        CreatedAt = r.CreatedAt,
+                        UserRole = r.UserRole
                     });
                 }
             }
@@ -202,9 +203,20 @@ namespace PaLX.Client.Controls
         public bool IsActive { get; set; }
         public int SubscriptionLevel { get; set; }
         public DateTime CreatedAt { get; set; }
+        
+        /// <summary>
+        /// Rôle de l'utilisateur connecté dans ce salon (SuperAdmin, Admin, Moderator ou null)
+        /// </summary>
+        public string? UserRole { get; set; }
 
         public bool IsVIP => SubscriptionLevel >= 2; // Example
         public bool IsOwner => OwnerId == ApiService.Instance.CurrentUserId;
+        
+        /// <summary>
+        /// L'utilisateur peut modifier le salon s'il est Owner OU Admin/Moderator
+        /// </summary>
+        public bool CanEdit => IsOwner || !string.IsNullOrEmpty(UserRole);
+        
         public string VisibilityIcon => IsActive ? "👁️" : "🙈";
         public string VisibilityTooltip => IsActive ? "Cacher le salon" : "Afficher le salon";
         public double Opacity => IsActive ? 1.0 : 0.5;

@@ -287,11 +287,13 @@ namespace PaLX.API.Services
             var sql = @"
                 SELECT r.*, c.""Name"" as CatName, 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as OwnerName,
-                       (SELECT COUNT(*) FROM ""RoomMembers"" rm WHERE rm.""RoomId"" = r.""Id"") as UserCount
+                       (SELECT COUNT(*) FROM ""RoomMembers"" rm WHERE rm.""RoomId"" = r.""Id"") as UserCount,
+                       ra.""Role"" as UserRole
                 FROM ""Rooms"" r
                 JOIN ""RoomCategories"" c ON r.""CategoryId"" = c.""Id""
                 JOIN ""Users"" u ON r.""OwnerId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                LEFT JOIN ""RoomAdmins"" ra ON r.""Id"" = ra.""RoomId"" AND ra.""UserId"" = @uid
                 WHERE (r.""IsActive"" = TRUE OR r.""OwnerId"" = @uid)";
 
             if (categoryId.HasValue)
@@ -321,7 +323,8 @@ namespace PaLX.API.Services
                     SubscriptionLevel = reader.GetInt32(reader.GetOrdinal("SubscriptionLevel")),
                     IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
                     UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount")),
-                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt"))
+                    CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
+                    UserRole = reader.IsDBNull(reader.GetOrdinal("UserRole")) ? null : reader.GetString(reader.GetOrdinal("UserRole"))
                 });
             }
             return rooms;

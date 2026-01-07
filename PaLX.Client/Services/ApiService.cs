@@ -959,6 +959,11 @@ namespace PaLX.Client.Services
         public bool IsActive { get; set; }
         public int UserCount { get; set; }
         public DateTime CreatedAt { get; set; }
+        
+        /// <summary>
+        /// Rôle de l'utilisateur connecté dans ce salon (SuperAdmin, Admin, Moderator ou null)
+        /// </summary>
+        public string? UserRole { get; set; }
     }
 
     public class RoomCategoryDto

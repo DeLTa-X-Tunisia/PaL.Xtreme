@@ -16,12 +16,19 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   - Trois niveaux de rôles : SuperAdmin 👑, Admin ⭐, Moderator 🔧
   - Suppression immédiate des rôles en un clic
 
+- **Permissions d'Édition par Rôle** : Gestion fine des droits d'accès
+  - **RoomOwner** : Toutes les fonctions (Modifier, Cacher/Afficher, Supprimer)
+  - **Admin/Moderator** : Accès à la fonction "Modifier" uniquement
+  - **Utilisateur simple** : Aucun accès aux fonctions d'administration
+  - Retrait automatique de l'accès si le rôle est révoqué
+
 ### 🔧 Améliorations Backend
 - **API Simplifiée** :
   - `GET /rooms/{id}/roles` - Liste les admins d'un salon
   - `POST /rooms/{id}/roles/assign` - Attribution directe (UPSERT)
   - `DELETE /rooms/{id}/roles/{userId}` - Suppression directe
   - Suppression des endpoints obsolètes (SendRoleRequest, RespondToRoleRequest, etc.)
+  - Ajout de `UserRole` dans `RoomDto` pour récupérer le rôle de l'utilisateur connecté
 
 ### 🗑️ Suppressions
 - Table `RoomRoleRequests` supprimée (plus de workflow de demande)
