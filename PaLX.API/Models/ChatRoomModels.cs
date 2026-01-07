@@ -10,6 +10,8 @@ namespace PaLX.API.Models
         public int CategoryId { get; set; }
         public int OwnerId { get; set; }
         public int MaxUsers { get; set; } = 50;
+        public int MaxMics { get; set; } = 1;
+        public int MaxCams { get; set; } = 2;
         public bool IsPrivate { get; set; }
         public string? Password { get; set; }
         public bool Is18Plus { get; set; }

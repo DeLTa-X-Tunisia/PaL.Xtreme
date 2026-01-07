@@ -7,6 +7,35 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.4.0] - 2026-01-07
+
+### ✨ Nouvelles fonctionnalités
+- **Système de Rôles Simplifié** : Refonte complète de la gestion des rôles dans les salons
+  - Nouvelle table unique `RoomAdmins` (remplace `RoomRoleRequests` + `RoomMemberRoles`)
+  - Attribution directe des rôles par le propriétaire (plus de demande/acceptation)
+  - Trois niveaux de rôles : SuperAdmin 👑, Admin ⭐, Moderator 🔧
+  - Suppression immédiate des rôles en un clic
+
+### 🔧 Améliorations Backend
+- **API Simplifiée** :
+  - `GET /rooms/{id}/roles` - Liste les admins d'un salon
+  - `POST /rooms/{id}/roles/assign` - Attribution directe (UPSERT)
+  - `DELETE /rooms/{id}/roles/{userId}` - Suppression directe
+  - Suppression des endpoints obsolètes (SendRoleRequest, RespondToRoleRequest, etc.)
+
+### 🗑️ Suppressions
+- Table `RoomRoleRequests` supprimée (plus de workflow de demande)
+- Table `RoomMemberRoles` supprimée (fusionnée dans `RoomAdmins`)
+- Notifications SignalR pour les demandes de rôle supprimées
+- Fenêtre `RoleRequestWindow` désactivée (attribution directe)
+
+### 🐛 Corrections
+- Correction du crash toast (ProgressBar.Width négative)
+- Correction du blocage de fenêtre (ShowDialog → Show)
+- Ajout de try-catch sur les handlers des boutons d'icône
+
+---
+
 ## [1.3.0] - 2026-01-05
 
 ### ✨ Nouvelles fonctionnalités

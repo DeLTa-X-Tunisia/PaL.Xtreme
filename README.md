@@ -16,7 +16,23 @@ La solution se compose de trois projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### 📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.5)
+### � Gestion des Rôles Simplifiée (Nouveau v1.4.0)
+*   **Architecture Simplifiée** :
+    *   **Table Unique `RoomAdmins`** : Remplace les tables `RoomRoleRequests` et `RoomMemberRoles`.
+    *   **Attribution Directe** : Le propriétaire attribue les rôles immédiatement, sans workflow de demande/acceptation.
+    *   **Trois Niveaux** : SuperAdmin 👑, Admin ⭐, Moderator 🔧.
+
+*   **API Rationalisée** :
+    *   `GET /rooms/{id}/roles` : Liste les admins d'un salon.
+    *   `POST /rooms/{id}/roles/assign` : Attribution directe (UPSERT).
+    *   `DELETE /rooms/{id}/roles/{userId}` : Suppression en un clic.
+
+*   **Expérience Utilisateur** :
+    *   **Clic unique** : Un clic sur l'icône de rôle suffit pour attribuer.
+    *   **Feedback immédiat** : Toast de confirmation instantané.
+    *   **Interface épurée** : Plus de boutons "En attente" ou "Annuler".
+
+### �📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.5)
 *   **Architecture WebRTC Professionnelle** :
     *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
     *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.

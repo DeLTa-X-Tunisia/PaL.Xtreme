@@ -61,6 +61,7 @@ namespace PaLX.Client.Controls
                         Id = r.Id,
                         Name = r.Name,
                         Description = r.Description,
+                        CategoryId = r.CategoryId,
                         CategoryName = r.CategoryName,
                         OwnerId = r.OwnerId,
                         OwnerName = r.OwnerName,
@@ -90,10 +91,16 @@ namespace PaLX.Client.Controls
 
         private void CreateRoom_Click(object sender, RoutedEventArgs e)
         {
-            var createWin = new CreateRoomWindow();
-            if (createWin.ShowDialog() == true)
+            try
             {
-                LoadData(); // Refresh list
+                // Ouvrir la fenêtre de création de salon (non-modale)
+                var createWin = new CreateRoomWindow();
+                createWin.Closed += (s, args) => LoadData(); // Refresh when closed
+                createWin.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Erreur CreateRoomWindow: {ex.Message}\n\nStack: {ex.StackTrace}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -156,10 +163,8 @@ namespace PaLX.Client.Controls
             if (sender is Button btn && btn.Tag is RoomViewModel room)
             {
                 var editWin = new CreateRoomWindow(room);
-                if (editWin.ShowDialog() == true)
-                {
-                    LoadData();
-                }
+                editWin.Closed += (s, args) => LoadData(); // Refresh when closed
+                editWin.Show();
             }
         }
 
@@ -186,6 +191,7 @@ namespace PaLX.Client.Controls
         public int Id { get; set; }
         public string Name { get; set; }
         public string Description { get; set; }
+        public int CategoryId { get; set; }
         public string CategoryName { get; set; }
         public int OwnerId { get; set; }
         public string OwnerName { get; set; }

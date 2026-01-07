@@ -1,0 +1,156 @@
+<Window x:Class="PaLX.Client.RoleRequestWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Demande de Rôle" Height="280" Width="420"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize"
+        Topmost="True">
+    
+    <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="16"
+            BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="0" Opacity="0.4" Color="#9B59B6"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Header -->
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" 
+                    CornerRadius="16,16,0,0" Padding="20,16"
+                    MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                        <TextBlock x:Name="RoleIcon" Text="👑" FontSize="24" 
+                                   VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <StackPanel>
+                            <TextBlock Text="Demande de Rôle" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextBrush}"/>
+                            <TextBlock x:Name="RoomNameLabel" Text="Salon" FontSize="12"
+                                       Foreground="{DynamicResource LightTextBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <Button x:Name="CloseButton" Content="✕" 
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Width="28" Height="28" FontSize="14" Cursor="Hand"
+                            Background="Transparent" Foreground="{DynamicResource LightTextBrush}"
+                            BorderThickness="0" Click="Close_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}" 
+                                                    CornerRadius="6">
+                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Background" Value="#44FF5555"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+            
+            <!-- Content -->
+            <StackPanel Grid.Row="1" Margin="24,20">
+                <TextBlock TextWrapping="Wrap" FontSize="14" 
+                           Foreground="{DynamicResource TextBrush}" TextAlignment="Center">
+                    <Run Text="Vous avez reçu une invitation pour devenir"/>
+                </TextBlock>
+                
+                <Border x:Name="RoleBadge" CornerRadius="8" Padding="16,8" 
+                        Margin="0,16" HorizontalAlignment="Center">
+                    <TextBlock x:Name="RoleText" FontSize="18" FontWeight="Bold" 
+                               Foreground="White" HorizontalAlignment="Center"/>
+                </Border>
+                
+                <TextBlock TextWrapping="Wrap" FontSize="14" TextAlignment="Center"
+                           Foreground="{DynamicResource LightTextBrush}">
+                    <Run Text="dans le salon "/>
+                    <Run x:Name="RoomNameRun" FontWeight="SemiBold" 
+                         Foreground="{DynamicResource AccentBrush}"/>
+                </TextBlock>
+            </StackPanel>
+            
+            <!-- Footer Buttons -->
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" 
+                    CornerRadius="0,0,16,16" Padding="20,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Decline Button -->
+                    <Button Grid.Column="0" Content="❌ Refuser" Height="40" 
+                            FontSize="14" Cursor="Hand" Click="Decline_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Background" Value="#E74C3C"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}" 
+                                                    CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Opacity" Value="0.9"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- Accept Button -->
+                    <Button Grid.Column="2" Content="✓ Accepter" Height="40" 
+                            FontSize="14" Cursor="Hand" Click="Accept_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="Background" Value="#27AE60"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="bd" Background="{TemplateBinding Background}" 
+                                                    CornerRadius="8">
+                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center"/>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="bd" Property="Opacity" Value="0.9"/>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

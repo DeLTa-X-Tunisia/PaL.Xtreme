@@ -67,6 +67,9 @@ namespace PaLX.Client.Services
         public event Action<string>? OnUserUnblocked;
         public event Action<string>? OnUserUnblockedBy;
 
+        // Room Role Request Events
+        public event Action<RoleRequestReceivedDto>? OnRoleRequestReceived;
+
         // System Events
         public event Action? OnConnectionClosed;
 
@@ -390,6 +393,31 @@ namespace PaLX.Client.Services
             _hubConnection.On<string>("UserBlockedBy", (blocker) => OnUserBlockedBy?.Invoke(blocker));
             _hubConnection.On<string>("UserUnblocked", (unblockedUser) => OnUserUnblocked?.Invoke(unblockedUser));
             _hubConnection.On<string>("UserUnblockedBy", (blocker) => OnUserUnblockedBy?.Invoke(blocker));
+
+            // Room Role Request Handler - Debug avec log
+            _hubConnection.On<int, int, string, string, int>("RoleRequestReceived", (requestId, roomId, roomName, role, requesterId) => 
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoleRequestReceived EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] requestId={requestId}, roomId={roomId}, roomName={roomName}, role={role}, requesterId={requesterId}");
+                try
+                {
+                    var dto = new RoleRequestReceivedDto 
+                    { 
+                        RequestId = requestId, 
+                        RoomId = roomId, 
+                        RoomName = roomName, 
+                        Role = role, 
+                        RequesterId = requesterId 
+                    };
+                    Console.WriteLine($"[SignalR CLIENT] Invoking OnRoleRequestReceived event...");
+                    OnRoleRequestReceived?.Invoke(dto);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoleRequestReceived event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoleRequestReceived handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
 
             _hubConnection.On<int, string, string, string>("ReceiveImageRequest", (id, sender, filename, url) => OnImageRequestReceived?.Invoke(id, sender, filename, url));
             _hubConnection.On<int, string, string, string>("ImageRequestSent", (id, receiver, filename, url) => OnImageRequestSent?.Invoke(id, receiver, filename, url));
@@ -762,6 +790,21 @@ namespace PaLX.Client.Services
             return await _httpClient.GetFromJsonAsync<List<RoomCategoryDto>>("api/room/categories") ?? new List<RoomCategoryDto>();
         }
 
+        public async Task<List<RoomSubCategoryDto>> GetRoomSubCategoriesAsync(int categoryId)
+        {
+            return await _httpClient.GetFromJsonAsync<List<RoomSubCategoryDto>>($"api/room/categories/{categoryId}/subcategories") ?? new List<RoomSubCategoryDto>();
+        }
+
+        public async Task<List<RoomSubscriptionTierDto>> GetSubscriptionTiersAsync()
+        {
+            return await _httpClient.GetFromJsonAsync<List<RoomSubscriptionTierDto>>("api/room/subscription-tiers") ?? new List<RoomSubscriptionTierDto>();
+        }
+
+        public async Task<List<MyRoomDto>> GetMyRoomsAsync()
+        {
+            return await _httpClient.GetFromJsonAsync<List<MyRoomDto>>("api/room/my-rooms") ?? new List<MyRoomDto>();
+        }
+
         public async Task<RoomDto?> CreateRoomAsync(CreateRoomDto dto)
         {
             var response = await _httpClient.PostAsJsonAsync("api/room", dto);
@@ -830,6 +873,65 @@ namespace PaLX.Client.Services
                 return false;
             }
         }
+
+        // ==================== Room Role Management ====================
+
+        /// <summary>
+        /// Récupère les rôles actuels des membres d'un salon
+        /// </summary>
+        public async Task<List<RoomRoleDto>> GetRoomRolesAsync(int roomId)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<List<RoomRoleDto>>($"api/room/{roomId}/roles") ?? new List<RoomRoleDto>();
+            }
+            catch
+            {
+                return new List<RoomRoleDto>();
+            }
+        }
+
+        /// <summary>
+        /// Attribue directement un rôle à un utilisateur (SuperAdmin, Admin, Moderator)
+        /// </summary>
+        public async Task<ApiResult> AssignRoleAsync(int roomId, int userId, string role)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync($"api/room/{roomId}/roles/assign", new { UserId = userId, Role = role });
+                if (response.IsSuccessStatusCode)
+                {
+                    return new ApiResult { Success = true, Message = "Rôle attribué avec succès" };
+                }
+                var error = await response.Content.ReadAsStringAsync();
+                return new ApiResult { Success = false, Message = error };
+            }
+            catch (Exception ex)
+            {
+                return new ApiResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        /// <summary>
+        /// Retire le rôle d'un utilisateur dans un salon
+        /// </summary>
+        public async Task<ApiResult> RemoveRoomRoleAsync(int roomId, int userId)
+        {
+            try
+            {
+                var response = await _httpClient.DeleteAsync($"api/room/{roomId}/roles/{userId}");
+                if (response.IsSuccessStatusCode)
+                {
+                    return new ApiResult { Success = true, Message = "Rôle retiré" };
+                }
+                var error = await response.Content.ReadAsStringAsync();
+                return new ApiResult { Success = false, Message = error };
+            }
+            catch (Exception ex)
+            {
+                return new ApiResult { Success = false, Message = ex.Message };
+            }
+        }
     }
 
     public class AuthResponse
@@ -863,6 +965,43 @@ namespace PaLX.Client.Services
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+        public int SubCategoryCount { get; set; }
+    }
+
+    public class RoomSubCategoryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+    }
+
+    public class RoomSubscriptionTierDto
+    {
+        public int Tier { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Icon { get; set; }
+        public string? Color { get; set; }
+        public int MaxUsers { get; set; }
+        public int MaxMic { get; set; }
+        public int MaxCam { get; set; }
+        public bool AlwaysOnline { get; set; }
+        public int MonthlyPriceCents { get; set; }
+    }
+
+    public class MyRoomDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? CategoryName { get; set; }
+        public string? TierName { get; set; }
+        public string? TierColor { get; set; }
+        public int UserCount { get; set; }
+        public int MaxUsers { get; set; }
     }
 
     public class CreateRoomDto
@@ -871,6 +1010,8 @@ namespace PaLX.Client.Services
         public string Description { get; set; } = string.Empty;
         public int CategoryId { get; set; }
         public int MaxUsers { get; set; }
+        public int MaxMics { get; set; } = 1;
+        public int MaxCams { get; set; } = 2;
         public bool IsPrivate { get; set; }
         public string? Password { get; set; }
         public bool Is18Plus { get; set; }
@@ -948,5 +1089,65 @@ namespace PaLX.Client.Services
         public string Content { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
         public bool IsRead { get; set; }
+    }
+
+    /// <summary>
+    /// Résultat d'une opération API
+    /// </summary>
+    public class ApiResult
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour les rôles d'un utilisateur dans un salon
+    /// </summary>
+    public class RoomRoleDto
+    {
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public string Role { get; set; } = string.Empty; // RoomSuperAdmin, RoomAdmin, RoomModerator
+    }
+
+    /// <summary>
+    /// DTO pour une demande de rôle en attente
+    /// </summary>
+    public class RoleRequestDto
+    {
+        public int RequestId { get; set; }
+        public int RoomId { get; set; }
+        public string RoomName { get; set; } = string.Empty;
+        public int RequesterId { get; set; }
+        public string RequesterName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour les demandes de rôle en attente (côté owner)
+    /// </summary>
+    public class RoomRoleRequestDto
+    {
+        public int Id { get; set; }
+        public int RoomId { get; set; }
+        public int TargetUserId { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public string Status { get; set; } = "Pending";
+        public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour la réception d'une demande de rôle via SignalR
+    /// </summary>
+    public class RoleRequestReceivedDto
+    {
+        public int RequestId { get; set; }
+        public int RoomId { get; set; }
+        public string RoomName { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public int RequesterId { get; set; }
     }
 }

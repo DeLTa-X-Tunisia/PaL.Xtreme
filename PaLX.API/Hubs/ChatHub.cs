@@ -130,6 +130,7 @@ namespace PaLX.API.Hubs
         public override async Task OnConnectedAsync()
         {
             var username = Context.UserIdentifier;
+            Console.WriteLine($"[ChatHub] User connected: '{username}' (ConnectionId: {Context.ConnectionId})");
             if (!string.IsNullOrEmpty(username))
             {
                 // Check current status in UserSessions

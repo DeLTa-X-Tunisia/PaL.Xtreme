@@ -120,7 +120,9 @@ namespace PaLX.Client
         {
             _elapsedMs += 50;
             double progress = 1.0 - ((double)_elapsedMs / _displayDurationMs);
-            ProgressBar.Width = (ToastBorder.ActualWidth + 32) * progress;
+            // S'assurer que la largeur ne devient jamais négative
+            if (progress < 0) progress = 0;
+            ProgressBar.Width = Math.Max(0, (ToastBorder.ActualWidth + 32) * progress);
         }
 
         private void PauseTimers()

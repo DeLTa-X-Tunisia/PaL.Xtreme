@@ -177,6 +177,9 @@ namespace PaLX.Client
             ApiService.Instance.OnUserUnblocked += OnUserUnblocked;
             ApiService.Instance.OnUserUnblockedBy += OnUserUnblocked;
 
+            // Room Role Request
+            ApiService.Instance.OnRoleRequestReceived += OnRoleRequestReceived;
+
             // System Events
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
 
@@ -468,6 +471,37 @@ namespace PaLX.Client
                 try { _friendRequestSound?.Play(); } catch { }
                 UpdateFriendRequestsCount();
                 await LoadFriends();
+            });
+        }
+
+        private void OnRoleRequestReceived(RoleRequestReceivedDto request)
+        {
+            Console.WriteLine($"[MainView] OnRoleRequestReceived called: RequestId={request.RequestId}, RoomId={request.RoomId}, RoomName={request.RoomName}, Role={request.Role}");
+            Dispatcher.Invoke(() => 
+            {
+                try 
+                { 
+                    Console.WriteLine("[MainView] Playing notification sound...");
+                    _friendRequestSound?.Play(); 
+                } 
+                catch (Exception ex) 
+                { 
+                    Console.WriteLine($"[MainView] Sound error: {ex.Message}");
+                }
+                
+                try
+                {
+                    Console.WriteLine("[MainView] Creating RoleRequestWindow...");
+                    // Afficher la fenêtre de demande de rôle
+                    var roleWindow = new RoleRequestWindow(request);
+                    Console.WriteLine("[MainView] Showing RoleRequestWindow...");
+                    roleWindow.Show();
+                    Console.WriteLine("[MainView] RoleRequestWindow shown successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MainView] ERROR showing RoleRequestWindow: {ex.Message}\n{ex.StackTrace}");
+                }
             });
         }
 

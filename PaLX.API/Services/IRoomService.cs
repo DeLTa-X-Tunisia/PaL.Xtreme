@@ -14,8 +14,19 @@ namespace PaLX.API.Services
         Task<List<RoomMessageDto>> GetRoomMessagesAsync(int roomId, int limit = 50);
         Task<bool> UpdateMemberStatusAsync(int userId, int roomId, bool? isCamOn, bool? isMicOn, bool? hasHandRaised);
         Task<List<RoomCategoryDto>> GetCategoriesAsync();
+        Task<List<RoomSubCategoryDto>> GetSubCategoriesAsync(int categoryId);
+        Task<List<RoomSubscriptionTierDto>> GetRoomSubscriptionTiersAsync();
+        Task<List<MyRoomDto>> GetMyRoomsAsync(int userId);
+        Task<RoomSubscriptionInfoDto?> GetRoomSubscriptionAsync(int roomId);
+        Task<bool> UpgradeRoomSubscriptionAsync(int userId, int roomId, int newTierLevel, string? transactionId = null, string? paymentMethod = null);
         Task DeleteRoomAsync(int userId, int roomId);
         Task<RoomDto> UpdateRoomAsync(int userId, int roomId, CreateRoomDto dto);
         Task<bool> ToggleRoomVisibilityAsync(int userId, int roomId);
+        
+        // Room Admins Management (Simplified)
+        Task<List<RoomRoleInfoDto>> GetRoomRolesAsync(int requesterId, int roomId);
+        Task AssignRoleAsync(int ownerId, int roomId, int targetUserId, string role);
+        Task RemoveRoomRoleAsync(int ownerId, int roomId, int targetUserId);
+        Task<string?> GetUserRoleInRoomAsync(int userId, int roomId);
     }
 }

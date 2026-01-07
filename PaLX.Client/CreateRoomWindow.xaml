@@ -1,66 +1,380 @@
 <Window x:Class="PaLX.Client.CreateRoomWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Créer un Salon" Height="550" Width="400"
-        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-        Background="{StaticResource BackgroundBrush}">
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-    </Window.Resources>
+        Title="Gestion Salons" Height="900" Width="740"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent" ResizeMode="NoResize">
     
-    <Border Background="White" Margin="20" CornerRadius="10" Padding="20">
+    <!-- Main Container -->
+    <Border CornerRadius="16" Background="{DynamicResource BackgroundBrush}" Margin="10"
+            MouseLeftButtonDown="Header_MouseLeftButtonDown">
         <Border.Effect>
-            <DropShadowEffect Color="#bdc3c7" BlurRadius="10" ShadowDepth="0" Opacity="0.3"/>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.2" Color="Black"/>
         </Border.Effect>
         
-        <StackPanel>
-            <TextBlock Text="Nouveau Salon" FontSize="24" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,20"/>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- HEADER -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="16,16,0,0" Padding="20,14">
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="{StaticResource PrimaryBrush}" CornerRadius="10" 
+                                Width="36" Height="36">
+                            <TextBlock Text="🏠" FontSize="18" HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Gestion Salons" FontSize="18" FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextBrush}" 
+                                   Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                    
+                    <!-- Close Button -->
+                    <Button HorizontalAlignment="Right" Click="Cancel_Click" 
+                            Width="32" Height="32" Background="Transparent" BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{DynamicResource SurfaceBrush}" CornerRadius="8">
+                                    <TextBlock Text="✕" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#FFDDDD"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- CONTENU PRINCIPAL -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Grid Grid.Row="1" Margin="20,15,20,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="25"/>
+                    <ColumnDefinition Width="210"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- ════════════════════════════════════════════════════════ -->
+                <!-- PARTIE GAUCHE - Informations -->
+                <!-- ════════════════════════════════════════════════════════ -->
+                <StackPanel Grid.Column="0">
+                    <!-- Nom du salon -->
+                    <TextBlock Text="Nom du salon" Foreground="{DynamicResource TextSecondaryBrush}" 
+                               FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="RoomNameBox" Padding="12,10" Margin="0,0,0,10"
+                             Background="{DynamicResource SurfaceBrush}" 
+                             Foreground="{DynamicResource TextBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
 
-            <!-- Name -->
-            <TextBlock Text="Nom du salon" FontWeight="SemiBold" Margin="0,0,0,5"/>
-            <TextBox x:Name="RoomNameBox" Padding="5" Margin="0,0,0,15"/>
+                    <!-- Description -->
+                    <TextBlock Text="Description" Foreground="{DynamicResource TextSecondaryBrush}" 
+                               FontSize="12" Margin="0,0,0,4"/>
+                    <TextBox x:Name="DescriptionBox" Padding="12,10" Margin="0,0,0,10"
+                             Height="65" TextWrapping="Wrap" AcceptsReturn="True"
+                             Background="{DynamicResource SurfaceBrush}" 
+                             Foreground="{DynamicResource TextBrush}"
+                             BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"/>
 
-            <!-- Description -->
-            <TextBlock Text="Description" FontWeight="SemiBold" Margin="0,0,0,5"/>
-            <TextBox x:Name="DescriptionBox" Padding="5" Margin="0,0,0,15" Height="60" TextWrapping="Wrap" AcceptsReturn="True"/>
+                    <!-- Catégorie et Sous-catégorie -->
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Catégorie" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                       FontSize="12" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="CategoryCombo" Padding="10,8"
+                                      DisplayMemberPath="Name" SelectionChanged="CategoryCombo_SelectionChanged"/>
+                        </StackPanel>
+                        
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Sous-catégorie" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                       FontSize="12" Margin="0,0,0,4"/>
+                            <ComboBox x:Name="SubCategoryCombo" Padding="10,8" DisplayMemberPath="Name"/>
+                        </StackPanel>
+                    </Grid>
 
-            <!-- Category -->
-            <TextBlock Text="Catégorie" FontWeight="SemiBold" Margin="0,0,0,5"/>
-            <ComboBox x:Name="CategoryCombo" Margin="0,0,0,15" DisplayMemberPath="Name"/>
+                    <!-- Options d'accès -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" 
+                            Padding="12" Margin="0,0,0,10">
+                        <StackPanel>
+                            <CheckBox x:Name="PrivateCheck" Cursor="Hand"
+                                      Checked="PrivateCheck_Changed" Unchecked="PrivateCheck_Changed">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="🔒" FontSize="14" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Salon Privé" Foreground="{StaticResource WarningBrush}" 
+                                               FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </CheckBox>
+                            
+                            <StackPanel x:Name="PasswordPanel" Visibility="Collapsed" Margin="26,8,0,0">
+                                <TextBlock Text="Code d'accès" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                           FontSize="11" Margin="0,0,0,4"/>
+                                <PasswordBox x:Name="PasswordBox" Padding="8,6" MaxLength="20"
+                                             Background="{DynamicResource SurfaceBrush}"
+                                             BorderBrush="{StaticResource WarningBrush}" BorderThickness="1"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
-            <!-- Subscription Level -->
-            <TextBlock Text="Niveau du salon" FontWeight="SemiBold" Margin="0,0,0,5"/>
-            <ComboBox x:Name="LevelCombo" Margin="0,0,0,15" SelectionChanged="LevelCombo_SelectionChanged">
-                <ComboBoxItem Content="Basic (Max 20)" Tag="0"/>
-                <ComboBoxItem Content="Deluxe (Max 50)" Tag="1"/>
-                <ComboBoxItem Content="VIP (Max 100)" Tag="2"/>
-                <ComboBoxItem Content="Royal (Max 200)" Tag="3"/>
-                <ComboBoxItem Content="Legend (Max 500)" Tag="4"/>
-            </ComboBox>
-
-            <!-- Options -->
-            <CheckBox x:Name="PrivateCheck" Content="Salon Privé (Mot de passe requis)" Margin="0,0,0,10" Checked="PrivateCheck_Changed" Unchecked="PrivateCheck_Changed"/>
-            <PasswordBox x:Name="PasswordBox" Margin="0,0,0,15" Padding="5" Visibility="Collapsed"/>
-
-            <CheckBox x:Name="AdultCheck" Content="Contenu Adulte (18+)" Margin="0,0,0,20"/>
-
-            <!-- Buttons -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,10,0,0">
-                <Button Content="Annuler" Width="100" Height="35" Margin="0,0,10,0" Click="Cancel_Click" Background="#95a5a6" Foreground="White" BorderThickness="0">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="5"/>
-                        </Style>
-                    </Button.Resources>
-                </Button>
-                <Button Content="Créer" Width="100" Height="35" Click="Create_Click" Background="{StaticResource PrimaryBrush}" Foreground="White" BorderThickness="0">
-                    <Button.Resources>
-                        <Style TargetType="Border">
-                            <Setter Property="CornerRadius" Value="5"/>
-                        </Style>
-                    </Button.Resources>
-                </Button>
-            </StackPanel>
-        </StackPanel>
+                    <!-- Contenu Adulte -->
+                    <CheckBox x:Name="AdultCheck" Cursor="Hand">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🔞" FontSize="14" Margin="0,0,6,0"/>
+                            <TextBlock Text="Contenu Adulte (18+)" Foreground="{StaticResource DangerBrush}" 
+                                       FontWeight="SemiBold"/>
+                        </StackPanel>
+                    </CheckBox>
+                </StackPanel>
+                
+                <!-- Séparateur -->
+                <Border Grid.Column="1" Width="1" Background="{DynamicResource DividerBrush}" 
+                        Margin="12,0" VerticalAlignment="Stretch"/>
+                
+                <!-- ════════════════════════════════════════════════════════ -->
+                <!-- PARTIE DROITE - Avatar + Capacités -->
+                <!-- ════════════════════════════════════════════════════════ -->
+                <StackPanel Grid.Column="2">
+                    
+                    <!-- Avatar du salon -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" 
+                            Padding="12" Margin="0,0,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <!-- Aperçu Avatar -->
+                            <Border x:Name="AvatarPreviewBorder" Grid.Column="0" Width="56" Height="56" 
+                                    CornerRadius="8" BorderBrush="{StaticResource PrimaryBrush}" 
+                                    BorderThickness="2" Background="{DynamicResource SurfaceBrush}"
+                                    Cursor="Hand" MouseLeftButtonDown="ChooseAvatar_Click">
+                                <Grid>
+                                    <TextBlock x:Name="AvatarPlaceholder" Text="📷" FontSize="22" 
+                                               Foreground="{DynamicResource LightTextBrush}" 
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <Border CornerRadius="6" ClipToBounds="True">
+                                        <Image x:Name="AvatarImage" Stretch="UniformToFill" 
+                                               Visibility="Collapsed"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0,0,0">
+                                <TextBlock Text="Avatar du salon" FontSize="12" FontWeight="SemiBold" 
+                                           Foreground="{DynamicResource TextBrush}"/>
+                                <Button Content="📁 Parcourir" Padding="10,5" FontSize="11" Margin="0,6,0,0"
+                                        Background="{StaticResource PrimaryBrush}" Foreground="White" 
+                                        BorderThickness="0" Cursor="Hand" Click="ChooseAvatar_Click"
+                                        HorizontalAlignment="Left">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="6">
+                                                <ContentPresenter HorizontalAlignment="Center" 
+                                                                  VerticalAlignment="Center" Margin="8,4"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    
+                    <!-- Capacités -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="⚙️ Capacités" FontSize="13" FontWeight="SemiBold" 
+                                       Foreground="{DynamicResource TextBrush}" Margin="0,0,0,10"/>
+                            
+                            <!-- Abonnement -->
+                            <Border Background="{DynamicResource SurfaceBrush}" CornerRadius="6" 
+                                    Padding="8,6" Margin="0,0,0,12">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Abonnement : " Foreground="{DynamicResource TextSecondaryBrush}" 
+                                               FontSize="11"/>
+                                    <TextBlock x:Name="SubscriptionLabel" Text="Basic" FontSize="12" 
+                                               FontWeight="Bold" Foreground="{StaticResource WarningBrush}"/>
+                                </StackPanel>
+                            </Border>
+                            
+                            <!-- Micros -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="30"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🎤 Micros" FontSize="11" 
+                                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                                           VerticalAlignment="Center"/>
+                                <Slider x:Name="MicSlider" Grid.Column="1" Minimum="1" Maximum="1" Value="1" 
+                                        TickFrequency="1" IsSnapToTickEnabled="True" 
+                                        ValueChanged="Slider_ValueChanged" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="MicValueText" Grid.Column="2" Text="1" FontSize="12" 
+                                           FontWeight="Bold" Foreground="{StaticResource AccentBrush}" 
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock x:Name="MicMaxLabel" Text="Max: 1" FontSize="9" 
+                                       Foreground="{DynamicResource LightTextBrush}" 
+                                       Margin="70,0,0,10"/>
+                            
+                            <!-- Caméras -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="30"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="📹 Caméras" FontSize="11" 
+                                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                                           VerticalAlignment="Center"/>
+                                <Slider x:Name="CamSlider" Grid.Column="1" Minimum="1" Maximum="2" Value="2" 
+                                        TickFrequency="1" IsSnapToTickEnabled="True" 
+                                        ValueChanged="Slider_ValueChanged" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="CamValueText" Grid.Column="2" Text="2" FontSize="12" 
+                                           FontWeight="Bold" Foreground="{StaticResource AccentBrush}" 
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock x:Name="CamMaxLabel" Text="Max: 2" FontSize="9" 
+                                       Foreground="{DynamicResource LightTextBrush}" 
+                                       Margin="70,0,0,10"/>
+                            
+                            <!-- Utilisateurs -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="70"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="35"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="👥 Users" FontSize="11" 
+                                           Foreground="{DynamicResource TextSecondaryBrush}" 
+                                           VerticalAlignment="Center"/>
+                                <Slider x:Name="UsersSlider" Grid.Column="1" Minimum="10" Maximum="50" Value="50" 
+                                        TickFrequency="10" IsSnapToTickEnabled="True" 
+                                        ValueChanged="Slider_ValueChanged" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="UsersValueText" Grid.Column="2" Text="50" FontSize="12" 
+                                           FontWeight="Bold" Foreground="{StaticResource AccentBrush}" 
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                            </Grid>
+                            <TextBlock x:Name="UsersMaxLabel" Text="Max: 50" FontSize="9" 
+                                       Foreground="{DynamicResource LightTextBrush}" Margin="70,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+            
+            <!-- ══════════════════════════════════════════════════════════════ -->
+            <!-- ADMINISTRATION (visible uniquement pour le Owner en édition) -->
+            <!-- ══════════════════════════════════════════════════════════════ -->
+            <Border x:Name="AdminSection" Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="12" Padding="16" Margin="20,0,20,10" Visibility="Collapsed">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Icône -->
+                    <Border Grid.Column="0" Width="40" Height="40" CornerRadius="10" 
+                            Background="#E8F5E9" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <TextBlock Text="🛡️" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    
+                    <!-- Texte -->
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="Administration du salon" FontSize="14" FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextBrush}"/>
+                        <TextBlock Text="Gérer les rôles et permissions des membres" 
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" 
+                                   Margin="0,3,0,0"/>
+                    </StackPanel>
+                    
+                    <!-- Bouton -->
+                    <Button Grid.Column="2" Content="⚙️ Modération" Padding="18,12" 
+                            Background="#4CAF50" Foreground="White"
+                            FontSize="13" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand"
+                            Click="OpenModeration_Click" VerticalAlignment="Center">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                        CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#43A047"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+            
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <!-- FOOTER - BOUTONS -->
+            <!-- ═══════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="3" Background="{DynamicResource CardBackgroundBrush}" 
+                    CornerRadius="0,0,16,16" Padding="25,18">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button Content="Annuler" Width="160" Height="50" Margin="0,0,20,0"
+                            Background="{DynamicResource SurfaceBrush}" 
+                            Foreground="{DynamicResource TextSecondaryBrush}"
+                            Click="Cancel_Click" FontSize="16" FontWeight="SemiBold" 
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" 
+                                                Value="{DynamicResource BorderBrush}"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                    
+                    <Button Content="✓ Créer le salon" Width="200" Height="50"
+                            Background="{StaticResource SuccessBrush}" Foreground="White"
+                            Click="Create_Click" FontSize="16" FontWeight="SemiBold" 
+                            BorderThickness="0" Cursor="Hand">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12">
+                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Border>
 </Window>

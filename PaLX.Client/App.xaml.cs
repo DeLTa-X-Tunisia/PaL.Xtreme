@@ -9,6 +9,7 @@
 
 using System.Configuration;
 using System.Data;
+using System.Threading.Tasks;
 using System.Windows;
 using PaLX.Client.Services;
 
@@ -22,6 +23,27 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        
+        // Gestionnaire d'exceptions non capturées pour debug
+        AppDomain.CurrentDomain.UnhandledException += (sender, args) =>
+        {
+            var ex = args.ExceptionObject as Exception;
+            Console.WriteLine($"[CRASH] UnhandledException: {ex?.Message}\n{ex?.StackTrace}");
+            MessageBox.Show($"Erreur fatale:\n{ex?.Message}\n\n{ex?.StackTrace}", "Crash", MessageBoxButton.OK, MessageBoxImage.Error);
+        };
+        
+        DispatcherUnhandledException += (sender, args) =>
+        {
+            Console.WriteLine($"[CRASH] DispatcherUnhandledException: {args.Exception.Message}\n{args.Exception.StackTrace}");
+            MessageBox.Show($"Erreur UI:\n{args.Exception.Message}\n\n{args.Exception.StackTrace}", "Crash UI", MessageBoxButton.OK, MessageBoxImage.Error);
+            args.Handled = true; // Empêche le crash immédiat
+        };
+        
+        TaskScheduler.UnobservedTaskException += (sender, args) =>
+        {
+            Console.WriteLine($"[CRASH] UnobservedTaskException: {args.Exception.Message}\n{args.Exception.StackTrace}");
+            args.SetObserved(); // Empêche le crash
+        };
         
         // Initialize theme from saved preferences
         ThemeService.Initialize();

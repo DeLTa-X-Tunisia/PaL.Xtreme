@@ -105,6 +105,55 @@ namespace PaLX.API.Controllers
             return Ok(categories);
         }
 
+        [HttpGet("categories/{categoryId}/subcategories")]
+        public async Task<IActionResult> GetSubCategories(int categoryId)
+        {
+            var subCategories = await _roomService.GetSubCategoriesAsync(categoryId);
+            return Ok(subCategories);
+        }
+
+        [HttpGet("subscription-tiers")]
+        public async Task<IActionResult> GetSubscriptionTiers()
+        {
+            var tiers = await _roomService.GetRoomSubscriptionTiersAsync();
+            return Ok(tiers);
+        }
+
+        [HttpGet("my-rooms")]
+        public async Task<IActionResult> GetMyRooms()
+        {
+            var userId = GetUserId();
+            var rooms = await _roomService.GetMyRoomsAsync(userId);
+            return Ok(rooms);
+        }
+
+        [HttpGet("{roomId}/subscription")]
+        public async Task<IActionResult> GetRoomSubscription(int roomId)
+        {
+            var subscription = await _roomService.GetRoomSubscriptionAsync(roomId);
+            if (subscription == null) return NotFound();
+            return Ok(subscription);
+        }
+
+        [HttpPost("{roomId}/upgrade")]
+        public async Task<IActionResult> UpgradeRoom(int roomId, [FromBody] UpgradeRoomSubscriptionDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var success = await _roomService.UpgradeRoomSubscriptionAsync(userId, roomId, dto.NewTierLevel, dto.TransactionId, dto.PaymentMethod);
+                return Ok(new { success });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Only room owner can upgrade" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpDelete("{roomId}")]
         public async Task<IActionResult> DeleteRoom(int roomId)
         {
@@ -157,6 +206,74 @@ namespace PaLX.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // ==================== ROOM ADMINS MANAGEMENT (Simplified) ====================
+
+        /// <summary>
+        /// Récupère les admins/modérateurs d'un salon
+        /// </summary>
+        [HttpGet("{roomId}/roles")]
+        public async Task<IActionResult> GetRoomRoles(int roomId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var roles = await _roomService.GetRoomRolesAsync(userId, roomId);
+                return Ok(roles);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Not owner" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Attribue directement un rôle à un utilisateur
+        /// </summary>
+        [HttpPost("{roomId}/roles/assign")]
+        public async Task<IActionResult> AssignRole(int roomId, [FromBody] RoleRequestDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                await _roomService.AssignRoleAsync(userId, roomId, dto.UserId, dto.Role);
+                return Ok(new { message = "Role assigned successfully" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Not owner" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Retire le rôle d'un utilisateur dans un salon
+        /// </summary>
+        [HttpDelete("{roomId}/roles/{targetUserId}")]
+        public async Task<IActionResult> RemoveRole(int roomId, int targetUserId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                await _roomService.RemoveRoomRoleAsync(userId, roomId, targetUserId);
+                return Ok(new { message = "Role removed" });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Unauthorized(new { message = "Not owner" });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 
     public class JoinRoomDto
@@ -176,5 +293,11 @@ namespace PaLX.API.Controllers
         public bool? IsCamOn { get; set; }
         public bool? IsMicOn { get; set; }
         public bool? HasHandRaised { get; set; }
+    }
+
+    public class RoleRequestDto
+    {
+        public int UserId { get; set; }
+        public string Role { get; set; } = string.Empty;
     }
 }
