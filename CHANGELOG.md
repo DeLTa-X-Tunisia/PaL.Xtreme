@@ -7,6 +7,30 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.7.3] - 2026-01-08
+
+### ✨ Nouvelle Fonctionnalité - Menu Contextuel Messages
+
+#### Copier et Répondre aux Messages
+- **Chat Privé & Salons** : Clic droit sur n'importe quel message pour afficher un menu contextuel
+- **📋 Copier le message** : Copie le contenu textuel du message dans le presse-papiers avec confirmation toast
+- **↩️ Répondre** : Insère une citation du message dans la zone de saisie avec le format `@Pseudo « Message »`
+  - Les messages trop longs sont automatiquement tronqués à 100 caractères avec "..."
+  - Le curseur se positionne automatiquement à la fin pour continuer à taper
+
+### 🎨 Design
+- Menu contextuel sobre avec icônes emoji intuitives
+- Toast de confirmation "Message copié ! 📋" lors de la copie
+- Style cohérent avec le reste de l'interface
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/ChatWindow.xaml` : Ajout du ContextMenu sur les bulles de messages texte
+- `PaLX.Client/ChatWindow.xaml.cs` : Handlers `CopyMessage_Click()`, `ReplyMessage_Click()`, `StripHtmlTags()`
+- `PaLX.Client/RoomWindow.xaml` : Ajout du ContextMenu sur les bulles de messages salon
+- `PaLX.Client/RoomWindow.xaml.cs` : Handlers `CopyRoomMessage_Click()`, `ReplyRoomMessage_Click()`
+
+---
+
 ## [1.5.7.2] - 2026-01-08
 
 ### 🐛 Corrections de Bugs

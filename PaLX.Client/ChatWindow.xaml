@@ -388,7 +388,14 @@
                                                     BorderThickness="1"
                                                     CornerRadius="{Binding IsMine, Converter={StaticResource IsMineToCornerRadiusConverter}}"
                                                     Padding="12,8"
-                                                    MaxWidth="400">
+                                                    MaxWidth="400"
+                                                    Tag="{Binding}">
+                                                <Border.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="📋 Copier le message" Click="CopyMessage_Click" Tag="{Binding}"/>
+                                                        <MenuItem Header="↩️ Répondre" Click="ReplyMessage_Click" Tag="{Binding}"/>
+                                                    </ContextMenu>
+                                                </Border.ContextMenu>
                                                 <StackPanel>
                                                     <TextBlock Text="{Binding SenderName}"
                                                                Visibility="{Binding IsMine, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=invert}"

@@ -2062,6 +2062,85 @@ namespace PaLX.Client
         {
             this.Close();
         }
+
+        #region Context Menu - Copier / Répondre
+        
+        /// <summary>
+        /// Copie le contenu du message dans le presse-papiers
+        /// </summary>
+        private void CopyMessage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is MenuItem menuItem && menuItem.Tag is ChatMessageItem message)
+                {
+                    // Nettoyer le contenu HTML pour ne garder que le texte
+                    string cleanContent = StripHtmlTags(message.Content);
+                    Clipboard.SetText(cleanContent);
+                    ToastService.Success("Message copié !", "📋");
+                }
+            }
+            catch (Exception ex)
+            {
+                ToastService.Error($"Erreur lors de la copie : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Ajoute une citation du message dans la zone de saisie
+        /// </summary>
+        private void ReplyMessage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is MenuItem menuItem && menuItem.Tag is ChatMessageItem message)
+                {
+                    string cleanContent = StripHtmlTags(message.Content);
+                    string senderName = message.IsMine ? "Moi" : message.SenderName;
+                    
+                    // Tronquer le message s'il est trop long
+                    string truncatedContent = cleanContent.Length > 100 
+                        ? cleanContent.Substring(0, 100) + "..." 
+                        : cleanContent;
+                    
+                    // Créer la citation
+                    string quote = $"« {truncatedContent} » — {senderName}\n\n";
+                    
+                    // Ajouter au début de la zone de saisie
+                    var textRange = new TextRange(MessageInput.Document.ContentStart, MessageInput.Document.ContentStart);
+                    textRange.Text = quote;
+                    
+                    // Mettre le focus sur la zone de saisie
+                    MessageInput.Focus();
+                    MessageInput.CaretPosition = MessageInput.Document.ContentEnd;
+                }
+            }
+            catch (Exception ex)
+            {
+                ToastService.Error($"Erreur : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Supprime les balises HTML du texte
+        /// </summary>
+        private string StripHtmlTags(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return string.Empty;
+            
+            // Supprimer les balises HTML
+            string result = System.Text.RegularExpressions.Regex.Replace(html, @"<[^>]+>", "");
+            
+            // Supprimer les smileys [smiley:xxx]
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"\[smiley:[^\]]+\]", "😊");
+            
+            // Décoder les entités HTML
+            result = System.Net.WebUtility.HtmlDecode(result);
+            
+            return result.Trim();
+        }
+        
+        #endregion
     }
 
     public class ChatMessage

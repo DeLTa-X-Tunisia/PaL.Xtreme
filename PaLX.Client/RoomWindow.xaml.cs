@@ -508,6 +508,60 @@ namespace PaLX.Client
                 }
             }
         }
+
+        #region Context Menu - Copier / Répondre Messages
+        
+        /// <summary>
+        /// Copie le contenu du message dans le presse-papiers
+        /// </summary>
+        private void CopyRoomMessage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is MenuItem menuItem && menuItem.Tag is RoomMessageViewModel message)
+                {
+                    Clipboard.SetText(message.Content);
+                    ToastService.Success("Message copié !", "📋");
+                }
+            }
+            catch (Exception ex)
+            {
+                ToastService.Error($"Erreur lors de la copie : {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Ajoute une citation du message dans la zone de saisie
+        /// </summary>
+        private void ReplyRoomMessage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (sender is MenuItem menuItem && menuItem.Tag is RoomMessageViewModel message)
+                {
+                    // Tronquer le message s'il est trop long
+                    string truncatedContent = message.Content.Length > 100 
+                        ? message.Content.Substring(0, 100) + "..." 
+                        : message.Content;
+                    
+                    // Créer la citation
+                    string quote = $"@{message.DisplayName} « {truncatedContent} » ";
+                    
+                    // Ajouter au début de la zone de saisie
+                    MessageInput.Text = quote + MessageInput.Text;
+                    
+                    // Mettre le focus sur la zone de saisie et positionner le curseur à la fin
+                    MessageInput.Focus();
+                    MessageInput.CaretIndex = MessageInput.Text.Length;
+                }
+            }
+            catch (Exception ex)
+            {
+                ToastService.Error($"Erreur : {ex.Message}");
+            }
+        }
+        
+        #endregion
     }
 
     public class RoomMemberViewModel : System.ComponentModel.INotifyPropertyChanged
