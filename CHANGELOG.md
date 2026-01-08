@@ -7,6 +7,29 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.2] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **DisplayName des Rôles** : Affichage des noms français à la place des noms techniques
+  - `RoomOwner` → **Propriétaire du Salon** (🔴 #FF0000)
+  - `RoomSuperAdmin` → **Super Administrateur** (🟠 #FF4500)
+  - `RoomAdmin` → **Administrateur** (🟡 #FFA500)
+  - `PowerUser` → **Utilisateur Avancé** (🟢 #008000)
+  - `RoomModerator` → **Modérateur** (🔵 #0000FF)
+  - `RoomMember` → **Membre** (⚫ #808080)
+
+- **Synchronisation Temps Réel des Rôles** : Mise à jour instantanée dans la room
+  - Événement SignalR `MemberRoleUpdated` pour notifier tous les membres
+  - Le DisplayName, la couleur et l'icône se mettent à jour sans reconnexion
+  - Message système affiché lors du changement de rôle
+
+### 🔧 Améliorations Backend
+- **RoleDisplayMapper** : Nouvelle classe utilitaire pour le mapping des rôles
+- **Couleurs cohérentes** : Les couleurs proviennent du mapper (pas de la BDD)
+- **Messages de room** : RoleName traduit aussi pour l'historique des messages
+
+---
+
 ## [1.5.1] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

@@ -80,6 +80,7 @@ namespace PaLX.Client
             _apiService.OnRoomUserJoined += OnUserJoined;
             _apiService.OnRoomUserLeft += OnUserLeft;
             _apiService.OnRoomMemberStatusUpdated += OnStatusUpdated;
+            _apiService.OnMemberRoleUpdated += OnMemberRoleUpdated;
             
             this.Closed += RoomWindow_Closed;
         }
@@ -186,6 +187,7 @@ namespace PaLX.Client
             _apiService.OnRoomUserJoined -= OnUserJoined;
             _apiService.OnRoomUserLeft -= OnUserLeft;
             _apiService.OnRoomMemberStatusUpdated -= OnStatusUpdated;
+            _apiService.OnMemberRoleUpdated -= OnMemberRoleUpdated;
             
             if (_apiService.VoiceService != null)
             {
@@ -365,6 +367,23 @@ namespace PaLX.Client
             });
         }
 
+        /// <summary>
+        /// Handler pour la mise à jour du rôle d'un membre en temps réel
+        /// </summary>
+        private void OnMemberRoleUpdated(int userId, string roleName, string color, string icon)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                var member = Members.FirstOrDefault(m => m.UserId == userId);
+                if (member != null)
+                {
+                    member.RoleName = roleName;
+                    member.RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(color)!;
+                    AddSystemMessage($"{member.DisplayName} est maintenant {roleName}");
+                }
+            });
+        }
+
         private async void Send_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrWhiteSpace(MessageInput.Text)) return;
@@ -488,13 +507,26 @@ namespace PaLX.Client
         private bool _isCamOn;
         private bool _hasHandRaised;
         private string _speakingTime = "";
+        private string _roleName = "Membre";
+        private Brush _roleColor = Brushes.Gray;
 
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string DisplayName { get; set; }
         public string AvatarPath { get; set; } = string.Empty;
-        public string RoleName { get; set; }
-        public Brush RoleColor { get; set; }
+        
+        public string RoleName 
+        { 
+            get => _roleName; 
+            set { _roleName = value; OnPropertyChanged(nameof(RoleName)); } 
+        }
+        
+        public Brush RoleColor 
+        { 
+            get => _roleColor; 
+            set { _roleColor = value; OnPropertyChanged(nameof(RoleColor)); } 
+        }
+        
         public DateTime LastMicOnTime { get; set; }
         public string Gender { get; set; } = "Unknown";
         

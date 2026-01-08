@@ -363,6 +363,9 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                var technicalRoleName = reader.GetString(5);
+                var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRoleName);
+                
                 members.Add(new RoomMemberDto
                 {
                     UserId = reader.GetInt32(0),
@@ -370,9 +373,9 @@ namespace PaLX.API.Services
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(2).ToLower()),
                     AvatarPath = reader.IsDBNull(3) ? "" : reader.GetString(3),
                     RoleId = reader.GetInt32(4),
-                    RoleName = reader.GetString(5),
-                    RoleColor = reader.IsDBNull(6) ? "#000000" : reader.GetString(6),
-                    RoleIcon = reader.IsDBNull(7) ? "" : reader.GetString(7),
+                    RoleName = roleInfo.DisplayName, // Utilise le DisplayName français
+                    RoleColor = roleInfo.Color, // Utilise la couleur du mapper
+                    RoleIcon = roleInfo.Icon, // Utilise l'icône du mapper
                     IsMuted = reader.GetBoolean(8),
                     HasHandRaised = reader.GetBoolean(9),
                     IsCamOn = reader.GetBoolean(10),
@@ -436,7 +439,10 @@ namespace PaLX.API.Services
                     displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(1).ToLower());
                     avatarPath = reader.IsDBNull(2) ? "" : reader.GetString(2);
                     roleColor = reader.IsDBNull(3) ? "#000000" : reader.GetString(3);
-                    roleName = reader.GetString(4);
+                    var technicalRole = reader.GetString(4);
+                    var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRole);
+                    roleName = roleInfo.DisplayName;
+                    roleColor = roleInfo.Color;
                 }
             }
 
@@ -491,6 +497,9 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                var technicalRoleName = reader.GetString(10);
+                var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRoleName);
+                
                 messages.Add(new RoomMessageDto
                 {
                     Id = reader.GetInt32(0),
@@ -503,8 +512,8 @@ namespace PaLX.API.Services
                     Username = reader.GetString(6),
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(7).ToLower()),
                     AvatarPath = reader.IsDBNull(8) ? "" : reader.GetString(8),
-                    RoleColor = reader.IsDBNull(9) ? "#000000" : reader.GetString(9),
-                    RoleName = reader.GetString(10)
+                    RoleColor = roleInfo.Color,
+                    RoleName = roleInfo.DisplayName
                 });
             }
             
@@ -702,14 +711,18 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
+                var technicalRoleName = reader.GetString(4);
+                var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRoleName);
+                
                 return new RoomMemberDto
                 {
                     UserId = reader.GetInt32(0),
                     Username = reader.GetString(1),
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(2).ToLower()),
                     AvatarPath = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    RoleName = reader.GetString(4),
-                    RoleColor = reader.GetString(5),
+                    RoleName = roleInfo.DisplayName, // Utilise le DisplayName français
+                    RoleColor = roleInfo.Color, // Utilise la couleur du mapper
+                    RoleIcon = roleInfo.Icon,
                     IsCamOn = reader.GetBoolean(6),
                     IsMicOn = reader.GetBoolean(7),
                     HasHandRaised = reader.GetBoolean(8),
@@ -1086,6 +1099,12 @@ namespace PaLX.API.Services
                 await _chatHubContext.Clients.User(targetUsername)
                     .SendAsync("RoleAssigned", roomId, roomName, role);
                 Console.WriteLine($"[RoomService] SignalR RoleAssigned notification sent to '{targetUsername}' for room {roomId} with role {role}");
+                
+                // Notifier tous les membres du salon pour mise à jour de l'affichage du rôle
+                var roleInfo = RoleDisplayMapper.GetRoleInfo(role);
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("MemberRoleUpdated", targetUserId, roleInfo.DisplayName, roleInfo.Color, roleInfo.Icon);
+                Console.WriteLine($"[RoomService] SignalR MemberRoleUpdated sent to Room_{roomId} for user {targetUserId} with role {roleInfo.DisplayName}");
             }
             catch (Exception ex)
             {
@@ -1144,6 +1163,13 @@ namespace PaLX.API.Services
                 await _chatHubContext.Clients.User(targetUsername)
                     .SendAsync("RoleRemoved", roomId, roomName);
                 Console.WriteLine($"[RoomService] SignalR RoleRemoved notification sent to '{targetUsername}' for room {roomId}");
+                
+                // Notifier tous les membres du salon pour mise à jour de l'affichage
+                // Quand un rôle est retiré, l'utilisateur redevient "Membre" (RoomMember)
+                var memberRoleInfo = RoleDisplayMapper.GetRoleInfo("RoomMember");
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("MemberRoleUpdated", targetUserId, memberRoleInfo.DisplayName, memberRoleInfo.Color, memberRoleInfo.Icon);
+                Console.WriteLine($"[RoomService] SignalR MemberRoleUpdated sent to Room_{roomId} for user {targetUserId} (role removed, now Member)");
             }
             catch (Exception ex)
             {

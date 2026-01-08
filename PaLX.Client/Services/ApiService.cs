@@ -35,6 +35,7 @@ namespace PaLX.Client.Services
         public event Action<RoomMemberDto>? OnRoomUserJoined;
         public event Action<int>? OnRoomUserLeft;
         public event Action<int, bool?, bool?, bool?>? OnRoomMemberStatusUpdated;
+        public event Action<int, string, string, string>? OnMemberRoleUpdated; // userId, displayName, color, icon
         
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
@@ -478,6 +479,7 @@ namespace PaLX.Client.Services
             _roomHubConnection.On<RoomMemberDto>("UserJoined", (member) => OnRoomUserJoined?.Invoke(member));
             _roomHubConnection.On<int>("UserLeft", (uid) => OnRoomUserLeft?.Invoke(uid));
             _roomHubConnection.On<int, bool?, bool?, bool?>("MemberStatusUpdated", (uid, cam, mic, hand) => OnRoomMemberStatusUpdated?.Invoke(uid, cam, mic, hand));
+            _roomHubConnection.On<int, string, string, string>("MemberRoleUpdated", (uid, roleName, color, icon) => OnMemberRoleUpdated?.Invoke(uid, roleName, color, icon));
 
             // ... (Existing Transfer Handlers) ...
             
