@@ -40,6 +40,49 @@ public partial class MainWindow : Window
 
         // Initial State
         UpdateButtonsState();
+        UpdateDebugButtonState();
+    }
+    
+    /// <summary>
+    /// Retourne le chemin du fichier debug.enabled dans le dossier bin du client
+    /// </summary>
+    private string GetDebugFilePath()
+    {
+        var root = GetSolutionRoot();
+        var projectPath = Path.Combine(root, "PaLX.Client");
+        
+        // Chercher dans win-x64 d'abord
+        string binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows", "win-x64");
+        if (!Directory.Exists(binPath))
+            binPath = Path.Combine(projectPath, "bin", "Debug", "net10.0-windows");
+        if (!Directory.Exists(binPath))
+            binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows", "win-x64");
+        if (!Directory.Exists(binPath))
+            binPath = Path.Combine(projectPath, "bin", "Release", "net10.0-windows");
+            
+        return Path.Combine(binPath, "debug.enabled");
+    }
+    
+    /// <summary>
+    /// Met à jour l'état visuel du bouton debug
+    /// </summary>
+    private void UpdateDebugButtonState()
+    {
+        var debugFile = GetDebugFilePath();
+        bool isDebugEnabled = File.Exists(debugFile);
+        
+        if (isDebugEnabled)
+        {
+            DebugButtonText.Text = "Debug ON";
+            DebugIcon.Text = "🔴";
+            ToggleDebugButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#e74c3c"));
+        }
+        else
+        {
+            DebugButtonText.Text = "Debug OFF";
+            DebugIcon.Text = "🐛";
+            ToggleDebugButton.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9b59b6"));
+        }
     }
 
     private string GetSolutionRoot()
@@ -454,5 +497,54 @@ public partial class MainWindow : Window
             ConsoleOutput.Text += $"{color} [{timestamp}] {message}\n";
             ConsoleScroller.ScrollToEnd();
         });
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CLIENT DEBUG MODE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    private void ToggleClientDebug_Click(object sender, RoutedEventArgs e)
+    {
+        var debugFile = GetDebugFilePath();
+        bool isCurrentlyEnabled = File.Exists(debugFile);
+        
+        try
+        {
+            if (isCurrentlyEnabled)
+            {
+                // Désactiver le debug
+                File.Delete(debugFile);
+                LogToConsole("Mode debug client DÉSACTIVÉ", "SUCCESS");
+                MessageBox.Show(
+                    "Mode debug désactivé.\n\nLes prochains clients lancés n'afficheront plus la console de debug.",
+                    "Debug OFF",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            else
+            {
+                // Activer le debug - créer le dossier si nécessaire
+                var debugDir = Path.GetDirectoryName(debugFile);
+                if (!string.IsNullOrEmpty(debugDir) && !Directory.Exists(debugDir))
+                {
+                    Directory.CreateDirectory(debugDir);
+                }
+                
+                File.WriteAllText(debugFile, $"Debug mode enabled at {DateTime.Now}");
+                LogToConsole("Mode debug client ACTIVÉ", "WARN");
+                MessageBox.Show(
+                    "Mode debug activé.\n\nLes prochains clients lancés afficheront une console de debug.\n\n⚠️ Les clients déjà ouverts ne sont pas affectés.",
+                    "Debug ON",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            
+            UpdateDebugButtonState();
+        }
+        catch (Exception ex)
+        {
+            LogToConsole($"Erreur toggle debug: {ex.Message}", "ERROR");
+            MessageBox.Show($"Erreur: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 }
