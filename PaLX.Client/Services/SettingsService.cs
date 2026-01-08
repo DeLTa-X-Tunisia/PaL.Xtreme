@@ -18,6 +18,7 @@ namespace PaLX.Client.Services
         public int SelectedCameraIndex { get; set; } = 0;
         public int SelectedMicrophoneIndex { get; set; } = 0;
         public int VideoQuality { get; set; } = 1; // 0=Basse, 1=Moyenne, 2=Haute
+        public string FavoriteSmileyPack { get; set; } = "pxt_01"; // Pack de smileys préféré
     }
 
     /// <summary>
@@ -236,6 +237,22 @@ namespace PaLX.Client.Services
             {
                 int index = Math.Clamp(VideoQuality, 0, VideoQualityPresets.Length - 1);
                 return VideoQualityPresets[index];
+            }
+        }
+
+        /// <summary>
+        /// Pack de smileys préféré (pxt_01 à pxt_10)
+        /// </summary>
+        public static string FavoriteSmileyPack
+        {
+            get => Current.FavoriteSmileyPack;
+            set
+            {
+                if (Current.FavoriteSmileyPack != value)
+                {
+                    Current.FavoriteSmileyPack = value;
+                    Save();
+                }
             }
         }
 

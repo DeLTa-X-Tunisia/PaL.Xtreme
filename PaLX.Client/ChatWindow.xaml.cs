@@ -1870,51 +1870,65 @@ namespace PaLX.Client
             }
         }
 
+        private bool _smileysLoaded = false;
+
         private void EmojiButton_Click(object sender, RoutedEventArgs e)
         {
-            if (SmileyPanel.Children.Count == 0)
+            if (!_smileysLoaded)
             {
                 LoadSmileys();
+                _smileysLoaded = true;
             }
             SmileyPopup.IsOpen = !SmileyPopup.IsOpen;
         }
 
         private void LoadSmileys()
         {
-            string smileyPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Smiley");
-            if (System.IO.Directory.Exists(smileyPath))
-            {
-                var files = System.IO.Directory.GetFiles(smileyPath, "*.png");
-                var sortedFiles = files.OrderBy(f => {
+            SmileyPanel.Children.Clear();
+            string smileyPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Smiley", "pxt_01");
+            
+            if (!System.IO.Directory.Exists(smileyPath)) return;
+
+            var files = System.IO.Directory.GetFiles(smileyPath, "*.png")
+                .OrderBy(f => {
                     string name = System.IO.Path.GetFileNameWithoutExtension(f);
-                    string numberPart = name.Replace("b_s_", "");
-                    if (int.TryParse(numberPart, out int n)) return n;
+                    if (int.TryParse(name, out int n)) return n;
                     return 999;
                 });
 
-                foreach (var file in sortedFiles)
+            foreach (var file in files)
+            {
+                var btn = new Button
                 {
-                    var btn = new Button
-                    {
-                        Width = 32,
-                        Height = 32,
-                        Margin = new Thickness(2),
-                        Background = Brushes.Transparent,
-                        BorderThickness = new Thickness(0),
-                        Cursor = Cursors.Hand,
-                        Tag = System.IO.Path.GetFileName(file)
-                    };
+                    Width = 34,
+                    Height = 34,
+                    Margin = new Thickness(1),
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand,
+                    Tag = $"pxt_01/{System.IO.Path.GetFileName(file)}",
+                    ToolTip = System.IO.Path.GetFileNameWithoutExtension(file)
+                };
 
-                    var img = new Image
-                    {
-                        Source = new BitmapImage(new Uri(file, UriKind.Absolute)),
-                        Stretch = Stretch.Uniform
-                    };
-                    
-                    btn.Content = img;
-                    btn.Click += Smiley_Click;
-                    SmileyPanel.Children.Add(btn);
-                }
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(file, UriKind.Absolute);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.DecodePixelWidth = 30;
+                bitmap.EndInit();
+                bitmap.Freeze();
+
+                var img = new Image
+                {
+                    Source = bitmap,
+                    Stretch = Stretch.Uniform,
+                    Width = 30,
+                    Height = 30
+                };
+                
+                btn.Content = img;
+                btn.Click += Smiley_Click;
+                SmileyPanel.Children.Add(btn);
             }
         }
 
@@ -1922,7 +1936,7 @@ namespace PaLX.Client
         {
             if (sender is Button btn && btn.Tag is string filename)
             {
-                string fullPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Smiley", filename);
+                string fullPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Smiley", filename);
                 
                 var bitmap = new BitmapImage();
                 bitmap.BeginInit();
@@ -1943,7 +1957,7 @@ namespace PaLX.Client
 
         private string ConvertRichTextBoxToHtml(RichTextBox rtb)
         {
-            StringBuilder html = new StringBuilder();
+            StringBuilder sb = new StringBuilder();
             foreach (Block block in rtb.Document.Blocks)
             {
                 if (block is Paragraph paragraph)
@@ -1952,32 +1966,20 @@ namespace PaLX.Client
                     {
                         if (inline is InlineUIContainer uiContainer && uiContainer.Child is Image img && img.Tag is string filename)
                         {
-                            html.Append($"[smiley:{filename}]");
+                            sb.Append($"[smiley:{filename}]");
                         }
                         else if (inline is Run run)
                         {
-                            string text = System.Net.WebUtility.HtmlEncode(run.Text);
-                            if (run.FontWeight == FontWeights.Bold) text = $"<b>{text}</b>";
-                            if (run.FontStyle == FontStyles.Italic) text = $"<i>{text}</i>";
-                            if (run.TextDecorations.Any(d => d.Location == TextDecorationLocation.Underline)) text = $"<u>{text}</u>";
-                            
-                            if (run.Foreground is SolidColorBrush brush && brush.Color != Colors.Black && brush.Color != (Color)ColorConverter.ConvertFromString("#FF333333"))
-                            {
-                                text = $"<span style='color:{brush.Color}'>{text}</span>";
-                            }
-                            html.Append(text);
+                            sb.Append(run.Text);
                         }
                         else if (inline is LineBreak)
                         {
-                            html.Append("<br/>");
+                            sb.Append("\n");
                         }
                     }
-                    html.Append("<br/>");
                 }
             }
-            string result = html.ToString();
-            if (result.EndsWith("<br/>")) result = result.Substring(0, result.Length - 5);
-            return result;
+            return sb.ToString().TrimEnd('\n');
         }
 
         private async void SendMessage()

@@ -128,8 +128,8 @@ namespace PaLX.Client.Controls
 
                 if (isSmiley)
                 {
-                    // Parser le smiley [smiley:b_s_X.png]
-                    var smileyMatch = Regex.Match(content.Substring(nextPattern), @"^\[smiley:(b_s_\d+\.png)\]", RegexOptions.IgnoreCase);
+                    // Parser le smiley [smiley:pxt_XX/N.ext] ou ancien format [smiley:b_s_X.png]
+                    var smileyMatch = Regex.Match(content.Substring(nextPattern), @"^\[smiley:(pxt_\d{2}/\d+\.(png|gif)|b_s_\d+\.png)\]", RegexOptions.IgnoreCase);
                     if (smileyMatch.Success)
                     {
                         string smileyFile = smileyMatch.Groups[1].Value;
@@ -322,9 +322,12 @@ namespace PaLX.Client.Controls
         {
             try
             {
+                // Normaliser le chemin (remplacer / par le séparateur du système)
+                string normalizedFile = smileyFile.Replace('/', System.IO.Path.DirectorySeparatorChar);
+                
                 string smileyPath = System.IO.Path.Combine(
                     AppDomain.CurrentDomain.BaseDirectory,
-                    "Assets", "Smiley", smileyFile);
+                    "Smiley", normalizedFile);
 
                 if (!System.IO.File.Exists(smileyPath))
                     return null;

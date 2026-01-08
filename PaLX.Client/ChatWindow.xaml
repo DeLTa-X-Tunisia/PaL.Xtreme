@@ -1556,12 +1556,12 @@
                                 
                                 <Popup x:Name="SmileyPopup" PlacementTarget="{Binding ElementName=EmojiButton}" 
                                        Placement="Top" StaysOpen="False" AllowsTransparency="True">
-                                    <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="16" Padding="12">
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Padding="8">
                                         <Border.Effect>
-                                            <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.15"/>
+                                            <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.12"/>
                                         </Border.Effect>
-                                        <ScrollViewer MaxHeight="220" Width="280" VerticalScrollBarVisibility="Auto">
-                                            <WrapPanel x:Name="SmileyPanel" Width="260"/>
+                                        <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                            <WrapPanel x:Name="SmileyPanel" Width="280"/>
                                         </ScrollViewer>
                                     </Border>
                                 </Popup>

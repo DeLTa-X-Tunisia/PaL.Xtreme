@@ -520,7 +520,13 @@ namespace PaLX.Client.Models
         {
             if (string.IsNullOrEmpty(input)) return input;
 
-            string result = input;
+            // Protéger les tags [smiley:...] avant conversion
+            var smileyTags = new List<string>();
+            var smileyRegex = new System.Text.RegularExpressions.Regex(@"\[smiley:[^\]]+\]");
+            string result = smileyRegex.Replace(input, m => {
+                smileyTags.Add(m.Value);
+                return $"<<SMILEY_{smileyTags.Count - 1}>>";
+            });
 
             // Convertir les codes texte en emojis Unicode
             foreach (var kvp in TextEmojis)
@@ -528,7 +534,11 @@ namespace PaLX.Client.Models
                 result = result.Replace(kvp.Key, kvp.Value);
             }
 
-            // Les smileys personnalisés [smiley:xxx.png] seront gérés dans le XAML via un converter
+            // Restaurer les tags [smiley:...]
+            for (int i = 0; i < smileyTags.Count; i++)
+            {
+                result = result.Replace($"<<SMILEY_{i}>>", smileyTags[i]);
+            }
 
             return result;
         }
