@@ -18,6 +18,12 @@ namespace PaLX.API.Models
         public int SubscriptionLevel { get; set; } // 0=Basic, 1=Deluxe, etc.
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; } = true;
+        
+        /// <summary>
+        /// Quand TRUE, le salon est caché même au RoomOwner.
+        /// Seuls les admins système (RoleLevel 1-5) peuvent le voir.
+        /// </summary>
+        public bool IsSystemHidden { get; set; } = false;
     }
 
     public class RoomCategory

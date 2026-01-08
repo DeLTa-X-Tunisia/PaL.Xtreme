@@ -23,6 +23,12 @@ namespace PaLX.API.Services
         Task<RoomDto> UpdateRoomAsync(int userId, int roomId, CreateRoomDto dto);
         Task<bool> ToggleRoomVisibilityAsync(int userId, int roomId);
         
+        /// <summary>
+        /// Toggle le statut IsSystemHidden d'un salon (admin système uniquement).
+        /// Quand TRUE, même le RoomOwner ne voit plus son salon.
+        /// </summary>
+        Task<bool> ToggleSystemHiddenAsync(int userId, int roomId);
+        
         // Room Admins Management (Simplified)
         Task<List<RoomRoleInfoDto>> GetRoomRolesAsync(int requesterId, int roomId);
         Task AssignRoleAsync(int ownerId, int roomId, int targetUserId, string role);

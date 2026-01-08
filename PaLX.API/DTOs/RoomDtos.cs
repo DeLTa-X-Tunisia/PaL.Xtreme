@@ -31,6 +31,13 @@ namespace PaLX.API.DTOs
         public bool Is18Plus { get; set; }
         public int SubscriptionLevel { get; set; }
         public bool IsActive { get; set; }
+        
+        /// <summary>
+        /// Quand TRUE, le salon est caché même au RoomOwner.
+        /// Seuls les admins système (RoleLevel 1-5) peuvent le voir.
+        /// </summary>
+        public bool IsSystemHidden { get; set; }
+        
         public DateTime CreatedAt { get; set; }
         
         /// <summary>

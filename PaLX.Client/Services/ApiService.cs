@@ -84,6 +84,9 @@ namespace PaLX.Client.Services
         // Room Role Assigned Event (when owner assigns you a role)
         public event Action<int, string, string>? OnRoleAssigned; // roomId, roomName, role
 
+        // Room Visibility Changed Event (real-time update)
+        public event Action<int, bool, bool>? OnRoomVisibilityChanged; // roomId, isActive, isSystemHidden
+
         // System Events
         public event Action? OnConnectionClosed;
 
@@ -462,6 +465,22 @@ namespace PaLX.Client.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[SignalR CLIENT] ERROR in RoleAssigned handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Handler pour le changement de visibilité d'un salon (temps réel)
+            _hubConnection.On<int, bool, bool>("RoomVisibilityChanged", (roomId, isActive, isSystemHidden) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoomVisibilityChanged EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] roomId={roomId}, isActive={isActive}, isSystemHidden={isSystemHidden}");
+                try
+                {
+                    OnRoomVisibilityChanged?.Invoke(roomId, isActive, isSystemHidden);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoomVisibilityChanged event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoomVisibilityChanged handler: {ex.Message}\n{ex.StackTrace}");
                 }
             });
 
@@ -921,6 +940,32 @@ namespace PaLX.Client.Services
             }
         }
 
+        /// <summary>
+        /// Toggle le statut IsSystemHidden d'un salon (admin système uniquement).
+        /// Quand TRUE, même le RoomOwner ne voit plus son salon.
+        /// </summary>
+        public async Task<bool> ToggleSystemHiddenAsync(int roomId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/room/{roomId}/toggle-system-hidden", null);
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    if (result.TryGetProperty("isSystemHidden", out var isSystemHidden))
+                    {
+                        return isSystemHidden.GetBoolean();
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ApiService] ToggleSystemHiddenAsync error: {ex.Message}");
+                return false;
+            }
+        }
+
         // ==================== Room Role Management ====================
 
         /// <summary>
@@ -1017,6 +1062,13 @@ namespace PaLX.Client.Services
         public bool Is18Plus { get; set; }
         public int SubscriptionLevel { get; set; }
         public bool IsActive { get; set; }
+        
+        /// <summary>
+        /// Quand TRUE, le salon est caché même au RoomOwner.
+        /// Seuls les admins système peuvent le voir.
+        /// </summary>
+        public bool IsSystemHidden { get; set; }
+        
         public int UserCount { get; set; }
         public DateTime CreatedAt { get; set; }
         

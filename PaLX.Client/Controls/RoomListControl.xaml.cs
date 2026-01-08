@@ -31,7 +31,33 @@ namespace PaLX.Client.Controls
             _apiService.OnRoleRemoved += OnRoleRemoved;
             _apiService.OnRoleAssigned += OnRoleAssigned;
             
-            Console.WriteLine($"[RoomListControl] *** INITIALIZED - Subscribed to OnRoleRemoved and OnRoleAssigned events ***");
+            // S'abonner aux changements de visibilité des salons (temps réel)
+            _apiService.OnRoomVisibilityChanged += OnRoomVisibilityChanged;
+            
+            Console.WriteLine($"[RoomListControl] *** INITIALIZED - Subscribed to role and visibility events ***");
+        }
+
+        /// <summary>
+        /// Appelé quand la visibilité d'un salon change (temps réel via SignalR)
+        /// </summary>
+        private void OnRoomVisibilityChanged(int roomId, bool isActive, bool isSystemHidden)
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    Console.WriteLine($"[RoomListControl] OnRoomVisibilityChanged received for room {roomId}, isActive={isActive}, isSystemHidden={isSystemHidden}");
+                    
+                    // Rafraîchir la liste des salons pour mettre à jour l'affichage
+                    await RefreshRooms();
+                    
+                    Console.WriteLine($"[RoomListControl] Room list refreshed after visibility change");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RoomListControl] Error handling visibility change: {ex.Message}");
+                }
+            });
         }
 
         private void OnRoleAssigned(int roomId, string roomName, string role)
@@ -147,6 +173,7 @@ namespace PaLX.Client.Controls
                         IsPrivate = r.IsPrivate,
                         Is18Plus = r.Is18Plus,
                         IsActive = r.IsActive,
+                        IsSystemHidden = r.IsSystemHidden,
                         SubscriptionLevel = r.SubscriptionLevel,
                         CreatedAt = r.CreatedAt,
                         UserRole = r.UserRole
@@ -278,6 +305,37 @@ namespace PaLX.Client.Controls
                 }
             }
         }
+
+        /// <summary>
+        /// Bouton rouge pour cacher/afficher un salon en mode admin système.
+        /// Quand activé, même le RoomOwner ne voit plus son salon.
+        /// </summary>
+        private async void SystemHideRoom_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is RoomViewModel room)
+            {
+                try
+                {
+                    var confirmMessage = room.IsSystemHidden 
+                        ? $"Voulez-vous réafficher le salon '{room.Name}' au propriétaire ?"
+                        : $"Voulez-vous cacher le salon '{room.Name}' même à son propriétaire ?\n\nLe RoomOwner ne pourra plus voir ni gérer son propre salon.";
+                    
+                    var result = MessageBox.Show(confirmMessage, "Action Admin Système", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                    if (result != MessageBoxResult.Yes) return;
+
+                    var newState = await _apiService.ToggleSystemHiddenAsync(room.Id);
+                    var message = newState 
+                        ? $"Le salon '{room.Name}' est maintenant caché (même au propriétaire)." 
+                        : $"Le salon '{room.Name}' est de nouveau visible pour tous.";
+                    ToastService.Success(message, "Action Admin");
+                    await RefreshRooms();
+                }
+                catch (Exception ex)
+                {
+                    ToastService.Error($"Erreur: {ex.Message}");
+                }
+            }
+        }
     }
 
     public class RoomViewModel
@@ -294,6 +352,13 @@ namespace PaLX.Client.Controls
         public bool IsPrivate { get; set; }
         public bool Is18Plus { get; set; }
         public bool IsActive { get; set; }
+        
+        /// <summary>
+        /// Quand TRUE, le salon est caché même au RoomOwner.
+        /// Seuls les admins système peuvent le voir.
+        /// </summary>
+        public bool IsSystemHidden { get; set; }
+        
         public int SubscriptionLevel { get; set; }
         public DateTime CreatedAt { get; set; }
         
@@ -324,7 +389,17 @@ namespace PaLX.Client.Controls
         
         public string VisibilityIcon => IsActive ? "👁️" : "🙈";
         public string VisibilityTooltip => IsActive ? "Cacher le salon" : "Afficher le salon";
-        public double Opacity => IsActive ? 1.0 : 0.5;
+        
+        /// <summary>
+        /// Icône pour le bouton système (rouge = caché par admin)
+        /// </summary>
+        public string SystemHiddenIcon => IsSystemHidden ? "🚫" : "⛔";
+        public string SystemHiddenTooltip => IsSystemHidden ? "Afficher le salon (Admin)" : "Cacher le salon (Admin)";
+        
+        /// <summary>
+        /// Opacité du salon: réduite si caché normalement OU caché par admin
+        /// </summary>
+        public double Opacity => (IsActive && !IsSystemHidden) ? 1.0 : 0.5;
 
         public string LevelInitial
         {

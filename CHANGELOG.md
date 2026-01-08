@@ -7,6 +7,42 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.6] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Bouton Rouge "Cacher Salon (Admin)"** : Les admins système peuvent cacher un salon même au propriétaire
+  - 🔴 Bouton `⛔/🚫` visible uniquement pour les admins système
+  - Quand activé, le RoomOwner ne voit plus son propre salon
+  - Seuls les admins système peuvent voir et gérer le salon caché
+  - Confirmation de sécurité avant l'action
+
+### 🔄 Mise à Jour Temps Réel
+- **SignalR `RoomVisibilityChanged`** : Notification instantanée des changements de visibilité
+  - Plus besoin de se reconnecter pour voir les changements
+  - La liste des salons se rafraîchit automatiquement
+  - Fonctionne pour les deux types de visibilité (Owner et Admin)
+
+### 🔧 Base de Données
+- **Nouvelle colonne `IsSystemHidden`** : `BOOLEAN DEFAULT FALSE` dans la table `Rooms`
+- **Script SQL** : `add_system_hidden_column.sql` pour la migration
+
+### 🔧 Backend (API)
+- **`ToggleSystemHiddenAsync()`** : Nouvelle méthode pour le toggle admin
+- **`GetRoomsAsync()`** : Logique de filtrage mise à jour
+  - Admins système voient TOUT
+  - `IsSystemHidden=TRUE` → invisible même pour le Owner
+  - `IsActive=FALSE` → visible uniquement par Owner + admins
+- **Endpoint** : `POST /api/room/{roomId}/toggle-system-hidden`
+
+### 🔧 Frontend (Client)
+- **`ApiService.ToggleSystemHiddenAsync()`** : Appel API pour le toggle admin
+- **`ApiService.OnRoomVisibilityChanged`** : Événement SignalR pour temps réel
+- **`RoomViewModel.IsSystemHidden`** : Propriété pour l'état admin-caché
+- **`RoomListControl.xaml`** : Nouveau bouton rouge avec style distinct
+- **`RoomListControl.xaml.cs`** : Handler `SystemHideRoom_Click` + abonnement SignalR
+
+---
+
 ## [1.5.5] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

@@ -363,6 +363,13 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
+            // Vérifier si l'utilisateur est un admin système
+            bool isSystemAdmin = await IsSystemAdminAsync(conn, userId);
+            Console.WriteLine($"[RoomService] User {userId} isSystemAdmin: {isSystemAdmin}");
+
+            // Logique de filtrage:
+            // - IsActive=FALSE (caché par Owner): visible par Owner + admins système
+            // - IsSystemHidden=TRUE (caché par admin): visible UNIQUEMENT par admins système
             var sql = @"
                 SELECT r.*, c.""Name"" as CatName, 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as OwnerName,
@@ -373,7 +380,20 @@ namespace PaLX.API.Services
                 JOIN ""Users"" u ON r.""OwnerId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 LEFT JOIN ""RoomAdmins"" ra ON r.""Id"" = ra.""RoomId"" AND ra.""UserId"" = @uid
-                WHERE (r.""IsActive"" = TRUE OR r.""OwnerId"" = @uid)";
+                WHERE (
+                    -- Admins système voient TOUT
+                    @isSystemAdmin = TRUE
+                    OR (
+                        -- Sinon: salon non caché par admin système
+                        r.""IsSystemHidden"" = FALSE 
+                        AND (
+                            -- Salon actif (visible à tous)
+                            r.""IsActive"" = TRUE 
+                            -- OU salon inactif mais l'utilisateur est Owner
+                            OR r.""OwnerId"" = @uid
+                        )
+                    )
+                )";
 
             if (categoryId.HasValue)
             {
@@ -382,6 +402,7 @@ namespace PaLX.API.Services
 
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("uid", userId);
+            cmd.Parameters.AddWithValue("isSystemAdmin", isSystemAdmin);
             if (categoryId.HasValue) cmd.Parameters.AddWithValue("cat", categoryId.Value);
 
             using var reader = await cmd.ExecuteReaderAsync();
@@ -390,8 +411,9 @@ namespace PaLX.API.Services
                 var userRole = reader.IsDBNull(reader.GetOrdinal("UserRole")) ? null : reader.GetString(reader.GetOrdinal("UserRole"));
                 var roomId = reader.GetInt32(reader.GetOrdinal("Id"));
                 var roomName = reader.GetString(reader.GetOrdinal("Name"));
+                var isSystemHidden = reader.IsDBNull(reader.GetOrdinal("IsSystemHidden")) ? false : reader.GetBoolean(reader.GetOrdinal("IsSystemHidden"));
                 
-                Console.WriteLine($"[RoomService]   Room {roomId} ({roomName}) - UserRole for user {userId}: {userRole ?? "null"}");
+                Console.WriteLine($"[RoomService]   Room {roomId} ({roomName}) - UserRole: {userRole ?? "null"}, IsSystemHidden: {isSystemHidden}");
                 
                 rooms.Add(new RoomDto
                 {
@@ -407,6 +429,7 @@ namespace PaLX.API.Services
                     Is18Plus = reader.IsDBNull(reader.GetOrdinal("Is18Plus")) ? false : reader.GetBoolean(reader.GetOrdinal("Is18Plus")),
                     SubscriptionLevel = reader.GetInt32(reader.GetOrdinal("SubscriptionLevel")),
                     IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
+                    IsSystemHidden = isSystemHidden,
                     UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount")),
                     CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
                     UserRole = userRole
@@ -971,6 +994,62 @@ namespace PaLX.API.Services
                 cmd.Parameters.AddWithValue("rid", roomId);
                 await cmd.ExecuteNonQueryAsync();
             }
+            
+            // Notifier tous les clients du changement de visibilité en temps réel
+            Console.WriteLine($"[RoomService] Room {roomId} IsActive toggled to {newStatus}, broadcasting to all clients...");
+            await _chatHubContext.Clients.All.SendAsync("RoomVisibilityChanged", roomId, newStatus, false);
+            
+            return newStatus;
+        }
+
+        /// <summary>
+        /// Toggle le statut IsSystemHidden d'un salon.
+        /// UNIQUEMENT pour les admins système (RoleLevel 1-5).
+        /// Quand IsSystemHidden=TRUE, même le RoomOwner ne voit plus son salon.
+        /// </summary>
+        public async Task<bool> ToggleSystemHiddenAsync(int userId, int roomId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Vérifier que le salon existe
+            var checkSql = "SELECT 1 FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var checkCmd = new NpgsqlCommand(checkSql, conn))
+            {
+                checkCmd.Parameters.AddWithValue("rid", roomId);
+                var exists = await checkCmd.ExecuteScalarAsync();
+                if (exists == null) throw new Exception("Room not found");
+            }
+
+            // SEULS les admins système peuvent utiliser cette fonctionnalité
+            if (!await IsSystemAdminAsync(conn, userId))
+            {
+                throw new UnauthorizedAccessException("Only system administrators can toggle system hidden status");
+            }
+
+            // Récupérer le statut actuel
+            var statusSql = "SELECT \"IsSystemHidden\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            bool currentStatus = false;
+            using (var cmd = new NpgsqlCommand(statusSql, conn))
+            {
+                cmd.Parameters.AddWithValue("rid", roomId);
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value) currentStatus = (bool)result;
+            }
+
+            var newStatus = !currentStatus;
+            var sql = "UPDATE \"Rooms\" SET \"IsSystemHidden\" = @status WHERE \"Id\" = @rid";
+            using (var cmd = new NpgsqlCommand(sql, conn))
+            {
+                cmd.Parameters.AddWithValue("status", newStatus);
+                cmd.Parameters.AddWithValue("rid", roomId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+            
+            // Notifier tous les clients du changement de visibilité système en temps réel
+            Console.WriteLine($"[RoomService] Room {roomId} IsSystemHidden toggled to {newStatus} by system admin {userId}, broadcasting to all clients...");
+            await _chatHubContext.Clients.All.SendAsync("RoomVisibilityChanged", roomId, !newStatus, newStatus);
+            
             return newStatus;
         }
 

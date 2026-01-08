@@ -207,6 +207,29 @@ namespace PaLX.API.Controllers
             }
         }
 
+        /// <summary>
+        /// Toggle le statut IsSystemHidden d'un salon (admin système uniquement).
+        /// Quand TRUE, même le RoomOwner ne voit plus son salon.
+        /// </summary>
+        [HttpPost("{roomId}/toggle-system-hidden")]
+        public async Task<IActionResult> ToggleSystemHidden(int roomId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var isSystemHidden = await _roomService.ToggleSystemHiddenAsync(userId, roomId);
+                return Ok(new { isSystemHidden });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         // ==================== ROOM ADMINS MANAGEMENT (Simplified) ====================
 
         /// <summary>

@@ -120,6 +120,20 @@
                                     <Button Content="{Binding VisibilityIcon}" ToolTip="{Binding VisibilityTooltip}" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="HideRoom_Click" Tag="{Binding}" FontSize="14"/>
                                     <Button Content="🗑️" ToolTip="Supprimer" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="DeleteRoom_Click" Tag="{Binding}" Foreground="Red" Margin="5,0,0,0" FontSize="14"/>
                                 </StackPanel>
+                                
+                                <!-- System Admin ONLY: Red button to hide room even from Owner -->
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0" Visibility="{Binding IsSystemAdmin, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Button Content="{Binding SystemHiddenIcon}" ToolTip="{Binding SystemHiddenTooltip}" 
+                                            Background="#FFE0E0" BorderThickness="1" BorderBrush="Red" Cursor="Hand" 
+                                            Click="SystemHideRoom_Click" Tag="{Binding}" FontSize="14" Padding="3,1"
+                                            Foreground="DarkRed">
+                                        <Button.Resources>
+                                            <Style TargetType="Border">
+                                                <Setter Property="CornerRadius" Value="3"/>
+                                            </Style>
+                                        </Button.Resources>
+                                    </Button>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </Border>
