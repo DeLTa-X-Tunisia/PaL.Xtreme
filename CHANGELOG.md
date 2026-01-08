@@ -7,6 +7,26 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.3] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Synchronisation Automatique des Rôles à l'Entrée** : Cohérence parfaite entre `RoomAdmins` et `RoomMembers`
+  - À chaque entrée dans un salon, le système vérifie `RoomAdmins`
+  - Le `RoleId` dans `RoomMembers` est automatiquement synchronisé
+  - Plus besoin de quitter/re-rejoindre après attribution d'un rôle
+
+### 🔧 Améliorations Backend
+- **JoinRoomAsync amélioré** : Vérifie Owner → RoomAdmins → Member (dans cet ordre)
+- **AssignRoleAsync** : Met à jour `RoomMembers.RoleId` en même temps que `RoomAdmins`
+- **RemoveRoomRoleAsync** : Remet `RoleId` à Member (6) lors de la suppression
+- **Logs détaillés** : Messages console pour tracer la synchronisation des rôles
+
+### 🐛 Corrections
+- Correction de l'affichage "Membre" au lieu du vrai rôle dans la room
+- Les rôles attribués s'affichent maintenant immédiatement avec le bon DisplayName
+
+---
+
 ## [1.5.2] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

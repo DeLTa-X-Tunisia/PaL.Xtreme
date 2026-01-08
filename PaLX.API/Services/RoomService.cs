@@ -169,8 +169,10 @@ namespace PaLX.API.Services
                 }
             }
 
-            // 6. Determine Correct Role (Owner or Member)
+            // 6. Determine Correct Role (Owner first, then check RoomAdmins, default to Member)
             int targetRoleId = (int)RoomRoleLevel.Member;
+            
+            // Check if Owner
             var checkOwner = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
             using (var cmd = new NpgsqlCommand(checkOwner, conn))
             {
@@ -179,12 +181,36 @@ namespace PaLX.API.Services
                 if (ownerId == userId) targetRoleId = (int)RoomRoleLevel.Owner;
             }
 
+            // If not Owner, check if user has a role in RoomAdmins (SuperAdmin, Admin, Moderator)
+            if (targetRoleId != (int)RoomRoleLevel.Owner)
+            {
+                var checkAdminSql = @"SELECT ""Role"" FROM ""RoomAdmins"" WHERE ""RoomId"" = @rid AND ""UserId"" = @uid";
+                using (var cmd = new NpgsqlCommand(checkAdminSql, conn))
+                {
+                    cmd.Parameters.AddWithValue("rid", roomId);
+                    cmd.Parameters.AddWithValue("uid", userId);
+                    var adminRole = await cmd.ExecuteScalarAsync() as string;
+                    
+                    if (!string.IsNullOrEmpty(adminRole))
+                    {
+                        // Map RoomAdmins.Role to RoomRoleLevel
+                        targetRoleId = adminRole switch
+                        {
+                            "SuperAdmin" => (int)RoomRoleLevel.SuperAdmin, // 2
+                            "Admin" => (int)RoomRoleLevel.Admin,           // 3
+                            "Moderator" => (int)RoomRoleLevel.Moderator,   // 5
+                            _ => (int)RoomRoleLevel.Member                 // 6
+                        };
+                        Console.WriteLine($"[RoomService] User {userId} has admin role '{adminRole}' in room {roomId}, setting RoleId={targetRoleId}");
+                    }
+                }
+            }
+
             if (currentRole.HasValue)
             {
-                // Already joined. Check if role needs update (e.g. Owner was demoted or joined as member)
-                if (currentRole.Value != targetRoleId && targetRoleId == (int)RoomRoleLevel.Owner)
+                // Already joined. Synchronize role if different
+                if (currentRole.Value != targetRoleId)
                 {
-                    // Fix role to Owner
                     var updateSql = "UPDATE \"RoomMembers\" SET \"RoleId\" = @role WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
                     using (var cmd = new NpgsqlCommand(updateSql, conn))
                     {
@@ -192,6 +218,7 @@ namespace PaLX.API.Services
                         cmd.Parameters.AddWithValue("rid", roomId);
                         cmd.Parameters.AddWithValue("uid", userId);
                         await cmd.ExecuteNonQueryAsync();
+                        Console.WriteLine($"[RoomService] Synchronized RoleId for user {userId} in room {roomId}: {currentRole.Value} → {targetRoleId}");
                     }
                 }
                 return true; 
@@ -1054,7 +1081,16 @@ namespace PaLX.API.Services
             if (isFriend == null)
                 throw new Exception("Target user is not a friend");
 
-            // Insérer ou mettre à jour le rôle (UPSERT)
+            // Mapper le nom de rôle vers l'ID dans RoomRoles
+            int roleId = role switch
+            {
+                "SuperAdmin" => (int)RoomRoleLevel.SuperAdmin, // 2
+                "Admin" => (int)RoomRoleLevel.Admin,           // 3
+                "Moderator" => (int)RoomRoleLevel.Moderator,   // 5
+                _ => (int)RoomRoleLevel.Member                 // 6
+            };
+
+            // Insérer ou mettre à jour le rôle (UPSERT) dans RoomAdmins
             var insertSql = @"
                 INSERT INTO ""RoomAdmins"" (""RoomId"", ""UserId"", ""Role"", ""AssignedBy"", ""AssignedAt"")
                 VALUES (@roomId, @userId, @role, @assignedBy, @now)
@@ -1069,7 +1105,17 @@ namespace PaLX.API.Services
             insertCmd.Parameters.AddWithValue("now", DateTime.UtcNow);
             await insertCmd.ExecuteNonQueryAsync();
 
-            Console.WriteLine($"[RoomService] Role '{role}' assigned to user {targetUserId} in room {roomId}");
+            // ═══════════════════════════════════════════════════════════════════════
+            // MISE À JOUR de RoomMembers.RoleId pour l'affichage dans la room
+            // ═══════════════════════════════════════════════════════════════════════
+            var updateMemberSql = @"UPDATE ""RoomMembers"" SET ""RoleId"" = @roleId WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using var updateMemberCmd = new NpgsqlCommand(updateMemberSql, conn);
+            updateMemberCmd.Parameters.AddWithValue("roleId", roleId);
+            updateMemberCmd.Parameters.AddWithValue("roomId", roomId);
+            updateMemberCmd.Parameters.AddWithValue("userId", targetUserId);
+            await updateMemberCmd.ExecuteNonQueryAsync();
+
+            Console.WriteLine($"[RoomService] Role '{role}' (RoleId={roleId}) assigned to user {targetUserId} in room {roomId}");
 
             // ═══════════════════════════════════════════════════════════════════════
             // NOTIFICATION SIGNALR: Informer l'utilisateur qu'il a reçu un rôle
@@ -1139,14 +1185,24 @@ namespace PaLX.API.Services
             if (actualOwnerId != ownerId)
                 throw new UnauthorizedAccessException("Only room owner can remove roles");
 
-            // Supprimer le rôle
+            // Supprimer le rôle de RoomAdmins
             var deleteSql = @"DELETE FROM ""RoomAdmins"" WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
             using var deleteCmd = new NpgsqlCommand(deleteSql, conn);
             deleteCmd.Parameters.AddWithValue("roomId", roomId);
             deleteCmd.Parameters.AddWithValue("userId", targetUserId);
             await deleteCmd.ExecuteNonQueryAsync();
 
-            Console.WriteLine($"[RoomService] Role removed for user {targetUserId} in room {roomId}");
+            // ═══════════════════════════════════════════════════════════════════════
+            // MISE À JOUR de RoomMembers.RoleId → Remettre en "Membre" (6)
+            // ═══════════════════════════════════════════════════════════════════════
+            var updateMemberSql = @"UPDATE ""RoomMembers"" SET ""RoleId"" = @roleId WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using var updateMemberCmd = new NpgsqlCommand(updateMemberSql, conn);
+            updateMemberCmd.Parameters.AddWithValue("roleId", (int)RoomRoleLevel.Member); // 6 = Membre
+            updateMemberCmd.Parameters.AddWithValue("roomId", roomId);
+            updateMemberCmd.Parameters.AddWithValue("userId", targetUserId);
+            await updateMemberCmd.ExecuteNonQueryAsync();
+
+            Console.WriteLine($"[RoomService] Role removed for user {targetUserId} in room {roomId} (RoleId reset to Member)");
 
             // ═══════════════════════════════════════════════════════════════════════
             // NOTIFICATION SIGNALR: Informer l'utilisateur que son rôle a été retiré
