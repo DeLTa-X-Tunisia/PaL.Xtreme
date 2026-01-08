@@ -2103,8 +2103,8 @@ namespace PaLX.Client
                         ? cleanContent.Substring(0, 100) + "..." 
                         : cleanContent;
                     
-                    // Créer la citation
-                    string quote = $"« {truncatedContent} » — {senderName}\n\n";
+                    // Créer la citation : Nom — « Message »
+                    string quote = $"{senderName} — « {truncatedContent} »\n\n";
                     
                     // Ajouter au début de la zone de saisie
                     var textRange = new TextRange(MessageInput.Document.ContentStart, MessageInput.Document.ContentStart);

@@ -539,13 +539,16 @@ namespace PaLX.Client
             {
                 if (sender is MenuItem menuItem && menuItem.Tag is RoomMessageViewModel message)
                 {
-                    // Tronquer le message s'il est trop long
-                    string truncatedContent = message.Content.Length > 100 
-                        ? message.Content.Substring(0, 100) + "..." 
-                        : message.Content;
+                    // Nettoyer le contenu HTML
+                    string cleanContent = StripHtmlTags(message.Content);
                     
-                    // Créer la citation
-                    string quote = $"@{message.DisplayName} « {truncatedContent} » ";
+                    // Tronquer le message s'il est trop long
+                    string truncatedContent = cleanContent.Length > 100 
+                        ? cleanContent.Substring(0, 100) + "..." 
+                        : cleanContent;
+                    
+                    // Créer la citation : Nom — « Message »
+                    string quote = $"{message.DisplayName} — « {truncatedContent} » ";
                     
                     // Ajouter au début de la zone de saisie
                     MessageInput.Text = quote + MessageInput.Text;
@@ -559,6 +562,25 @@ namespace PaLX.Client
             {
                 ToastService.Error($"Erreur : {ex.Message}");
             }
+        }
+        
+        /// <summary>
+        /// Supprime les balises HTML du texte
+        /// </summary>
+        private string StripHtmlTags(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return string.Empty;
+            
+            // Supprimer les balises HTML
+            string result = System.Text.RegularExpressions.Regex.Replace(html, @"<[^>]+>", "");
+            
+            // Supprimer les smileys [smiley:xxx]
+            result = System.Text.RegularExpressions.Regex.Replace(result, @"\[smiley:[^\]]+\]", "😊");
+            
+            // Décoder les entités HTML
+            result = System.Net.WebUtility.HtmlDecode(result);
+            
+            return result.Trim();
         }
         
         #endregion
