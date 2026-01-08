@@ -47,6 +47,7 @@ namespace PaLX.Client
             
             SetupWindow();
             SetupEvents();
+            SetupClosingHandler();
             
             // Start outgoing call
             StartOutgoingCall();
@@ -67,6 +68,7 @@ namespace PaLX.Client
             
             SetupWindow();
             SetupEvents();
+            SetupClosingHandler();
             
             // Show incoming call UI
             ShowIncomingCallUI();
@@ -155,6 +157,12 @@ namespace PaLX.Client
 
             _videoCallService.OnVideoCallAccepted += (callee, callId) =>
             {
+                // Only handle if it's our call
+                if (!callee.Equals(_partnerUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                
                 Dispatcher.Invoke(() =>
                 {
                     StopRingtone();  // Stop ringtone when call is accepted
@@ -165,6 +173,12 @@ namespace PaLX.Client
 
             _videoCallService.OnVideoCallDeclined += (callee, callId) =>
             {
+                // Only handle if it's our call
+                if (!callee.Equals(_partnerUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                
                 Dispatcher.Invoke(() =>
                 {
                     StopRingtone();  // Stop ringtone when call is declined
@@ -175,6 +189,13 @@ namespace PaLX.Client
 
             _videoCallService.OnVideoCallEnded += (partner, callId) =>
             {
+                // Only handle if it's our call (check by callId or partner name)
+                if ((!string.IsNullOrEmpty(_callId) && callId != _callId) && 
+                    !partner.Equals(_partnerUsername, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+                
                 Dispatcher.Invoke(() =>
                 {
                     StopRingtone();  // Stop ringtone when call ends
@@ -210,6 +231,28 @@ namespace PaLX.Client
                 {
                     ToastService.Error(error);
                 });
+            };
+        }
+
+        private bool _isClosing = false;
+        
+        private void SetupClosingHandler()
+        {
+            this.Closing += async (s, e) =>
+            {
+                if (_isClosing) return;
+                _isClosing = true;
+                
+                StopRingtone();
+                _timer?.Stop();
+                _dotsTimer?.Stop();
+                
+                // End the call if it's still active or pending
+                try
+                {
+                    await _videoCallService.EndVideoCall();
+                }
+                catch { /* Ignore errors during cleanup */ }
             };
         }
 

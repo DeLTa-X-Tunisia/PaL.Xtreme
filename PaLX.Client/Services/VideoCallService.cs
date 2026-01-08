@@ -370,9 +370,22 @@ namespace PaLX.Client.Services
             await _hubConnection.SendAsync("DeclineVideoCall", caller, callId);
         }
 
+        /// <summary>
+        /// Cancel an outgoing call before it's accepted (caller hangs up during ringing)
+        /// </summary>
+        public async Task CancelVideoCall()
+        {
+            if (string.IsNullOrEmpty(_currentPartner)) return;
+            
+            // Notify the receiver that the call was cancelled
+            await _hubConnection.SendAsync("EndVideoCall", _currentPartner, _currentCallId);
+            CleanupCall();
+        }
+
         public async Task EndVideoCall()
         {
-            if (!_isCallActive || string.IsNullOrEmpty(_currentPartner)) return;
+            // Check if there's any call (active or pending) to end
+            if (string.IsNullOrEmpty(_currentPartner)) return;
             
             await _hubConnection.SendAsync("EndVideoCall", _currentPartner, _currentCallId);
             CleanupCall();

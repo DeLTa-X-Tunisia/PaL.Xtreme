@@ -69,12 +69,8 @@ namespace PaLX.Client
             _voiceService = ApiService.Instance.VoiceService!;
             // Incoming call handled by MainView
 
-            // Init Video Service
+            // Init Video Service - only for outgoing calls, incoming handled by MainView
             _videoService = ApiService.Instance.VideoService;
-            if (_videoService != null)
-            {
-                _videoService.OnIncomingVideoCall += OnIncomingVideoCall;
-            }
 
             Activated += async (s, e) => await ApiService.Instance.MarkMessagesAsReadAsync(_partnerUser);
 
@@ -269,25 +265,6 @@ namespace PaLX.Client
                 $"📞 {displayName} est actuellement en appel.\n\nVeuillez réessayer plus tard.",
                 "Utilisateur en appel"
             ).ShowDialog();
-        }
-
-        private void OnIncomingVideoCall(string caller, string callId)
-        {
-            if (caller.Equals(_partnerUser, StringComparison.OrdinalIgnoreCase))
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    // Use display name for UI
-                    string displayName = !string.IsNullOrEmpty(PartnerName.Text) ? PartnerName.Text : caller;
-                    
-                    // Show toast notification
-                    ToastService.Info($"📹 Appel vidéo de {displayName}");
-                    
-                    // Open video call window for incoming call - pass username for signaling, displayName for UI
-                    var videoWindow = new VideoCallWindow(_videoService!, caller, displayName, callId, _partnerAvatarPath);
-                    videoWindow.Show();
-                });
-            }
         }
 
         private void OnImageRequestReceived(int id, string sender, string filename, string url)

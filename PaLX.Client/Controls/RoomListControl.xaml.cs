@@ -262,18 +262,40 @@ namespace PaLX.Client.Controls
 
         private async void DeleteRoom_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is int roomId)
+            // Le Tag peut être un RoomViewModel (depuis le binding) ou un int
+            int? roomId = null;
+            string? roomName = null;
+            
+            if (sender is Button btn)
             {
-                if (MessageBox.Show("Voulez-vous vraiment supprimer ce salon ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                if (btn.Tag is RoomViewModel room)
+                {
+                    roomId = room.Id;
+                    roomName = room.Name;
+                }
+                else if (btn.Tag is int id)
+                {
+                    roomId = id;
+                }
+            }
+            
+            if (roomId.HasValue)
+            {
+                var message = string.IsNullOrEmpty(roomName) 
+                    ? "Voulez-vous vraiment supprimer ce salon ?" 
+                    : $"Voulez-vous vraiment supprimer le salon '{roomName}' ?";
+                    
+                if (MessageBox.Show(message, "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
                 {
                     try
                     {
-                        await _apiService.DeleteRoomAsync(roomId);
+                        await _apiService.DeleteRoomAsync(roomId.Value);
+                        ToastService.Success("Salon supprimé avec succès !");
                         await RefreshRooms();
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show($"Erreur: {ex.Message}");
+                        ToastService.Error($"Erreur lors de la suppression: {ex.Message}");
                     }
                 }
             }

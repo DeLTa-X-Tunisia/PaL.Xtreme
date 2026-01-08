@@ -7,6 +7,26 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.7.2] - 2026-01-08
+
+### 🐛 Corrections de Bugs
+
+#### Création de Salon - Erreur DialogResult
+- **Problème** : Erreur "DialogResult ne peut être défini qu'après la création de Window et affiché en tant que boîte de dialogue" lors de la création d'un salon
+- **Cause** : `CreateRoomWindow` était ouverte avec `Show()` (non-modal) mais utilisait `DialogResult = true`
+- **Solution** : Suppression de `DialogResult = true`, utilisation simple de `Close()`
+
+#### Bouton Supprimer Salon Non Fonctionnel
+- **Problème** : Le bouton 🗑️ pour supprimer un salon ne fonctionnait pas
+- **Cause** : Le XAML passait `Tag="{Binding}"` (un `RoomViewModel`), mais le code attendait `btn.Tag is int roomId`
+- **Solution** : Le code gère maintenant les deux cas (`RoomViewModel` ou `int`) et affiche un message de confirmation avec le nom du salon
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/CreateRoomWindow.xaml.cs` : Suppression de `DialogResult = true`
+- `PaLX.Client/Controls/RoomListControl.xaml.cs` : Correction de `DeleteRoom_Click()` pour gérer le binding correct
+
+---
+
 ## [1.5.7.1] - 2026-01-08
 
 ### 🐛 Correction du Mode Invisible

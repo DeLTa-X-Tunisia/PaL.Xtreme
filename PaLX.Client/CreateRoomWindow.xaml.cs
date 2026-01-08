@@ -427,7 +427,7 @@ namespace PaLX.Client
                     await _apiService.CreateRoomAsync(dto);
                     ToastService.Success("Salon créé avec succès !");
                 }
-                DialogResult = true;
+                // Ne pas utiliser DialogResult car la fenêtre peut être ouverte avec Show() (non-modal)
                 Close();
             }
             catch (Exception ex)
