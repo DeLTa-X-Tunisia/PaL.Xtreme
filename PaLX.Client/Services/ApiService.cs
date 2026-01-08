@@ -69,6 +69,12 @@ namespace PaLX.Client.Services
 
         // Room Role Request Events
         public event Action<RoleRequestReceivedDto>? OnRoleRequestReceived;
+        
+        // Room Role Removed Event (when owner removes your role)
+        public event Action<int, string>? OnRoleRemoved; // roomId, roomName
+        
+        // Room Role Assigned Event (when owner assigns you a role)
+        public event Action<int, string, string>? OnRoleAssigned; // roomId, roomName, role
 
         // System Events
         public event Action? OnConnectionClosed;
@@ -416,6 +422,38 @@ namespace PaLX.Client.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[SignalR CLIENT] ERROR in RoleRequestReceived handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Handler pour la suppression de rôle (RoleRemoved)
+            _hubConnection.On<int, string>("RoleRemoved", (roomId, roomName) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoleRemoved EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] roomId={roomId}, roomName={roomName}");
+                try
+                {
+                    OnRoleRemoved?.Invoke(roomId, roomName);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoleRemoved event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoleRemoved handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Handler pour l'attribution de rôle (RoleAssigned)
+            _hubConnection.On<int, string, string>("RoleAssigned", (roomId, roomName, role) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoleAssigned EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] roomId={roomId}, roomName={roomName}, role={role}");
+                try
+                {
+                    OnRoleAssigned?.Invoke(roomId, roomName, role);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoleAssigned event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoleAssigned handler: {ex.Message}\n{ex.StackTrace}");
                 }
             });
 
@@ -883,10 +921,23 @@ namespace PaLX.Client.Services
         {
             try
             {
-                return await _httpClient.GetFromJsonAsync<List<RoomRoleDto>>($"api/room/{roomId}/roles") ?? new List<RoomRoleDto>();
+                Console.WriteLine($"[ApiService] GetRoomRolesAsync called for roomId={roomId}");
+                var url = $"api/room/{roomId}/roles";
+                Console.WriteLine($"[ApiService] Calling API: {url}");
+                
+                var result = await _httpClient.GetFromJsonAsync<List<RoomRoleDto>>(url) ?? new List<RoomRoleDto>();
+                
+                Console.WriteLine($"[ApiService] GetRoomRolesAsync returned {result.Count} roles:");
+                foreach (var r in result)
+                {
+                    Console.WriteLine($"[ApiService]   -> UserId={r.UserId}, Username={r.Username}, Role={r.Role}");
+                }
+                
+                return result;
             }
-            catch
+            catch (Exception ex)
             {
+                Console.WriteLine($"[ApiService] GetRoomRolesAsync ERROR: {ex.Message}");
                 return new List<RoomRoleDto>();
             }
         }

@@ -280,6 +280,8 @@ namespace PaLX.API.Services
 
         public async Task<List<RoomDto>> GetRoomsAsync(int userId, int? categoryId = null)
         {
+            Console.WriteLine($"[RoomService] ========== GetRoomsAsync for userId={userId} ==========");
+            
             var rooms = new List<RoomDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
@@ -308,10 +310,16 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                var userRole = reader.IsDBNull(reader.GetOrdinal("UserRole")) ? null : reader.GetString(reader.GetOrdinal("UserRole"));
+                var roomId = reader.GetInt32(reader.GetOrdinal("Id"));
+                var roomName = reader.GetString(reader.GetOrdinal("Name"));
+                
+                Console.WriteLine($"[RoomService]   Room {roomId} ({roomName}) - UserRole for user {userId}: {userRole ?? "null"}");
+                
                 rooms.Add(new RoomDto
                 {
-                    Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                    Name = reader.GetString(reader.GetOrdinal("Name")),
+                    Id = roomId,
+                    Name = roomName,
                     Description = reader.IsDBNull(reader.GetOrdinal("Description")) ? "" : reader.GetString(reader.GetOrdinal("Description")),
                     CategoryId = reader.GetInt32(reader.GetOrdinal("CategoryId")),
                     CategoryName = reader.GetString(reader.GetOrdinal("CatName")),
@@ -319,14 +327,16 @@ namespace PaLX.API.Services
                     OwnerName = reader.GetString(reader.GetOrdinal("OwnerName")),
                     MaxUsers = reader.GetInt32(reader.GetOrdinal("MaxUsers")),
                     IsPrivate = reader.GetBoolean(reader.GetOrdinal("IsPrivate")),
-                    Is18Plus = reader.GetBoolean(reader.GetOrdinal("Is18Plus")),
+                    Is18Plus = reader.IsDBNull(reader.GetOrdinal("Is18Plus")) ? false : reader.GetBoolean(reader.GetOrdinal("Is18Plus")),
                     SubscriptionLevel = reader.GetInt32(reader.GetOrdinal("SubscriptionLevel")),
                     IsActive = reader.GetBoolean(reader.GetOrdinal("IsActive")),
                     UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount")),
                     CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                    UserRole = reader.IsDBNull(reader.GetOrdinal("UserRole")) ? null : reader.GetString(reader.GetOrdinal("UserRole"))
+                    UserRole = userRole
                 });
             }
+            
+            Console.WriteLine($"[RoomService] Total rooms returned: {rooms.Count}");
             return rooms;
         }
 
@@ -940,33 +950,54 @@ namespace PaLX.API.Services
         /// </summary>
         public async Task<List<RoomRoleInfoDto>> GetRoomRolesAsync(int requesterId, int roomId)
         {
-            using var conn = new NpgsqlConnection(_connectionString);
-            await conn.OpenAsync();
-
-            var sql = @"
-                SELECT ra.""UserId"", u.""Username"", u.""DisplayName"", up.""AvatarPath"", ra.""Role""
-                FROM ""RoomAdmins"" ra
-                JOIN ""Users"" u ON ra.""UserId"" = u.""Id""
-                LEFT JOIN ""UserProfiles"" up ON u.""Id"" = up.""UserId""
-                WHERE ra.""RoomId"" = @roomId";
-
-            using var cmd = new NpgsqlCommand(sql, conn);
-            cmd.Parameters.AddWithValue("roomId", roomId);
-
-            var roles = new List<RoomRoleInfoDto>();
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            Console.WriteLine($"[RoomService] ========== GetRoomRolesAsync for room {roomId} ==========");
+            
+            try
             {
-                roles.Add(new RoomRoleInfoDto
+                using var conn = new NpgsqlConnection(_connectionString);
+                await conn.OpenAsync();
+                Console.WriteLine($"[RoomService] Database connection opened");
+
+                var sql = @"
+                    SELECT ra.""UserId"", u.""Username"", 
+                           COALESCE(up.""FirstName"" || ' ' || up.""LastName"", u.""Username"") as DisplayName,
+                           up.""AvatarPath"", ra.""Role""
+                    FROM ""RoomAdmins"" ra
+                    JOIN ""Users"" u ON ra.""UserId"" = u.""Id""
+                    LEFT JOIN ""UserProfiles"" up ON u.""Id"" = up.""UserId""
+                    WHERE ra.""RoomId"" = @roomId";
+
+                using var cmd = new NpgsqlCommand(sql, conn);
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                Console.WriteLine($"[RoomService] Executing SQL query...");
+
+                var roles = new List<RoomRoleInfoDto>();
+                using var reader = await cmd.ExecuteReaderAsync();
+                Console.WriteLine($"[RoomService] Query executed, reading results...");
+                
+                while (await reader.ReadAsync())
                 {
-                    UserId = reader.GetInt32(0),
-                    Username = reader.GetString(1),
-                    DisplayName = reader.IsDBNull(2) ? reader.GetString(1) : reader.GetString(2),
-                    AvatarUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    Role = reader.GetString(4)
-                });
+                    var role = new RoomRoleInfoDto
+                    {
+                        UserId = reader.GetInt32(0),
+                        Username = reader.GetString(1),
+                        DisplayName = reader.IsDBNull(2) ? reader.GetString(1) : reader.GetString(2),
+                        AvatarUrl = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        Role = reader.GetString(4)
+                    };
+                    roles.Add(role);
+                    Console.WriteLine($"[RoomService]   -> Found: UserId={role.UserId}, Username={role.Username}, Role={role.Role}");
+                }
+                
+                Console.WriteLine($"[RoomService] Total roles found: {roles.Count}");
+                return roles;
             }
-            return roles;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[RoomService] ERROR in GetRoomRolesAsync: {ex.Message}");
+                Console.WriteLine($"[RoomService] Stack trace: {ex.StackTrace}");
+                throw;
+            }
         }
 
         /// <summary>
@@ -1026,6 +1057,40 @@ namespace PaLX.API.Services
             await insertCmd.ExecuteNonQueryAsync();
 
             Console.WriteLine($"[RoomService] Role '{role}' assigned to user {targetUserId} in room {roomId}");
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // NOTIFICATION SIGNALR: Informer l'utilisateur qu'il a reçu un rôle
+            // ═══════════════════════════════════════════════════════════════════════
+            try
+            {
+                // Récupérer le nom du salon ET le username de l'utilisateur cible
+                var infoSql = @"
+                    SELECT r.""Name"", u.""Username"" 
+                    FROM ""Rooms"" r, ""Users"" u 
+                    WHERE r.""Id"" = @roomId AND u.""Id"" = @userId";
+                using var infoCmd = new NpgsqlCommand(infoSql, conn);
+                infoCmd.Parameters.AddWithValue("roomId", roomId);
+                infoCmd.Parameters.AddWithValue("userId", targetUserId);
+                
+                string roomName = "Salon";
+                string targetUsername = "";
+                using var infoReader = await infoCmd.ExecuteReaderAsync();
+                if (await infoReader.ReadAsync())
+                {
+                    roomName = infoReader.GetString(0);
+                    targetUsername = infoReader.GetString(1);
+                }
+                await infoReader.CloseAsync();
+
+                // SignalR utilise le USERNAME comme UserIdentifier, pas l'ID
+                await _chatHubContext.Clients.User(targetUsername)
+                    .SendAsync("RoleAssigned", roomId, roomName, role);
+                Console.WriteLine($"[RoomService] SignalR RoleAssigned notification sent to '{targetUsername}' for room {roomId} with role {role}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[RoomService] Warning: Failed to send RoleAssigned notification: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -1037,12 +1102,22 @@ namespace PaLX.API.Services
             await conn.OpenAsync();
 
             // Vérifier que le demandeur est le propriétaire du salon
-            var checkSql = @"SELECT ""OwnerId"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
+            var checkSql = @"SELECT ""OwnerId"", ""Name"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
             using var checkCmd = new NpgsqlCommand(checkSql, conn);
             checkCmd.Parameters.AddWithValue("roomId", roomId);
-            var roomOwnerId = await checkCmd.ExecuteScalarAsync();
             
-            if (roomOwnerId == null || (int)roomOwnerId != ownerId)
+            int actualOwnerId = 0;
+            string roomName = "";
+            
+            using var reader = await checkCmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                actualOwnerId = reader.GetInt32(0);
+                roomName = reader.GetString(1);
+            }
+            await reader.CloseAsync();
+            
+            if (actualOwnerId != ownerId)
                 throw new UnauthorizedAccessException("Only room owner can remove roles");
 
             // Supprimer le rôle
@@ -1053,6 +1128,27 @@ namespace PaLX.API.Services
             await deleteCmd.ExecuteNonQueryAsync();
 
             Console.WriteLine($"[RoomService] Role removed for user {targetUserId} in room {roomId}");
+
+            // ═══════════════════════════════════════════════════════════════════════
+            // NOTIFICATION SIGNALR: Informer l'utilisateur que son rôle a été retiré
+            // ═══════════════════════════════════════════════════════════════════════
+            try
+            {
+                // Récupérer le username de l'utilisateur cible
+                var usernameSql = @"SELECT ""Username"" FROM ""Users"" WHERE ""Id"" = @userId";
+                using var usernameCmd = new NpgsqlCommand(usernameSql, conn);
+                usernameCmd.Parameters.AddWithValue("userId", targetUserId);
+                var targetUsername = await usernameCmd.ExecuteScalarAsync() as string ?? "";
+
+                // SignalR utilise le USERNAME comme UserIdentifier, pas l'ID
+                await _chatHubContext.Clients.User(targetUsername)
+                    .SendAsync("RoleRemoved", roomId, roomName);
+                Console.WriteLine($"[RoomService] SignalR RoleRemoved notification sent to '{targetUsername}' for room {roomId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[RoomService] Warning: Failed to send RoleRemoved notification: {ex.Message}");
+            }
         }
 
         /// <summary>

@@ -9,6 +9,7 @@
 
 using System.Configuration;
 using System.Data;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using PaLX.Client.Services;
@@ -20,9 +21,19 @@ namespace PaLX.Client;
 /// </summary>
 public partial class App : Application
 {
+    // Pour forcer l'affichage d'une console de debug
+    [DllImport("kernel32.dll")]
+    private static extern bool AllocConsole();
+    
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        
+        // Ouvrir une console pour voir les logs (DEBUG)
+        AllocConsole();
+        Console.WriteLine("===========================================");
+        Console.WriteLine("     PaL.Xtreme Client - Debug Console     ");
+        Console.WriteLine("===========================================");
         
         // Gestionnaire d'exceptions non capturées pour debug
         AppDomain.CurrentDomain.UnhandledException += (sender, args) =>

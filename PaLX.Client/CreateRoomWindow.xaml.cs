@@ -18,6 +18,7 @@ namespace PaLX.Client
         private readonly RoomViewModel? _editingRoom; // Stocker les données du salon à éditer
         private int _userRoomSubscriptionLevel = 0; // Basic par défaut
         private string? _selectedAvatarPath; // Chemin de l'avatar sélectionné
+        private RoomModerationWindow? _moderationWindow; // Référence à la fenêtre de modération
 
         // Limites par niveau d'abonnement Room
         private static readonly Dictionary<int, (int MaxMic, int MaxCam, int MaxUsers, string Name)> SubscriptionLimits = new()
@@ -39,6 +40,39 @@ namespace PaLX.Client
             InitializeComponent();
             _apiService = ApiService.Instance;
             Loaded += Window_Loaded;
+            
+            // S'abonner à l'événement de suppression de rôle
+            _apiService.OnRoleRemoved += OnRoleRemoved;
+            Closed += (s, e) => _apiService.OnRoleRemoved -= OnRoleRemoved;
+        }
+
+        private void OnRoleRemoved(int roomId, string roomName)
+        {
+            // Si cette fenêtre édite le salon dont le rôle a été retiré
+            if (_editingRoomId.HasValue && _editingRoomId.Value == roomId)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        Console.WriteLine($"[CreateRoomWindow] Role removed for room {roomId}, closing window");
+                        
+                        // Fermer d'abord la fenêtre de modération si ouverte
+                        if (_moderationWindow != null)
+                        {
+                            try { _moderationWindow.Close(); } catch { }
+                            _moderationWindow = null;
+                        }
+                        
+                        // Fermer cette fenêtre
+                        Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[CreateRoomWindow] Error handling role removal: {ex.Message}");
+                    }
+                });
+            }
         }
 
         public CreateRoomWindow(RoomViewModel room) : this()
@@ -46,6 +80,7 @@ namespace PaLX.Client
             _editingRoomId = room.Id;
             _editingRoom = room;
             Title = "Modifier le Salon";
+            Console.WriteLine($"[CreateRoomWindow] Editing room: Id={room.Id}, Name={room.Name}");
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -240,6 +275,8 @@ namespace PaLX.Client
 
         private void OpenModeration_Click(object sender, RoutedEventArgs e)
         {
+            Console.WriteLine($"[CreateRoomWindow] OpenModeration_Click - _editingRoomId={_editingRoomId}");
+            
             // La modération n'est disponible que pour les salons existants
             if (!_editingRoomId.HasValue || _editingRoomId.Value == 0)
             {
@@ -247,11 +284,21 @@ namespace PaLX.Client
                 return;
             }
             
+            // Fermer l'ancienne fenêtre de modération si elle existe
+            if (_moderationWindow != null)
+            {
+                try { _moderationWindow.Close(); } catch { }
+                _moderationWindow = null;
+            }
+            
             string roomName = string.IsNullOrEmpty(RoomNameBox.Text) ? "Mon Salon" : RoomNameBox.Text;
             
-            var moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName);
-            moderationWindow.Owner = this;
-            moderationWindow.Show(); // Non-bloquant pour ne pas figer l'interface
+            Console.WriteLine($"[CreateRoomWindow] Creating RoomModerationWindow with roomId={_editingRoomId.Value}, roomName={roomName}");
+            
+            _moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName);
+            _moderationWindow.Owner = this;
+            _moderationWindow.Closed += (s, args) => _moderationWindow = null;
+            _moderationWindow.Show(); // Non-bloquant pour ne pas figer l'interface
         }
 
         private async void Create_Click(object sender, RoutedEventArgs e)

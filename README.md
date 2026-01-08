@@ -16,7 +16,20 @@ La solution se compose de trois projets principaux :
 
 Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
 
-### � Gestion des Rôles Simplifiée (Nouveau v1.4.0)
+### 🎛️ Fenêtre de Modération Repensée (Nouveau v1.5.0)
+*   **Interface à Deux Listes** :
+    *   **Amis disponibles** : Liste des amis sans rôle avec boutons d'attribution.
+    *   **Administrateurs du salon** : Liste des amis avec rôle et badge coloré.
+    *   **Attribution rapide** : Boutons 👑 (SuperAdmin), ⭐ (Admin), 🔧 (Moderator).
+    *   **Suppression en un clic** : Bouton ❌ pour retirer un rôle instantanément.
+
+*   **Synchronisation Temps Réel** :
+    *   **Icône ✏️ dynamique** : Apparaît/Disparaît instantanément chez l'utilisateur.
+    *   **Fermeture automatique** : La fenêtre d'édition se ferme si le rôle est retiré.
+    *   **Toast informatif** : "Vous êtes maintenant SuperAdmin 👑 du salon 'X'".
+    *   **SignalR optimisé** : Notifications envoyées au username (pas à l'ID).
+
+### 👑 Gestion des Rôles Simplifiée (v1.4.0)
 *   **Architecture Simplifiée** :
     *   **Table Unique `RoomAdmins`** : Remplace les tables `RoomRoleRequests` et `RoomMemberRoles`.
     *   **Attribution Directe** : Le propriétaire attribue les rôles immédiatement, sans workflow de demande/acceptation.

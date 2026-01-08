@@ -15,6 +15,9 @@ namespace PaLX.Client.Controls
         private readonly ApiService _apiService;
         public ObservableCollection<RoomViewModel> Rooms { get; set; } = new ObservableCollection<RoomViewModel>();
         public ObservableCollection<CategoryViewModel> Categories { get; set; } = new ObservableCollection<CategoryViewModel>();
+        
+        // Garde une référence aux fenêtres d'édition ouvertes
+        private Dictionary<int, CreateRoomWindow> _openEditWindows = new Dictionary<int, CreateRoomWindow>();
 
         public RoomListControl()
         {
@@ -23,6 +26,80 @@ namespace PaLX.Client.Controls
             RoomsList.ItemsSource = Rooms;
             CategoryFilter.ItemsSource = Categories;
             LoadData();
+            
+            // S'abonner aux événements de rôle
+            _apiService.OnRoleRemoved += OnRoleRemoved;
+            _apiService.OnRoleAssigned += OnRoleAssigned;
+            
+            Console.WriteLine($"[RoomListControl] *** INITIALIZED - Subscribed to OnRoleRemoved and OnRoleAssigned events ***");
+        }
+
+        private void OnRoleAssigned(int roomId, string roomName, string role)
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    Console.WriteLine($"[RoomListControl] OnRoleAssigned received for room {roomId} ({roomName}) with role {role}");
+                    
+                    // Rafraîchir la liste des salons pour mettre à jour CanEdit
+                    await RefreshRooms();
+                    
+                    // Afficher une notification toast
+                    string roleName = role switch
+                    {
+                        "SuperAdmin" => "SuperAdmin 👑",
+                        "Admin" => "Admin ⭐",
+                        "Moderator" => "Modérateur 🔧",
+                        _ => role
+                    };
+                    ToastService.Success($"Vous êtes maintenant {roleName} du salon '{roomName}'", "Rôle attribué");
+                    
+                    Console.WriteLine($"[RoomListControl] Room list refreshed after role assignment");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RoomListControl] Error handling role assignment: {ex.Message}");
+                }
+            });
+        }
+
+        private void OnRoleRemoved(int roomId, string roomName)
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    Console.WriteLine($"[RoomListControl] OnRoleRemoved received for room {roomId} ({roomName})");
+                    
+                    // Fermer la fenêtre d'édition si elle est ouverte pour ce salon
+                    if (_openEditWindows.TryGetValue(roomId, out var editWindow))
+                    {
+                        try
+                        {
+                            editWindow.Close();
+                            _openEditWindows.Remove(roomId);
+                            Console.WriteLine($"[RoomListControl] Closed edit window for room {roomId}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[RoomListControl] Error closing edit window: {ex.Message}");
+                        }
+                    }
+                    
+                    // Rafraîchir la liste des salons pour mettre à jour CanEdit
+                    await RefreshRooms();
+                    
+                    // Afficher une notification toast
+                    ToastService.Info($"Votre rôle dans le salon '{roomName}' a été retiré.", "Rôle retiré");
+                    
+                    Console.WriteLine($"[RoomListControl] Room list refreshed after role removal");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RoomListControl] Error handling role removal: {ex.Message}");
+                }
+            });
         }
 
         private async void LoadData()
@@ -163,8 +240,24 @@ namespace PaLX.Client.Controls
         {
             if (sender is Button btn && btn.Tag is RoomViewModel room)
             {
+                // Fermer l'ancienne fenêtre si elle existe
+                if (_openEditWindows.TryGetValue(room.Id, out var existingWindow))
+                {
+                    try
+                    {
+                        existingWindow.Close();
+                    }
+                    catch { }
+                    _openEditWindows.Remove(room.Id);
+                }
+                
                 var editWin = new CreateRoomWindow(room);
-                editWin.Closed += (s, args) => LoadData(); // Refresh when closed
+                editWin.Closed += (s, args) => 
+                {
+                    _openEditWindows.Remove(room.Id);
+                    LoadData(); // Refresh when closed
+                };
+                _openEditWindows[room.Id] = editWin;
                 editWin.Show();
             }
         }

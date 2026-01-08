@@ -345,16 +345,45 @@ public partial class MainWindow : Window
     {
         base.OnClosed(e);
         
+        // Stop health check timer
+        _healthCheckTimer.Stop();
+        _statsTimer.Stop();
+        
         // Stop all clients
-        foreach (var process in _clientProcesses)
+        foreach (var process in _clientProcesses.ToList())
         {
-            try { if (!process.HasExited) process.Kill(); } catch { }
+            try 
+            { 
+                if (!process.HasExited) 
+                {
+                    process.Kill(true); // true = kill entire process tree
+                    process.WaitForExit(2000);
+                }
+                process.Dispose();
+            } 
+            catch { }
         }
+        _clientProcesses.Clear();
 
         // Kill API on exit
         if (_isApiRunning && _apiProcess != null && !_apiProcess.HasExited)
         {
-            try { _apiProcess.Kill(); } catch { }
+            try 
+            { 
+                _apiProcess.Kill(true); // true = kill entire process tree
+                _apiProcess.WaitForExit(2000);
+                _apiProcess.Dispose();
+            } 
+            catch { }
         }
+        
+        // Dispose HttpClient
+        _httpClient.Dispose();
+        
+        // Force application shutdown
+        Application.Current.Shutdown();
+        
+        // Force process exit as safety net
+        Environment.Exit(0);
     }
 }

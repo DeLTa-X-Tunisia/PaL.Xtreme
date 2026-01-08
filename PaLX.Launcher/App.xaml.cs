@@ -9,5 +9,11 @@ namespace PaLX.Launcher;
 /// </summary>
 public partial class App : Application
 {
+    protected override void OnExit(ExitEventArgs e)
+    {
+        base.OnExit(e);
+        // Force l'arrêt complet du processus
+        System.Environment.Exit(0);
+    }
 }
 

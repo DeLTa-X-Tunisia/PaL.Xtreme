@@ -7,6 +7,33 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.0] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Fenêtre de Modération Repensée** : Nouvelle interface à deux listes
+  - **Liste "Amis disponibles"** : Affiche les amis sans rôle avec boutons d'attribution rapide
+  - **Liste "Administrateurs du salon"** : Affiche les amis avec rôle et badge coloré
+  - **Attribution en un clic** : Boutons 👑 (SuperAdmin), ⭐ (Admin), 🔧 (Moderator)
+  - **Suppression rapide** : Bouton ❌ pour retirer un rôle instantanément
+
+- **Synchronisation Temps Réel des Rôles** : Mise à jour instantanée via SignalR
+  - **Notification RoleAssigned** : L'icône ✏️ apparaît immédiatement chez l'utilisateur
+  - **Notification RoleRemoved** : L'icône ✏️ disparaît et la fenêtre d'édition se ferme
+  - **Toast informatif** : "Vous êtes maintenant SuperAdmin 👑 du salon 'X'"
+  - **Rafraîchissement automatique** : La liste des salons se met à jour instantanément
+
+### 🔧 Améliorations Backend
+- **Correction SignalR UserIdentifier** : Envoi des notifications au username (pas à l'ID numérique)
+- **Correction SQL GetRoomRolesAsync** : Utilisation de `UserProfiles.FirstName/LastName` au lieu de `Users.DisplayName`
+- **Debug Console** : Ajout de `AllocConsole()` pour le debugging WPF (à retirer en production)
+
+### 🐛 Corrections
+- **Bug persistance des rôles** : Les rôles restent maintenant visibles après reconnexion
+- **Bug icône Modifier** : L'icône apparaît/disparaît en temps réel pour les admins
+- **Bug notification SignalR** : Correction du mapping UserId → Username pour les notifications
+
+---
+
 ## [1.4.0] - 2026-01-07
 
 ### ✨ Nouvelles fonctionnalités
