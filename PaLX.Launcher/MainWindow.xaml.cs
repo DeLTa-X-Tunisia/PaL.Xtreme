@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private Process? _apiProcess;
     private bool _isApiRunning = false;
     private bool _isApiReady = false;
+    private bool _isConsoleVisible = false;
     private readonly HttpClient _httpClient = new HttpClient();
     private readonly DispatcherTimer _healthCheckTimer;
     private readonly DispatcherTimer _statsTimer;
@@ -58,12 +59,17 @@ public partial class MainWindow : Window
         if (_isApiRunning && _apiProcess != null && !_apiProcess.HasExited)
         {
             // Stop API
+            LogToConsole("Arrêt de l'API en cours...", "WARN");
             try
             {
                 _apiProcess.Kill();
                 _apiProcess.WaitForExit();
+                LogToConsole("API arrêtée avec succès", "SUCCESS");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogToConsole($"Erreur arrêt API: {ex.Message}", "ERROR");
+            }
             finally
             {
                 _apiProcess = null;
@@ -81,6 +87,7 @@ public partial class MainWindow : Window
             // Start API
             var root = GetSolutionRoot();
             var apiPath = Path.Combine(root, "PaLX.API");
+            LogToConsole($"Démarrage API depuis: {apiPath}");
             
             var psi = new ProcessStartInfo
             {
@@ -98,6 +105,7 @@ public partial class MainWindow : Window
                 _isApiRunning = true;
                 _isApiReady = false;
                 _apiStartTime = DateTime.Now;
+                LogToConsole("Processus API démarré, en attente de disponibilité...");
                 UpdateApiStatus();
                 UpdateButtonsState();
                 
@@ -107,6 +115,7 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
+                LogToConsole($"Erreur lancement API: {ex.Message}", "ERROR");
                 MessageBox.Show($"Erreur lors du lancement de l'API : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -123,6 +132,7 @@ public partial class MainWindow : Window
                 if (!_isApiReady)
                 {
                     _isApiReady = true;
+                    LogToConsole("API prête et accessible sur le port 5145", "SUCCESS");
                     UpdateApiStatus();
                     UpdateButtonsState();
                 }
@@ -133,6 +143,7 @@ public partial class MainWindow : Window
             if (_isApiReady)
             {
                 _isApiReady = false;
+                LogToConsole("API inaccessible - connexion perdue", "ERROR");
                 UpdateApiStatus();
                 UpdateButtonsState();
             }
@@ -265,17 +276,20 @@ public partial class MainWindow : Window
                 {
                     _clientProcesses.Add(process);
                     _totalLaunched++;
+                    LogToConsole($"Client #{_totalLaunched} lancé (PID: {process.Id})", "SUCCESS");
                     UpdateStatistics();
                 }
                 return;
             }
             catch (Exception ex)
             {
+                LogToConsole($"Erreur lancement EXE: {ex.Message}", "ERROR");
                 MessageBox.Show($"Erreur lancement EXE : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
         // Fallback to dotnet run if EXE not found
+        LogToConsole("EXE non trouvé, lancement via 'dotnet run'...", "WARN");
         var psi = new ProcessStartInfo
         {
             FileName = "dotnet",
@@ -293,11 +307,13 @@ public partial class MainWindow : Window
             {
                 _clientProcesses.Add(process);
                 _totalLaunched++;
+                LogToConsole($"Client #{_totalLaunched} lancé via dotnet (PID: {process.Id})", "SUCCESS");
                 UpdateStatistics();
             }
         }
         catch (Exception ex)
         {
+            LogToConsole($"Erreur lancement client: {ex.Message}", "ERROR");
             MessageBox.Show($"Erreur lors du lancement du client : {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -319,6 +335,7 @@ public partial class MainWindow : Window
     private void StopAllClients()
     {
         int stopped = 0;
+        LogToConsole($"Arrêt de {_clientProcesses.Count} client(s)...", "WARN");
         foreach (var process in _clientProcesses.ToList())
         {
             try
@@ -334,6 +351,7 @@ public partial class MainWindow : Window
         }
         _clientProcesses.Clear();
         UpdateStatistics();
+        LogToConsole($"{stopped} client(s) arrêté(s)", "SUCCESS");
 
         if (stopped > 0)
         {
@@ -385,5 +403,56 @@ public partial class MainWindow : Window
         
         // Force process exit as safety net
         Environment.Exit(0);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CONSOLE MANAGEMENT
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    private void ToggleConsole_Click(object sender, RoutedEventArgs e)
+    {
+        _isConsoleVisible = !_isConsoleVisible;
+        
+        if (_isConsoleVisible)
+        {
+            ConsolePanel.Visibility = Visibility.Visible;
+            ConsoleButtonText.Text = "Cacher Console";
+            ConsoleIcon.Text = "\uE7BA"; // Eye off icon
+            this.Height = 800; // Agrandir la fenêtre pour la console
+            LogToConsole("Console activée - Mode supervision");
+        }
+        else
+        {
+            ConsolePanel.Visibility = Visibility.Collapsed;
+            ConsoleButtonText.Text = "Afficher Console";
+            ConsoleIcon.Text = "\uE756"; // Eye icon
+            this.Height = 620; // Taille normale
+        }
+    }
+    
+    private void ClearConsole_Click(object sender, RoutedEventArgs e)
+    {
+        ConsoleOutput.Text = "[Console effacée]\n";
+    }
+    
+    /// <summary>
+    /// Ajoute un message horodaté à la console de supervision
+    /// </summary>
+    private void LogToConsole(string message, string level = "INFO")
+    {
+        Dispatcher.Invoke(() =>
+        {
+            string timestamp = DateTime.Now.ToString("HH:mm:ss");
+            string color = level switch
+            {
+                "ERROR" => "🔴",
+                "WARN" => "🟡",
+                "SUCCESS" => "🟢",
+                _ => "⚪"
+            };
+            
+            ConsoleOutput.Text += $"{color} [{timestamp}] {message}\n";
+            ConsoleScroller.ScrollToEnd();
+        });
     }
 }
