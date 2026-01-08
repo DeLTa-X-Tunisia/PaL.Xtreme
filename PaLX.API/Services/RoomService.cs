@@ -373,16 +373,20 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
+            // Récupère les membres avec leur rôle de salon ET leur rôle système
             var sql = @"
                 SELECT u.""Id"", u.""Username"", 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
                        p.""AvatarPath"",
                        rr.""Id"" as RoleId, rr.""Name"" as RoleName, rr.""Color"" as RoleColor, rr.""Icon"" as RoleIcon,
-                       rm.""IsMuted"", rm.""HasHandRaised"", rm.""IsCamOn"", rm.""IsMicOn"", p.""Gender""
+                       rm.""IsMuted"", rm.""HasHandRaised"", rm.""IsCamOn"", rm.""IsMicOn"", p.""Gender"",
+                       sr.""RoleName"" as SystemRoleName, sr.""RoleLevel"" as SystemRoleLevel
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" sr ON ur.""RoleId"" = sr.""Id""
                 WHERE rm.""RoomId"" = @rid";
 
             using var cmd = new NpgsqlCommand(sql, conn);
@@ -390,8 +394,29 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
-                var technicalRoleName = reader.GetString(5);
-                var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRoleName);
+                var roomRoleName = reader.GetString(5);
+                var systemRoleName = reader.IsDBNull(13) ? null : reader.GetString(13);
+                var systemRoleLevel = reader.IsDBNull(14) ? 99 : reader.GetInt32(14);
+                
+                // Priorité: RoomOwner > SystemAdmin (niveau 1-6) > RoomRole
+                RoleDisplayInfo roleInfo;
+                
+                if (roomRoleName == "RoomOwner")
+                {
+                    // Le propriétaire du salon garde son rôle de salon
+                    roleInfo = RoleDisplayMapper.GetRoleInfo(roomRoleName);
+                }
+                else if (!string.IsNullOrEmpty(systemRoleName) && systemRoleLevel <= 6)
+                {
+                    // C'est un admin système (pas un simple User) → afficher son rôle système
+                    roleInfo = RoleDisplayMapper.GetSystemRoleInfo(systemRoleName);
+                    Console.WriteLine($"[RoomService] User {reader.GetInt32(0)} is system admin '{systemRoleName}' (level {systemRoleLevel})");
+                }
+                else
+                {
+                    // Rôle de salon normal
+                    roleInfo = RoleDisplayMapper.GetRoleInfo(roomRoleName);
+                }
                 
                 members.Add(new RoomMemberDto
                 {
@@ -400,9 +425,9 @@ namespace PaLX.API.Services
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(2).ToLower()),
                     AvatarPath = reader.IsDBNull(3) ? "" : reader.GetString(3),
                     RoleId = reader.GetInt32(4),
-                    RoleName = roleInfo.DisplayName, // Utilise le DisplayName français
-                    RoleColor = roleInfo.Color, // Utilise la couleur du mapper
-                    RoleIcon = roleInfo.Icon, // Utilise l'icône du mapper
+                    RoleName = roleInfo.DisplayName,
+                    RoleColor = roleInfo.Color,
+                    RoleIcon = roleInfo.Icon,
                     IsMuted = reader.GetBoolean(8),
                     HasHandRaised = reader.GetBoolean(9),
                     IsCamOn = reader.GetBoolean(10),
@@ -724,11 +749,14 @@ namespace PaLX.API.Services
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
                        p.""AvatarPath"",
                        rr.""Name"" as RoleName, rr.""Color"" as RoleColor,
-                       rm.""IsCamOn"", rm.""IsMicOn"", rm.""HasHandRaised"", p.""Gender""
+                       rm.""IsCamOn"", rm.""IsMicOn"", rm.""HasHandRaised"", p.""Gender"",
+                       sr.""RoleName"" as SystemRoleName, sr.""RoleLevel"" as SystemRoleLevel
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" sr ON ur.""RoleId"" = sr.""Id""
                 WHERE rm.""RoomId"" = @rid AND rm.""UserId"" = @uid";
 
             using var cmd = new NpgsqlCommand(sql, conn);
@@ -738,8 +766,26 @@ namespace PaLX.API.Services
             using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
             {
-                var technicalRoleName = reader.GetString(4);
-                var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRoleName);
+                var roomRoleName = reader.GetString(4);
+                var systemRoleName = reader.IsDBNull(10) ? null : reader.GetString(10);
+                var systemRoleLevel = reader.IsDBNull(11) ? 99 : reader.GetInt32(11);
+                
+                // Priorité: RoomOwner > SystemAdmin (niveau 1-6) > RoomRole
+                RoleDisplayInfo roleInfo;
+                
+                if (roomRoleName == "RoomOwner")
+                {
+                    roleInfo = RoleDisplayMapper.GetRoleInfo(roomRoleName);
+                }
+                else if (!string.IsNullOrEmpty(systemRoleName) && systemRoleLevel <= 6)
+                {
+                    roleInfo = RoleDisplayMapper.GetSystemRoleInfo(systemRoleName);
+                    Console.WriteLine($"[RoomService] User {userId} joined with system role '{systemRoleName}'");
+                }
+                else
+                {
+                    roleInfo = RoleDisplayMapper.GetRoleInfo(roomRoleName);
+                }
                 
                 return new RoomMemberDto
                 {
@@ -747,8 +793,8 @@ namespace PaLX.API.Services
                     Username = reader.GetString(1),
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(2).ToLower()),
                     AvatarPath = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    RoleName = roleInfo.DisplayName, // Utilise le DisplayName français
-                    RoleColor = roleInfo.Color, // Utilise la couleur du mapper
+                    RoleName = roleInfo.DisplayName,
+                    RoleColor = roleInfo.Color,
                     RoleIcon = roleInfo.Icon,
                     IsCamOn = reader.GetBoolean(6),
                     IsMicOn = reader.GetBoolean(7),

@@ -7,6 +7,25 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.4] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Affichage des Rôles Système** : Les admins serveur sont reconnus dans les salons
+  - 🏆 **Maître du Serveur** (ServerMaster) - #FFD700
+  - ✏️ **Éditeur** (ServerEditor) - #9B59B6
+  - 👑 **Super Administrateur** (ServerSuperAdmin) - #E74C3C
+  - ⚙️ **Administrateur** (ServerAdmin) - #3498DB
+  - 🛡️ **Modérateur** (ServerModerator) - #2ECC71
+  - 🤝 **Assistant** (ServerHelp) - #1ABC9C
+
+### 🔧 Améliorations
+- **Priorité d'affichage** : RoomOwner > SystemAdmin (niveau 1-6) > RoomRole
+- **RoleDisplayMapper étendu** : Support des rôles système avec `GetSystemRoleInfo()`
+- **Détection automatique** : Les admins système sont identifiés via `UserRoles` + `Roles`
+- **Logs détaillés** : Messages console pour tracer l'identification des admins
+
+---
+
 ## [1.5.3] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités
