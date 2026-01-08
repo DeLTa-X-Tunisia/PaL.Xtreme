@@ -30,10 +30,10 @@
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <Border Background="{StaticResource PrimaryBrush}" CornerRadius="10" 
                                 Width="36" Height="36">
-                            <TextBlock Text="🏠" FontSize="18" HorizontalAlignment="Center" 
+                            <TextBlock x:Name="HeaderIcon" Text="🏠" FontSize="18" HorizontalAlignment="Center" 
                                        VerticalAlignment="Center"/>
                         </Border>
-                        <TextBlock Text="Gestion Salons" FontSize="18" FontWeight="SemiBold" 
+                        <TextBlock x:Name="HeaderTitle" Text="Gestion Salons" FontSize="18" FontWeight="SemiBold" 
                                    Foreground="{DynamicResource TextBrush}" 
                                    Margin="12,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -356,7 +356,7 @@
                         </Button.Template>
                     </Button>
                     
-                    <Button Content="✓ Créer le salon" Width="200" Height="50"
+                    <Button x:Name="SubmitButton" Content="✓ Créer le salon" Width="200" Height="50"
                             Background="{StaticResource SuccessBrush}" Foreground="White"
                             Click="Create_Click" FontSize="16" FontWeight="SemiBold" 
                             BorderThickness="0" Cursor="Hand">

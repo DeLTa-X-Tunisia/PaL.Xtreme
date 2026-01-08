@@ -111,6 +111,13 @@ namespace PaLX.Client
                 // Si on édite un salon existant, charger ses valeurs et afficher l'admin
                 if (_editingRoomId.HasValue && _editingRoom != null)
                 {
+                    // ═══════════════════════════════════════════════════════════════
+                    // ADAPTER L'INTERFACE POUR LE MODE ÉDITION
+                    // ═══════════════════════════════════════════════════════════════
+                    HeaderTitle.Text = "Modifier le Salon";
+                    HeaderIcon.Text = "✏️";
+                    SubmitButton.Content = "✓ Mettre à jour";
+                    
                     // Remplir les champs avec les données du salon
                     RoomNameBox.Text = _editingRoom.Name;
                     DescriptionBox.Text = _editingRoom.Description ?? "";
