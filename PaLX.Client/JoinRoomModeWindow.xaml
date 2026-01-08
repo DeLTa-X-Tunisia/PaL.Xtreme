@@ -1,0 +1,141 @@
+<Window x:Class="PaLX.Client.JoinRoomModeWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mode d'entrée"
+        Height="320" Width="420"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize">
+    <Window.Resources>
+        <!-- Bouton Style Moderne -->
+        <Style x:Key="ModeButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" 
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="2"
+                                CornerRadius="12"
+                                Padding="15">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderThickness" Value="3"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border CornerRadius="20" Background="#1a1a2e">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" BlurRadius="30" Opacity="0.6" ShadowDepth="5"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Header avec bouton fermer -->
+            <Grid Grid.Row="0" Margin="20,15,20,5">
+                <TextBlock Text="🚪 Mode d'entrée" 
+                           FontSize="20" FontWeight="Bold" 
+                           Foreground="#E0E0E0"
+                           HorizontalAlignment="Center"/>
+                <Button Content="✕" 
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        Foreground="#888"
+                        BorderThickness="0"
+                        FontSize="16"
+                        Cursor="Hand"
+                        Click="CloseButton_Click"/>
+            </Grid>
+
+            <!-- Nom du salon -->
+            <TextBlock x:Name="RoomNameText" 
+                       Grid.Row="1"
+                       Text="Salon"
+                       FontSize="14" 
+                       Foreground="#9E9E9E"
+                       HorizontalAlignment="Center"
+                       Margin="0,0,0,15"/>
+
+            <!-- Les deux boutons de mode -->
+            <Grid Grid.Row="2" Margin="25,5">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="15"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Mode Normal -->
+                <Button Grid.Column="0" 
+                        Style="{StaticResource ModeButtonStyle}"
+                        Background="#162447"
+                        BorderBrush="#4FC3F7"
+                        Click="NormalMode_Click">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="👁️" FontSize="40" HorizontalAlignment="Center" Margin="0,5,0,10"/>
+                        <TextBlock Text="Normal" 
+                                   FontSize="18" FontWeight="SemiBold" 
+                                   Foreground="#4FC3F7"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Visible par tous"
+                                   FontSize="11"
+                                   Foreground="#8E8E8E"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,5,0,0"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Mode Invisible -->
+                <Button Grid.Column="2" 
+                        Style="{StaticResource ModeButtonStyle}"
+                        Background="#1f1f38"
+                        BorderBrush="#AB47BC"
+                        Click="InvisibleMode_Click">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="👻" FontSize="40" HorizontalAlignment="Center" Margin="0,5,0,10"/>
+                        <TextBlock Text="Invisible" 
+                                   FontSize="18" FontWeight="SemiBold" 
+                                   Foreground="#AB47BC"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock Text="Seuls les admins ≥ vous verront"
+                                   FontSize="11"
+                                   Foreground="#8E8E8E"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,5,0,0"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+            </Grid>
+
+            <!-- Footer info -->
+            <TextBlock Grid.Row="3"
+                       Text="En mode invisible, les utilisateurs normaux ne vous verront pas dans la liste."
+                       FontSize="10"
+                       Foreground="#666"
+                       TextWrapping="Wrap"
+                       TextAlignment="Center"
+                       Margin="20,10,20,15"/>
+        </Grid>
+    </Border>
+</Window>

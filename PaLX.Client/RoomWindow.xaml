@@ -208,6 +208,12 @@
                                         <Border x:Name="AdultBadge" Background="#E74C3C" CornerRadius="8" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
                                             <TextBlock Text="18+" FontSize="10" Foreground="White" FontWeight="Bold"/>
                                         </Border>
+                                        <Border x:Name="InvisibleModeBadge" Background="#AB47BC" CornerRadius="8" Padding="8,3" Margin="8,0,0,0" VerticalAlignment="Center" Visibility="Collapsed">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="👻" FontSize="10" Margin="0,0,4,0"/>
+                                                <TextBlock Text="INVISIBLE" FontSize="9" Foreground="White" FontWeight="Bold"/>
+                                            </StackPanel>
+                                        </Border>
                                     </StackPanel>
                                     
                                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
@@ -510,7 +516,10 @@
 
                                     <!-- Name & Role -->
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimary}"/>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding InvisibleIndicator}" FontSize="13" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimary}"/>
+                                        </StackPanel>
                                         <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                             <Border Width="8" Height="8" CornerRadius="4" Background="{Binding RoleColor}" Margin="0,0,5,0" VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding RoleName}" FontSize="11" Foreground="{StaticResource TextSecondary}"/>

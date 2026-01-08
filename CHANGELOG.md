@@ -7,6 +7,44 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.7] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités - Mode Invisible Admin
+- **Mode Invisible pour Admins Système** : Les admins peuvent rejoindre un salon en mode invisible
+  - 👻 Modal élégant de choix : "Normal" ou "Invisible"
+  - En mode invisible, l'admin n'apparaît pas dans la liste des membres
+  - Seuls les admins de rang **égal ou supérieur** peuvent voir les invisibles
+  - Badge violet "👻 INVISIBLE" affiché dans le header du salon
+  - Indicateur `👻` devant le nom des membres invisibles (pour ceux qui peuvent les voir)
+
+### 🎯 Règles de Visibilité des Invisibles
+- **ServerMaster (1)** : Voit TOUS les membres invisibles
+- **ServerEditor (2)** : Voit les invisibles de niveau 2-6
+- **ServerSuperAdmin (3)** : Voit les invisibles de niveau 3-6
+- **ServerAdmin (4)** : Voit les invisibles de niveau 4-6
+- **ServerModerator (5)** : Voit les invisibles de niveau 5-6
+- **ServerHelp (6)** : Voit les invisibles de niveau 6
+- **Utilisateurs normaux** : Ne voient AUCUN membre invisible
+
+### 🔧 Base de Données
+- **Nouvelle colonne `IsInvisible`** : `BOOLEAN DEFAULT FALSE` dans la table `RoomMembers`
+- **Script SQL** : `add_invisible_mode.sql` pour la migration
+
+### 🔧 Backend (API)
+- **`JoinRoomAsync(isInvisible)`** : Paramètre pour activer le mode invisible
+- **`GetRoomMembersAsync(requesterId)`** : Filtrage intelligent des membres invisibles selon le niveau du demandeur
+- **`AddMemberToRoomInternal(isInvisible)`** : Stockage du mode invisible
+- **`JoinRoomDto.IsInvisible`** : Nouveau champ dans le DTO
+
+### 🔧 Frontend (Client)
+- **`JoinRoomModeWindow.xaml`** : Modal moderne avec design sombre et 2 boutons (👁️ Normal / 👻 Invisible)
+- **`ApiService.JoinRoomAsync(isInvisible)`** : Support du mode invisible
+- **`RoomWindow`** : Badge "INVISIBLE" + indicateur 👻 dans la liste des membres
+- **`RoomMemberViewModel.IsInvisible`** : Propriété pour l'état invisible
+- **`RoomMemberDto.IsInvisible`** : Propriété pour recevoir l'état depuis l'API
+
+---
+
 ## [1.5.6] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

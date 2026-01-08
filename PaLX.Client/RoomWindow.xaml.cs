@@ -20,21 +20,29 @@ namespace PaLX.Client
         private DispatcherTimer _globalTimer;   // All users timer
         private DispatcherTimer _uptimeTimer;   // Room uptime timer
         private DateTime _speakingStartTime;
+        private bool _isInvisibleMode = false;
 
         public ObservableCollection<RoomMemberViewModel> Members { get; set; } = new ObservableCollection<RoomMemberViewModel>();
         public ObservableCollection<RoomMessageViewModel> Messages { get; set; } = new ObservableCollection<RoomMessageViewModel>();
 
-        public RoomWindow(RoomViewModel room)
+        public RoomWindow(RoomViewModel room, bool isInvisible = false)
         {
             InitializeComponent();
             _room = room;
             _roomId = room.Id;
             _apiService = ApiService.Instance;
+            _isInvisibleMode = isInvisible;
 
             // Setup Header
             RoomNameText.Text = room.Name;
             CategoryText.Text = room.CategoryName;
             OwnerNameText.Text = room.OwnerName;
+            
+            // Afficher l'indicateur de mode invisible si activé
+            if (_isInvisibleMode && InvisibleModeBadge != null)
+            {
+                InvisibleModeBadge.Visibility = Visibility.Visible;
+            }
             
             // Show 18+ badge if adult room
             if (room.Is18Plus && AdultBadge != null)
@@ -264,7 +272,8 @@ namespace PaLX.Client
                 IsMicOn = m.IsMicOn,
                 IsCamOn = m.IsCamOn,
                 HasHandRaised = m.HasHandRaised,
-                Gender = m.Gender
+                Gender = m.Gender,
+                IsInvisible = m.IsInvisible
             };
         }
 
@@ -509,6 +518,7 @@ namespace PaLX.Client
         private string _speakingTime = "";
         private string _roleName = "Membre";
         private Brush _roleColor = Brushes.Gray;
+        private bool _isInvisible = false;
 
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
@@ -526,6 +536,17 @@ namespace PaLX.Client
             get => _roleColor; 
             set { _roleColor = value; OnPropertyChanged(nameof(RoleColor)); } 
         }
+        
+        public bool IsInvisible
+        {
+            get => _isInvisible;
+            set { _isInvisible = value; OnPropertyChanged(nameof(IsInvisible)); OnPropertyChanged(nameof(InvisibleIndicator)); }
+        }
+        
+        /// <summary>
+        /// Affiche 👻 devant le nom si invisible (visible seulement pour les admins qui peuvent le voir)
+        /// </summary>
+        public string InvisibleIndicator => IsInvisible ? "👻 " : "";
         
         public DateTime LastMicOnTime { get; set; }
         public string Gender { get; set; } = "Unknown";

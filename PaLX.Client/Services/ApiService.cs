@@ -882,9 +882,9 @@ namespace PaLX.Client.Services
             throw new Exception(error);
         }
 
-        public async Task<bool> JoinRoomAsync(int roomId, string? password)
+        public async Task<bool> JoinRoomAsync(int roomId, string? password, bool isInvisible = false)
         {
-            var dto = new JoinRoomDto { Password = password };
+            var dto = new JoinRoomDto { Password = password, IsInvisible = isInvisible };
             var response = await _httpClient.PostAsJsonAsync($"api/room/{roomId}/join", dto);
             if (response.IsSuccessStatusCode) return true;
             
@@ -1137,7 +1137,9 @@ namespace PaLX.Client.Services
 
     public class JoinRoomDto
     {
-        public string? Password { get; set; }    }
+        public string? Password { get; set; }
+        public bool IsInvisible { get; set; } = false;
+    }
 
     public class FriendDto
     {

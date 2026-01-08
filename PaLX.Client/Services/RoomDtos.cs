@@ -15,6 +15,7 @@ namespace PaLX.Client.Services
         public bool IsCamOn { get; set; }
         public bool IsMicOn { get; set; }
         public string Gender { get; set; } = "Unknown";
+        public bool IsInvisible { get; set; } = false;
     }
 
     public class RoomMessageDto

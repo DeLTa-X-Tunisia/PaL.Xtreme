@@ -55,7 +55,7 @@ namespace PaLX.API.Controllers
         public async Task<IActionResult> JoinRoom(int roomId, [FromBody] JoinRoomDto dto)
         {
             var userId = GetUserId();
-            var success = await _roomService.JoinRoomAsync(userId, roomId, dto.Password);
+            var success = await _roomService.JoinRoomAsync(userId, roomId, dto.Password, dto.IsInvisible);
             if (!success) return BadRequest(new { message = "Cannot join room (Invalid password, full, or not found)." });
             return Ok(new { message = "Joined successfully" });
         }
@@ -71,7 +71,8 @@ namespace PaLX.API.Controllers
         [HttpGet("{roomId}/members")]
         public async Task<IActionResult> GetMembers(int roomId)
         {
-            var members = await _roomService.GetRoomMembersAsync(roomId);
+            var userId = GetUserId();
+            var members = await _roomService.GetRoomMembersAsync(roomId, userId);
             return Ok(members);
         }
 
@@ -302,6 +303,7 @@ namespace PaLX.API.Controllers
     public class JoinRoomDto
     {
         public string? Password { get; set; }
+        public bool IsInvisible { get; set; } = false;
     }
 
     public class SendMessageDto

@@ -144,10 +144,20 @@ namespace PaLX.API.Services
             throw new Exception("Failed to create room");
         }
 
-        public async Task<bool> JoinRoomAsync(int userId, int roomId, string? password)
+        public async Task<bool> JoinRoomAsync(int userId, int roomId, string? password, bool isInvisible = false)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
+
+            // Vérifier si l'utilisateur est admin système (pour le mode invisible)
+            bool userIsSystemAdmin = await IsSystemAdminAsync(conn, userId);
+            
+            // Le mode invisible n'est disponible que pour les admins système
+            if (isInvisible && !userIsSystemAdmin)
+            {
+                Console.WriteLine($"[RoomService] User {userId} tried invisible mode but is not system admin - denied");
+                isInvisible = false;
+            }
 
             // 1. Get Room Details
             var roomSql = "SELECT \"Password\", \"IsPrivate\", \"MaxUsers\", \"Is18Plus\", \"SubscriptionLevel\" FROM \"Rooms\" WHERE \"Id\" = @id";
@@ -271,11 +281,21 @@ namespace PaLX.API.Services
                         Console.WriteLine($"[RoomService] Synchronized RoleId for user {userId} in room {roomId}: {currentRole.Value} → {targetRoleId}");
                     }
                 }
+                // Update invisible status if changed
+                var updateInvisibleSql = "UPDATE \"RoomMembers\" SET \"IsInvisible\" = @inv WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+                using (var cmd = new NpgsqlCommand(updateInvisibleSql, conn))
+                {
+                    cmd.Parameters.AddWithValue("inv", isInvisible);
+                    cmd.Parameters.AddWithValue("rid", roomId);
+                    cmd.Parameters.AddWithValue("uid", userId);
+                    await cmd.ExecuteNonQueryAsync();
+                    if (isInvisible) Console.WriteLine($"[RoomService] User {userId} joined room {roomId} in INVISIBLE mode");
+                }
                 return true; 
             }
 
             // 7. Add Member
-            await AddMemberToRoomInternal(conn, roomId, userId, targetRoleId);
+            await AddMemberToRoomInternal(conn, roomId, userId, targetRoleId, isInvisible);
             
             // Get Member Details for Notification
             var memberDto = await GetRoomMemberDetailsAsync(conn, roomId, userId);
@@ -286,16 +306,21 @@ namespace PaLX.API.Services
             return true;
         }
 
-        private async Task AddMemberToRoomInternal(NpgsqlConnection conn, int roomId, int userId, int roleId)
+        private async Task AddMemberToRoomInternal(NpgsqlConnection conn, int roomId, int userId, int roleId, bool isInvisible = false)
         {
             var sql = @"
-                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"")
-                VALUES (@rid, @uid, @role)";
+                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"")
+                VALUES (@rid, @uid, @role, @inv)";
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("rid", roomId);
             cmd.Parameters.AddWithValue("uid", userId);
             cmd.Parameters.AddWithValue("role", roleId);
+            cmd.Parameters.AddWithValue("inv", isInvisible);
             await cmd.ExecuteNonQueryAsync();
+            if (isInvisible)
+            {
+                Console.WriteLine($"[RoomService] Added member {userId} to room {roomId} in INVISIBLE mode");
+            }
         }
 
         /// <summary>
@@ -440,11 +465,25 @@ namespace PaLX.API.Services
             return rooms;
         }
 
-        public async Task<List<RoomMemberDto>> GetRoomMembersAsync(int roomId)
+        public async Task<List<RoomMemberDto>> GetRoomMembersAsync(int roomId, int? requesterId = null)
         {
             var members = new List<RoomMemberDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
+
+            // Récupérer le niveau du demandeur (pour filtrer les invisibles)
+            int requesterSystemLevel = 99; // Par défaut, utilisateur normal (ne voit pas les invisibles)
+            if (requesterId.HasValue)
+            {
+                var levelSql = @"SELECT r.""RoleLevel"" FROM ""UserRoles"" ur JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id"" WHERE ur.""UserId"" = @uid";
+                using var levelCmd = new NpgsqlCommand(levelSql, conn);
+                levelCmd.Parameters.AddWithValue("uid", requesterId.Value);
+                var levelResult = await levelCmd.ExecuteScalarAsync();
+                if (levelResult != null && levelResult != DBNull.Value)
+                {
+                    requesterSystemLevel = (int)levelResult;
+                }
+            }
 
             // Récupère les membres avec leur rôle de salon ET leur rôle système
             var sql = @"
@@ -453,7 +492,8 @@ namespace PaLX.API.Services
                        p.""AvatarPath"",
                        rr.""Id"" as RoleId, rr.""Name"" as RoleName, rr.""Color"" as RoleColor, rr.""Icon"" as RoleIcon,
                        rm.""IsMuted"", rm.""HasHandRaised"", rm.""IsCamOn"", rm.""IsMicOn"", p.""Gender"",
-                       sr.""RoleName"" as SystemRoleName, sr.""RoleLevel"" as SystemRoleLevel
+                       sr.""RoleName"" as SystemRoleName, sr.""RoleLevel"" as SystemRoleLevel,
+                       rm.""IsInvisible""
                 FROM ""RoomMembers"" rm
                 JOIN ""Users"" u ON rm.""UserId"" = u.""Id""
                 LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
@@ -470,6 +510,23 @@ namespace PaLX.API.Services
                 var roomRoleName = reader.GetString(5);
                 var systemRoleName = reader.IsDBNull(13) ? null : reader.GetString(13);
                 var systemRoleLevel = reader.IsDBNull(14) ? 99 : reader.GetInt32(14);
+                var isInvisible = reader.IsDBNull(15) ? false : reader.GetBoolean(15);
+                
+                // Filtrer les membres invisibles selon le niveau du demandeur
+                // Un admin peut voir les invisibles de niveau égal ou inférieur (niveau plus haut numériquement)
+                if (isInvisible)
+                {
+                    // Si le demandeur n'est pas admin système (niveau 99), il ne voit pas les invisibles
+                    if (requesterSystemLevel > 6)
+                    {
+                        continue; // Skip ce membre invisible
+                    }
+                    // Si le membre invisible a un niveau plus élevé (chiffre plus petit), le demandeur ne le voit pas
+                    if (systemRoleLevel < requesterSystemLevel)
+                    {
+                        continue; // Skip - l'invisible a un rang supérieur
+                    }
+                }
                 
                 // Priorité: RoomOwner > SystemAdmin (niveau 1-6) > RoomRole
                 RoleDisplayInfo roleInfo;
@@ -505,7 +562,8 @@ namespace PaLX.API.Services
                     HasHandRaised = reader.GetBoolean(9),
                     IsCamOn = reader.GetBoolean(10),
                     IsMicOn = reader.GetBoolean(11),
-                    Gender = reader.IsDBNull(12) ? "Unknown" : reader.GetString(12)
+                    Gender = reader.IsDBNull(12) ? "Unknown" : reader.GetString(12),
+                    IsInvisible = isInvisible
                 });
             }
             return members;

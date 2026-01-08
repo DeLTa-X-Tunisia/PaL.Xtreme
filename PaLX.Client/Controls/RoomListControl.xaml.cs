@@ -221,6 +221,22 @@ namespace PaLX.Client.Controls
         private async void JoinRoom(RoomViewModel room)
         {
             string password = null;
+            bool isInvisible = false;
+            
+            // Si l'utilisateur est admin système, afficher le modal de choix de mode
+            if (ApiService.Instance.IsSystemAdmin)
+            {
+                var modeWindow = new JoinRoomModeWindow(room.Name);
+                var result = modeWindow.ShowDialog();
+                
+                if (result != true || modeWindow.IsInvisibleMode == null)
+                {
+                    return; // L'utilisateur a annulé
+                }
+                
+                isInvisible = modeWindow.IsInvisibleMode.Value;
+            }
+            
             if (room.IsPrivate)
             {
                 // Prompt for password (simple input dialog or custom window)
@@ -231,10 +247,10 @@ namespace PaLX.Client.Controls
 
             try
             {
-                var success = await _apiService.JoinRoomAsync(room.Id, password);
+                var success = await _apiService.JoinRoomAsync(room.Id, password, isInvisible);
                 if (success)
                 {
-                    var roomWin = new RoomWindow(room);
+                    var roomWin = new RoomWindow(room, isInvisible);
                     roomWin.Show();
                 }
             }

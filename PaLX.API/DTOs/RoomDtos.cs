@@ -62,6 +62,11 @@ namespace PaLX.API.DTOs
         public bool IsCamOn { get; set; }
         public bool IsMicOn { get; set; }
         public string Gender { get; set; } = "Unknown";
+        
+        /// <summary>
+        /// Indique si le membre est en mode invisible (admin système uniquement)
+        /// </summary>
+        public bool IsInvisible { get; set; }
     }
 
     public class RoomMessageDto
