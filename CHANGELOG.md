@@ -7,6 +7,55 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.6.5] - 2026-01-08
+
+### 🎬 Amélioration de la Qualité Vidéo
+
+#### Encodeur VP8 Optimisé
+- **Bitrate par défaut augmenté** : 500 → 1200 kbps pour une image plus nette
+- **Keyframes périodiques** : Force un keyframe toutes les 60 frames (~2 sec) pour éviter l'accumulation d'artefacts et les lignes horizontales
+- **Plage de bitrate élargie** : 300-8000 kbps (au lieu de 100-5000)
+
+#### Capture Caméra Améliorée
+- **Résolution dynamique** : Utilise la vraie résolution de la frame au lieu de forcer 640×480
+- **Buffer réduit** : Réduit le lag vidéo
+- **Format MJPEG** : Meilleure qualité de capture brute
+- **Auto-exposition et autofocus** activés automatiquement
+
+#### Presets de Qualité Optimisés
+| Qualité | Résolution | Bitrate | FPS |
+|---------|------------|---------|-----|
+| 🐢 Basse | 640×480 | 800 kbps | 24 |
+| ⚖️ Moyenne | 960×540 | 1500 kbps | 30 |
+| 🚀 Haute | 1280×720 | 2500 kbps | 30 |
+
+### ⚙️ Paramètres Persistants (SettingsService)
+
+#### Nouveau Service de Paramètres
+- **SettingsService** : Nouveau service pour sauvegarder automatiquement les préférences utilisateur
+- **Stockage JSON** : Fichier `settings.json` dans `%AppData%\PaL.Xtreme\`
+- **Sauvegarde automatique** : Chaque modification est sauvegardée instantanément
+
+#### Paramètres Sauvegardés
+- Mode sombre (DarkMode)
+- Sons de notification (SoundNotifications)
+- Son de démarrage (StartupSound)
+- Caméra sélectionnée (SelectedCameraIndex)
+- Qualité vidéo (VideoQuality)
+
+### 🖥️ Interface Paramètres Améliorée
+- **Sélecteur de qualité vidéo** : Nouveau dropdown avec 3 presets (Basse/Moyenne/Haute)
+- **Affichage de la résolution** : Montre la config actuelle (ex: "960×540 @ 1500kbps")
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/Services/SettingsService.cs` : Nouveau fichier - gestion des paramètres persistants
+- `PaLX.Client/Services/Encoders/EncoderFactory.cs` : Optimisation VP8, keyframes périodiques
+- `PaLX.Client/Services/VideoCallService.cs` : Résolution dynamique, paramètres caméra améliorés
+- `PaLX.Client/SettingsWindow.xaml` : Ajout sélecteur qualité vidéo
+- `PaLX.Client/SettingsWindow.xaml.cs` : Chargement/sauvegarde des paramètres
+
+---
+
 ## [1.5.7.2] - 2026-01-08
 
 ### 🐛 Corrections de Bugs
