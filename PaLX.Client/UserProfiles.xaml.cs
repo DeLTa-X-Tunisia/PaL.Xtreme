@@ -173,6 +173,7 @@ namespace PaLX.Client
                 {
                     // Proceed to MainView
                     var mainView = new MainView(_username, _roleName);
+                    Application.Current.MainWindow = mainView; // Définir comme fenêtre principale
                     mainView.Show();
                     this.Close();
                 }

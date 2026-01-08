@@ -2,6 +2,8 @@
 // This software is proprietary and confidential.
 
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,6 +20,15 @@ using PaLX.Client.Services;
 namespace PaLX.Client
 {
     /// <summary>
+    /// Représente une caméra disponible
+    /// </summary>
+    public class CameraDevice
+    {
+        public int Index { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    /// <summary>
     /// Settings window for application preferences
     /// </summary>
     public partial class SettingsWindow : System.Windows.Window
@@ -25,6 +36,8 @@ namespace PaLX.Client
         private VideoCapture? _videoCapture;
         private CancellationTokenSource? _cameraCts;
         private bool _isCameraTesting = false;
+        private int _selectedCameraIndex = 0;
+        private ObservableCollection<CameraDevice> _availableCameras = new();
         
         private WaveInEvent? _waveIn;
         private bool _isMicTesting = false;
@@ -35,11 +48,114 @@ namespace PaLX.Client
         {
             InitializeComponent();
             
-            // Initialize toggle state from ThemeService
-            DarkModeToggle.IsChecked = ThemeService.IsDarkMode;
+            // Charger les paramètres sauvegardés
+            LoadSavedSettings();
             
             // Subscribe to theme changes (for live preview)
             ThemeService.ThemeChanged += OnThemeChanged;
+            
+            // Détecter les caméras disponibles
+            DetectAvailableCameras();
+        }
+
+        /// <summary>
+        /// Charge les paramètres sauvegardés
+        /// </summary>
+        private void LoadSavedSettings()
+        {
+            // Mode sombre
+            DarkModeToggle.IsChecked = SettingsService.DarkMode;
+            
+            // Notifications
+            SoundNotificationsToggle.IsChecked = SettingsService.SoundNotifications;
+            StartupSoundToggle.IsChecked = SettingsService.StartupSound;
+            
+            // L'index de la caméra sera appliqué après DetectAvailableCameras()
+            _selectedCameraIndex = SettingsService.SelectedCameraIndex;
+            
+            // Qualité vidéo
+            VideoQualitySelector.SelectedIndex = SettingsService.VideoQuality;
+        }
+
+        /// <summary>
+        /// Détecte toutes les caméras disponibles sur le système
+        /// </summary>
+        private void DetectAvailableCameras()
+        {
+            _availableCameras.Clear();
+            
+            // Tester les indices de 0 à 9 pour trouver les caméras
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    using var testCapture = new VideoCapture(i);
+                    if (testCapture.IsOpened())
+                    {
+                        _availableCameras.Add(new CameraDevice
+                        {
+                            Index = i,
+                            Name = $"Caméra {i + 1}"
+                        });
+                        testCapture.Release();
+                    }
+                    else
+                    {
+                        break; // Pas plus de caméras
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+            
+            // Si aucune caméra trouvée, ajouter une entrée par défaut
+            if (_availableCameras.Count == 0)
+            {
+                _availableCameras.Add(new CameraDevice
+                {
+                    Index = 0,
+                    Name = "Aucune caméra détectée"
+                });
+            }
+            
+            CameraSelector.ItemsSource = _availableCameras;
+            
+            // Restaurer la caméra sauvegardée si elle existe encore
+            int savedIndex = SettingsService.SelectedCameraIndex;
+            if (savedIndex < _availableCameras.Count)
+            {
+                CameraSelector.SelectedIndex = savedIndex;
+                _selectedCameraIndex = _availableCameras[savedIndex].Index;
+            }
+            else
+            {
+                CameraSelector.SelectedIndex = 0;
+                _selectedCameraIndex = 0;
+            }
+        }
+
+        /// <summary>
+        /// Gère le changement de caméra sélectionnée
+        /// </summary>
+        private async void CameraSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (CameraSelector.SelectedItem is CameraDevice selectedCamera)
+            {
+                _selectedCameraIndex = selectedCamera.Index;
+                
+                // Sauvegarder le choix automatiquement
+                SettingsService.SelectedCameraIndex = CameraSelector.SelectedIndex;
+                
+                // Si la caméra est en cours de test, redémarrer avec la nouvelle
+                if (_isCameraTesting)
+                {
+                    StopCameraTest();
+                    await Task.Delay(200); // Petit délai pour libérer la ressource
+                    await StartCameraTestAsync();
+                }
+            }
         }
 
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -61,6 +177,32 @@ namespace PaLX.Client
         {
             bool isDarkMode = DarkModeToggle.IsChecked == true;
             ThemeService.SetTheme(isDarkMode);
+            SettingsService.DarkMode = isDarkMode;
+        }
+
+        private void SoundNotificationsToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            SettingsService.SoundNotifications = SoundNotificationsToggle.IsChecked == true;
+        }
+
+        private void StartupSoundToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            SettingsService.StartupSound = StartupSoundToggle.IsChecked == true;
+        }
+
+        /// <summary>
+        /// Gère le changement de qualité vidéo
+        /// </summary>
+        private void VideoQualitySelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (VideoQualitySelector.SelectedIndex >= 0)
+            {
+                SettingsService.VideoQuality = VideoQualitySelector.SelectedIndex;
+                
+                // Afficher la config actuelle dans le statut de la caméra
+                var config = SettingsService.CurrentVideoQuality;
+                CameraStatusText.Text = $"{config.Width}×{config.Height} @ {config.Bitrate}kbps";
+            }
         }
 
         private void OnThemeChanged()
@@ -99,7 +241,7 @@ namespace PaLX.Client
                 
                 await Task.Run(() =>
                 {
-                    _videoCapture = new VideoCapture(0);
+                    _videoCapture = new VideoCapture(_selectedCameraIndex);
                     if (!_videoCapture.IsOpened())
                     {
                         throw new Exception("Impossible d'accéder à la caméra");

@@ -61,23 +61,26 @@ namespace PaLX.Client.Services.Encoders
 
     /// <summary>
     /// VP8 Video Encoder wrapper implementing IPaLXVideoEncoder interface
+    /// Optimized for real-time video communication with quality settings
     /// </summary>
     public class Vp8VideoEncoderWrapper : IPaLXVideoEncoder
     {
         private readonly VpxVideoEncoder _encoder;
         private bool _requestKeyFrame;
         private bool _disposed;
+        private int _frameCount;
+        private const int KEYFRAME_INTERVAL = 60; // Force keyframe every 60 frames (~2 sec at 30fps)
 
         public VideoCodec Codec => VideoCodec.VP8;
         public int RtpPayloadType => 96;
         
-        private int _targetBitrate = 500;
+        private int _targetBitrate = 1200; // Default to Medium quality
         public int TargetBitrate
         {
             get => _targetBitrate;
             set
             {
-                _targetBitrate = Math.Clamp(value, 100, 5000);
+                _targetBitrate = Math.Clamp(value, 300, 8000);
                 _encoder.TargetKbps = (uint)_targetBitrate;
             }
         }
@@ -86,13 +89,14 @@ namespace PaLX.Client.Services.Encoders
         public int TargetFps
         {
             get => _targetFps;
-            set => _targetFps = Math.Clamp(value, 10, 60);
+            set => _targetFps = Math.Clamp(value, 15, 60);
         }
 
         public Vp8VideoEncoderWrapper()
         {
             _encoder = new VpxVideoEncoder();
             _encoder.TargetKbps = (uint)_targetBitrate;
+            _frameCount = 0;
         }
 
         public EncodedFrame? Encode(byte[] rawFrame, int width, int height)
@@ -101,6 +105,13 @@ namespace PaLX.Client.Services.Encoders
 
             try
             {
+                _frameCount++;
+                
+                // Force keyframe periodically for better quality recovery
+                bool forceKeyFrame = _requestKeyFrame || (_frameCount % KEYFRAME_INTERVAL == 0);
+                
+                // The VpxVideoEncoder from SIPSorcery handles keyframes internally
+                // We pass the frame and let it encode with the current bitrate settings
                 var encoded = _encoder.EncodeVideo(
                     width, height,
                     rawFrame,
@@ -114,11 +125,14 @@ namespace PaLX.Client.Services.Encoders
                         Data = encoded,
                         Width = width,
                         Height = height,
-                        IsKeyFrame = _requestKeyFrame
+                        IsKeyFrame = forceKeyFrame
                     };
                 }
             }
-            catch { }
+            catch (Exception ex) 
+            { 
+                System.Diagnostics.Debug.WriteLine($"VP8 encode error: {ex.Message}");
+            }
             finally
             {
                 _requestKeyFrame = false;

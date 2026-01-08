@@ -70,8 +70,8 @@ namespace PaLX.Client.Services
         private Thread? _screenCaptureThread;
         private volatile bool _isScreenCaptureRunning;
         
-        // Quality settings
-        private int _targetBitrate = 500;
+        // Quality settings - defaults to configured quality
+        private int _targetBitrate = 1200; // Will be overridden by settings
         private int _currentFps = 30;
         private DateTime _lastQualityCheck = DateTime.Now;
         
@@ -119,6 +119,11 @@ namespace PaLX.Client.Services
             _hubConnection = hubConnection;
             _turnConfig = turnConfig;
             _encoderFactory = new EncoderFactory();
+            
+            // Initialiser la qualité vidéo depuis les paramètres
+            var quality = SettingsService.CurrentVideoQuality;
+            _targetBitrate = quality.Bitrate;
+            _currentFps = quality.Fps;
             
             // Configure ICE servers
             _iceServers = BuildIceServers(turnConfig);
@@ -620,7 +625,9 @@ namespace PaLX.Client.Services
                     Thread.Sleep(100); // Small delay after disposing
                 }
                 
-                _camera = new VideoCapture(0);
+                // Utiliser la caméra sélectionnée dans les paramètres
+                int cameraIndex = SettingsService.SelectedCameraIndex;
+                _camera = new VideoCapture(cameraIndex);
                 
                 if (!_camera.IsOpened())
                 {
@@ -628,9 +635,27 @@ namespace PaLX.Client.Services
                     return;
                 }
 
-                _camera.Set(VideoCaptureProperties.FrameWidth, 640);
-                _camera.Set(VideoCaptureProperties.FrameHeight, 480);
-                _camera.Set(VideoCaptureProperties.Fps, 30);
+                // Appliquer la qualité vidéo configurée
+                var quality = SettingsService.CurrentVideoQuality;
+                _camera.Set(VideoCaptureProperties.FrameWidth, quality.Width);
+                _camera.Set(VideoCaptureProperties.FrameHeight, quality.Height);
+                _camera.Set(VideoCaptureProperties.Fps, quality.Fps);
+                
+                // Optimisations pour une meilleure qualité d'image
+                _camera.Set(VideoCaptureProperties.BufferSize, 1); // Réduire le lag
+                _camera.Set(VideoCaptureProperties.AutoExposure, 1); // Activer l'auto-exposition
+                _camera.Set(VideoCaptureProperties.AutoFocus, 1); // Activer l'autofocus si disponible
+                _camera.Set(VideoCaptureProperties.FourCC, VideoWriter.FourCC('M', 'J', 'P', 'G')); // Format MJPEG pour meilleure qualité
+                
+                // Mettre à jour le bitrate et FPS
+                _targetBitrate = quality.Bitrate;
+                _currentFps = quality.Fps;
+                
+                // Appliquer le bitrate à l'encodeur
+                if (_videoEncoder != null)
+                {
+                    _videoEncoder.TargetBitrate = _targetBitrate;
+                }
 
                 _isCameraRunning = true;
                 _cameraThread = new Thread(CameraCaptureLoop)
@@ -688,13 +713,18 @@ namespace PaLX.Client.Services
                     {
                         try
                         {
+                            // Get actual frame dimensions
+                            int frameWidth = frame.Width;
+                            int frameHeight = frame.Height;
+                            
                             // Convert BGR to byte array
                             byte[] bgrData = new byte[frame.Total() * frame.ElemSize()];
                             System.Runtime.InteropServices.Marshal.Copy(frame.Data, bgrData, 0, bgrData.Length);
                             
                             lock (_encoderLock)
                             {
-                                var encodedFrame = _videoEncoder.Encode(bgrData, 640, 480);
+                                // Use actual frame dimensions for encoding
+                                var encodedFrame = _videoEncoder.Encode(bgrData, frameWidth, frameHeight);
                                 
                                 if (encodedFrame != null && encodedFrame.Data.Length > 0)
                                 {

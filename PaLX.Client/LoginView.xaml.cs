@@ -58,11 +58,13 @@ namespace PaLX.Client
                     if (authResult.IsProfileComplete)
                     {
                         var mainView = new MainView(UsernameBox.Text, authResult.Role);
+                        Application.Current.MainWindow = mainView; // Définir comme fenêtre principale
                         mainView.Show();
                     }
                     else
                     {
                         var userProfiles = new UserProfiles(UsernameBox.Text, authResult.Role);
+                        Application.Current.MainWindow = userProfiles; // Définir comme fenêtre principale
                         userProfiles.Show();
                     }
                     Window.GetWindow(this)?.Close();
