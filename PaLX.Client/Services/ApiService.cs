@@ -22,6 +22,13 @@ namespace PaLX.Client.Services
         public string CurrentUsername { get; private set; } = string.Empty;
         public int CurrentUserId { get; private set; }
         public int CurrentUserRoleLevel { get; private set; } = 7; // Default to User
+        
+        /// <summary>
+        /// Vérifie si l'utilisateur connecté est un admin système (RoleLevel 1-5)
+        /// ServerMaster(1), ServerEditor(2), ServerSuperAdmin(3), ServerAdmin(4), ServerModerator(5)
+        /// Ces rôles ont un accès total à tous les salons.
+        /// </summary>
+        public bool IsSystemAdmin => CurrentUserRoleLevel >= 1 && CurrentUserRoleLevel <= 5;
 
         public event Action<string, string>? OnMessageReceived;
         public event Action<string, string, int>? OnPrivateMessageReceived;

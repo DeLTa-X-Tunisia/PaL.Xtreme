@@ -7,6 +7,40 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.5] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Accès Total pour les Rôles Système** : Les administrateurs serveur ont un accès complet à tous les salons
+  - 🏆 **ServerMaster** (Niveau 1) - Accès total
+  - ✏️ **ServerEditor** (Niveau 2) - Accès total  
+  - 👑 **ServerSuperAdmin** (Niveau 3) - Accès total
+  - ⚙️ **ServerAdmin** (Niveau 4) - Accès total
+  - 🛡️ **ServerModerator** (Niveau 5) - Accès total
+
+### 🔧 Permissions Accordées
+Les rôles système peuvent maintenant sur **tous les salons** :
+- ✏️ **Modifier le salon** (nom, description, catégorie, options)
+- 🗑️ **Supprimer le salon** (même s'ils ne sont pas propriétaires)
+- 👁️ **Cacher / Afficher le salon** (toggle visibilité)
+- ⚙️ **Ouvrir la fenêtre de gestion** (tous les paramètres)
+- 👥 **Ouvrir la fenêtre de modération** (gestion des rôles)
+
+### 🔧 Implémentation Backend (API)
+- **`IsSystemAdminAsync()`** : Nouvelle méthode pour vérifier si un utilisateur est admin système
+- **`HasOwnerAccessAsync()`** : Vérifie si l'utilisateur est Owner OU admin système
+- **`DeleteRoomAsync`** : Autorise les admins système
+- **`UpdateRoomAsync`** : Autorise les admins système
+- **`ToggleRoomVisibilityAsync`** : Autorise les admins système
+
+### 🔧 Implémentation Frontend (Client)
+- **`ApiService.IsSystemAdmin`** : Nouvelle propriété pour vérifier le rôle système (RoleLevel 1-5)
+- **`RoomViewModel.HasOwnerAccess`** : Owner OU admin système
+- **`RoomListControl.xaml`** : Boutons Delete/Visibility visibles pour `HasOwnerAccess`
+- **`CreateRoomWindow.HasFullAccess`** : Permissions complètes pour Owner et admins système
+- **`RoomModerationWindow`** : Accès complet à la modération pour les admins système
+
+---
+
 ## [1.5.4] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

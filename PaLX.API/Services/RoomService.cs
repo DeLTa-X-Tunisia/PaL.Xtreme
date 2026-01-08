@@ -14,6 +14,9 @@ namespace PaLX.API.Services
         private readonly IHubContext<ChatHub> _chatHubContext; // Pour les notifications utilisateur
         private readonly IAccessControlService _accessControl;
 
+        // System admin role levels (1-5 have full room access)
+        private const int MAX_SYSTEM_ADMIN_LEVEL = 5; // ServerMaster(1) to ServerModerator(5)
+
         public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
@@ -21,6 +24,53 @@ namespace PaLX.API.Services
             _roomHubContext = roomHubContext;
             _chatHubContext = chatHubContext;
             _accessControl = accessControl;
+        }
+
+        /// <summary>
+        /// Vérifie si un utilisateur est un admin système (RoleLevel 1-5)
+        /// ServerMaster(1), ServerEditor(2), ServerSuperAdmin(3), ServerAdmin(4), ServerModerator(5)
+        /// Ces rôles ont un accès total à tous les salons.
+        /// </summary>
+        private async Task<bool> IsSystemAdminAsync(NpgsqlConnection conn, int userId)
+        {
+            var sql = @"
+                SELECT r.""RoleLevel""
+                FROM ""UserRoles"" ur
+                JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
+                WHERE ur.""UserId"" = @userId
+                ORDER BY r.""RoleLevel"" ASC
+                LIMIT 1";
+            
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("userId", userId);
+            var result = await cmd.ExecuteScalarAsync();
+            
+            if (result != null && result != DBNull.Value)
+            {
+                var roleLevel = (int)result;
+                return roleLevel <= MAX_SYSTEM_ADMIN_LEVEL;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Vérifie si un utilisateur a accès de type "Owner" à un salon
+        /// (soit c'est le propriétaire, soit c'est un admin système)
+        /// </summary>
+        private async Task<bool> HasOwnerAccessAsync(NpgsqlConnection conn, int userId, int roomId)
+        {
+            // Check if user is room owner
+            var ownerSql = @"SELECT ""OwnerId"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
+            using (var cmd = new NpgsqlCommand(ownerSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                var ownerId = await cmd.ExecuteScalarAsync();
+                if (ownerId != null && (int)ownerId == userId)
+                    return true;
+            }
+            
+            // Check if user is system admin
+            return await IsSystemAdminAsync(conn, userId);
         }
 
         public async Task<RoomDto> CreateRoomAsync(int userId, CreateRoomDto dto)
@@ -810,13 +860,16 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
             
-            var checkSql = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
-            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            // Vérifier si l'utilisateur est Owner OU admin système
+            if (!await HasOwnerAccessAsync(conn, userId, roomId))
             {
-                cmd.Parameters.AddWithValue("rid", roomId);
-                var ownerId = (int?)await cmd.ExecuteScalarAsync();
-                if (ownerId == null) throw new Exception("Room not found");
-                if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
+                // Vérifier que le salon existe
+                var checkSql = "SELECT 1 FROM \"Rooms\" WHERE \"Id\" = @rid";
+                using var checkCmd = new NpgsqlCommand(checkSql, conn);
+                checkCmd.Parameters.AddWithValue("rid", roomId);
+                var exists = await checkCmd.ExecuteScalarAsync();
+                if (exists == null) throw new Exception("Room not found");
+                throw new UnauthorizedAccessException("Not owner or system admin");
             }
 
             var sql = "DELETE FROM \"Rooms\" WHERE \"Id\" = @rid";
@@ -832,14 +885,16 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            // Check Ownership
-            var checkSql = "SELECT \"OwnerId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
-            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            // Vérifier si l'utilisateur est Owner OU admin système
+            if (!await HasOwnerAccessAsync(conn, userId, roomId))
             {
-                cmd.Parameters.AddWithValue("rid", roomId);
-                var ownerId = (int?)await cmd.ExecuteScalarAsync();
-                if (ownerId == null) throw new Exception("Room not found");
-                if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
+                // Vérifier que le salon existe
+                var checkSql = "SELECT 1 FROM \"Rooms\" WHERE \"Id\" = @rid";
+                using var checkCmd = new NpgsqlCommand(checkSql, conn);
+                checkCmd.Parameters.AddWithValue("rid", roomId);
+                var exists = await checkCmd.ExecuteScalarAsync();
+                if (exists == null) throw new Exception("Room not found");
+                throw new UnauthorizedAccessException("Not owner or system admin");
             }
 
             var sql = @"
@@ -886,20 +941,26 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            // Check Ownership
-            var checkSql = "SELECT \"OwnerId\", \"IsActive\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            // Vérifier si l'utilisateur est Owner OU admin système
+            if (!await HasOwnerAccessAsync(conn, userId, roomId))
+            {
+                // Vérifier que le salon existe
+                var checkSql = "SELECT 1 FROM \"Rooms\" WHERE \"Id\" = @rid";
+                using var checkCmd = new NpgsqlCommand(checkSql, conn);
+                checkCmd.Parameters.AddWithValue("rid", roomId);
+                var exists = await checkCmd.ExecuteScalarAsync();
+                if (exists == null) throw new Exception("Room not found");
+                throw new UnauthorizedAccessException("Not owner or system admin");
+            }
+
+            // Récupérer le statut actuel
+            var statusSql = "SELECT \"IsActive\" FROM \"Rooms\" WHERE \"Id\" = @rid";
             bool currentStatus = false;
-            using (var cmd = new NpgsqlCommand(checkSql, conn))
+            using (var cmd = new NpgsqlCommand(statusSql, conn))
             {
                 cmd.Parameters.AddWithValue("rid", roomId);
-                using var reader = await cmd.ExecuteReaderAsync();
-                if (await reader.ReadAsync())
-                {
-                    var ownerId = reader.GetInt32(0);
-                    if (ownerId != userId) throw new UnauthorizedAccessException("Not owner");
-                    currentStatus = reader.GetBoolean(1);
-                }
-                else throw new Exception("Room not found");
+                var result = await cmd.ExecuteScalarAsync();
+                if (result != null) currentStatus = (bool)result;
             }
 
             var newStatus = !currentStatus;

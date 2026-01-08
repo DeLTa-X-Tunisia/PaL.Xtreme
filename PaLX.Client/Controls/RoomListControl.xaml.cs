@@ -306,9 +306,21 @@ namespace PaLX.Client.Controls
         public bool IsOwner => OwnerId == ApiService.Instance.CurrentUserId;
         
         /// <summary>
-        /// L'utilisateur peut modifier le salon s'il est Owner OU Admin/Moderator
+        /// L'utilisateur est un admin système (ServerMaster à ServerModerator)
+        /// Ces rôles ont un accès total à tous les salons.
         /// </summary>
-        public bool CanEdit => IsOwner || !string.IsNullOrEmpty(UserRole);
+        public bool IsSystemAdmin => ApiService.Instance.IsSystemAdmin;
+        
+        /// <summary>
+        /// L'utilisateur a un accès de type Owner (propriétaire OU admin système)
+        /// Permet de modifier, supprimer, cacher/afficher le salon
+        /// </summary>
+        public bool HasOwnerAccess => IsOwner || IsSystemAdmin;
+        
+        /// <summary>
+        /// L'utilisateur peut modifier le salon s'il est Owner, Admin système, OU Admin/Moderator du salon
+        /// </summary>
+        public bool CanEdit => HasOwnerAccess || !string.IsNullOrEmpty(UserRole);
         
         public string VisibilityIcon => IsActive ? "👁️" : "🙈";
         public string VisibilityTooltip => IsActive ? "Cacher le salon" : "Afficher le salon";

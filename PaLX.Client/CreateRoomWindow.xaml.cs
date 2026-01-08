@@ -23,6 +23,11 @@ namespace PaLX.Client
         // Propriétés de rôle pour la gestion des permissions
         private readonly bool _isOwner = false;
         private readonly string? _userRole = null; // SuperAdmin, Admin, Moderator ou null
+        
+        /// <summary>
+        /// Indique si l'utilisateur a un accès complet au salon (Owner OU Admin Système)
+        /// </summary>
+        private bool HasFullAccess => _isOwner || ApiService.Instance.IsSystemAdmin;
 
         // Limites par niveau d'abonnement Room
         private static readonly Dictionary<int, (int MaxMic, int MaxCam, int MaxUsers, string Name)> SubscriptionLimits = new()
@@ -85,8 +90,9 @@ namespace PaLX.Client
             _editingRoom = room;
             _isOwner = room.IsOwner;
             _userRole = room.UserRole;
-            Title = _isOwner ? "Modifier le Salon" : "Gestion du Salon";
-            Console.WriteLine($"[CreateRoomWindow] Editing room: Id={room.Id}, Name={room.Name}, IsOwner={_isOwner}, UserRole={_userRole}");
+            // Les admins système ont un accès complet
+            Title = HasFullAccess ? "Modifier le Salon" : "Gestion du Salon";
+            Console.WriteLine($"[CreateRoomWindow] Editing room: Id={room.Id}, Name={room.Name}, IsOwner={_isOwner}, IsSystemAdmin={ApiService.Instance.IsSystemAdmin}, HasFullAccess={HasFullAccess}, UserRole={_userRole}");
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -143,12 +149,12 @@ namespace PaLX.Client
         /// </summary>
         private void ConfigurePermissionsForRole()
         {
-            Console.WriteLine($"[CreateRoomWindow] ConfigurePermissionsForRole - IsOwner={_isOwner}, UserRole={_userRole}");
+            Console.WriteLine($"[CreateRoomWindow] ConfigurePermissionsForRole - IsOwner={_isOwner}, IsSystemAdmin={ApiService.Instance.IsSystemAdmin}, HasFullAccess={HasFullAccess}, UserRole={_userRole}");
             
-            if (_isOwner)
+            if (HasFullAccess)
             {
                 // ═══════════════════════════════════════════════════════════════
-                // OWNER : Accès complet - peut tout modifier et gérer tous les rôles
+                // OWNER ou ADMIN SYSTÈME : Accès complet - peut tout modifier et gérer tous les rôles
                 // ═══════════════════════════════════════════════════════════════
                 AdminSection.Visibility = Visibility.Visible;
                 ModerationButton.Visibility = Visibility.Visible;
@@ -347,7 +353,7 @@ namespace PaLX.Client
 
         private void OpenModeration_Click(object sender, RoutedEventArgs e)
         {
-            Console.WriteLine($"[CreateRoomWindow] OpenModeration_Click - _editingRoomId={_editingRoomId}, IsOwner={_isOwner}, UserRole={_userRole}");
+            Console.WriteLine($"[CreateRoomWindow] OpenModeration_Click - _editingRoomId={_editingRoomId}, HasFullAccess={HasFullAccess}, UserRole={_userRole}");
             
             // La modération n'est disponible que pour les salons existants
             if (!_editingRoomId.HasValue || _editingRoomId.Value == 0)
@@ -365,10 +371,10 @@ namespace PaLX.Client
             
             string roomName = string.IsNullOrEmpty(RoomNameBox.Text) ? "Mon Salon" : RoomNameBox.Text;
             
-            Console.WriteLine($"[CreateRoomWindow] Creating RoomModerationWindow with roomId={_editingRoomId.Value}, roomName={roomName}, isOwner={_isOwner}, userRole={_userRole}");
+            Console.WriteLine($"[CreateRoomWindow] Creating RoomModerationWindow with roomId={_editingRoomId.Value}, roomName={roomName}, hasFullAccess={HasFullAccess}, userRole={_userRole}");
             
-            // Passer les informations de rôle pour filtrer les permissions
-            _moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName, _isOwner, _userRole);
+            // Passer HasFullAccess (Owner OU Admin Système) pour donner les permissions complètes
+            _moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName, HasFullAccess, _userRole);
             _moderationWindow.Owner = this;
             _moderationWindow.Closed += (s, args) => _moderationWindow = null;
             _moderationWindow.Show(); // Non-bloquant pour ne pas figer l'interface
