@@ -7,6 +7,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.7.1] - 2026-01-08
+
+### 🐛 Correction du Mode Invisible
+- **Invisibilité temps réel** : L'admin invisible n'est plus visible par les utilisateurs déjà présents dans le salon
+  - Avant : Si un admin rejoignait en invisible un salon occupé, tout le monde le voyait via SignalR
+  - Maintenant : L'événement `UserJoined` est envoyé uniquement aux admins de rang égal ou supérieur
+  
+### 🔧 Backend (API)
+- **`NotifyVisibleMembersOnlyAsync()`** : Nouvelle méthode pour notifier sélectivement les membres éligibles
+- **`GetUserSystemLevelAsync()`** : Helper pour récupérer le niveau système d'un utilisateur
+- **`GetRoomMemberDetailsAsync()`** : Récupère maintenant `IsInvisible` depuis la base de données
+- **Logique SignalR intelligente** : Si invisible → notifie seulement les admins éligibles, sinon → broadcast normal
+
+---
+
 ## [1.5.7] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités - Mode Invisible Admin
