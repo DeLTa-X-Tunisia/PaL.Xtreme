@@ -309,7 +309,7 @@
                     </StackPanel>
                     
                     <!-- Bouton -->
-                    <Button Grid.Column="2" Content="⚙️ Modération" Padding="18,12" 
+                    <Button x:Name="ModerationButton" Grid.Column="2" Content="⚙️ Modération" Padding="18,12" 
                             Background="#4CAF50" Foreground="White"
                             FontSize="13" FontWeight="SemiBold" BorderThickness="0" Cursor="Hand"
                             Click="OpenModeration_Click" VerticalAlignment="Center">

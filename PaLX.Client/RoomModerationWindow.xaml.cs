@@ -9,6 +9,7 @@ namespace PaLX.Client
 {
     /// <summary>
     /// Fenêtre de modération du salon - Version simplifiée avec deux listes
+    /// Gère les permissions selon le rôle de l'utilisateur
     /// </summary>
     public partial class RoomModerationWindow : Window
     {
@@ -16,19 +17,25 @@ namespace PaLX.Client
         private readonly int _roomId;
         private readonly string _roomName;
         
+        // Informations de rôle pour filtrer les permissions
+        private readonly bool _isOwner;
+        private readonly string? _currentUserRole; // SuperAdmin, Admin, Moderator ou null
+        
         // Deux collections séparées pour une gestion claire
         public ObservableCollection<FriendItem> AvailableFriends { get; } = new();
         public ObservableCollection<AdminItem> RoomAdmins { get; } = new();
 
-        public RoomModerationWindow(int roomId, string roomName)
+        public RoomModerationWindow(int roomId, string roomName, bool isOwner = true, string? userRole = null)
         {
             InitializeComponent();
             
-            Console.WriteLine($"[RoomModeration] *** WINDOW CREATED with roomId={roomId}, roomName={roomName} ***");
+            Console.WriteLine($"[RoomModeration] *** WINDOW CREATED with roomId={roomId}, roomName={roomName}, isOwner={isOwner}, userRole={userRole} ***");
             
             _apiService = ApiService.Instance;
             _roomId = roomId;
             _roomName = roomName;
+            _isOwner = isOwner;
+            _currentUserRole = userRole;
             
             TitleText.Text = $"Modération - {roomName}";
             
@@ -45,12 +52,14 @@ namespace PaLX.Client
 
         /// <summary>
         /// Charge les amis et les administrateurs du salon
+        /// Filtre selon le rôle de l'utilisateur
         /// </summary>
         private async System.Threading.Tasks.Task LoadData()
         {
             try
             {
                 Console.WriteLine($"[RoomModeration] ========== LOADING DATA FOR ROOM {_roomId} ==========");
+                Console.WriteLine($"[RoomModeration] Current user: IsOwner={_isOwner}, Role={_currentUserRole}");
                 
                 // 1. Récupérer tous les amis
                 var friends = await _apiService.GetFriendsAsync();
@@ -68,9 +77,16 @@ namespace PaLX.Client
                     }
                 }
                 
-                // 3. Séparer en deux listes
+                // 3. Séparer en deux listes avec filtrage selon le rôle
                 AvailableFriends.Clear();
                 RoomAdmins.Clear();
+                
+                // Déterminer quels boutons de rôle sont visibles selon le rôle actuel
+                bool canAssignSuperAdmin = _isOwner; // Seul Owner peut assigner SuperAdmin
+                bool canAssignAdmin = _isOwner || _currentUserRole == "SuperAdmin"; // Owner et SuperAdmin
+                bool canAssignModerator = _isOwner || _currentUserRole == "SuperAdmin" || _currentUserRole == "Admin"; // Owner, SuperAdmin, Admin
+                
+                Console.WriteLine($"[RoomModeration] Permissions: CanAssignSuperAdmin={canAssignSuperAdmin}, CanAssignAdmin={canAssignAdmin}, CanAssignModerator={canAssignModerator}");
                 
                 foreach (var friend in friends)
                 {
@@ -81,26 +97,37 @@ namespace PaLX.Client
                     
                     if (roleInfo != null && !string.IsNullOrEmpty(roleInfo.Role))
                     {
-                        // Ami avec un rôle → Liste des admins
-                        RoomAdmins.Add(new AdminItem
+                        // Ami avec un rôle → Vérifier si l'utilisateur peut le voir
+                        if (CanSeeRole(roleInfo.Role))
                         {
-                            UserId = friend.Id,
-                            Username = friend.Username,
-                            DisplayName = friend.DisplayName ?? friend.Username,
-                            AvatarUrl = avatarUrl,
-                            Role = roleInfo.Role
-                        });
-                        Console.WriteLine($"[RoomModeration]   -> Added to ADMINS list");
+                            RoomAdmins.Add(new AdminItem
+                            {
+                                UserId = friend.Id,
+                                Username = friend.Username,
+                                DisplayName = friend.DisplayName ?? friend.Username,
+                                AvatarUrl = avatarUrl,
+                                Role = roleInfo.Role,
+                                CanRemove = CanRemoveRole(roleInfo.Role) // Peut-on retirer ce rôle ?
+                            });
+                            Console.WriteLine($"[RoomModeration]   -> Added to ADMINS list (CanRemove={CanRemoveRole(roleInfo.Role)})");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[RoomModeration]   -> HIDDEN (role {roleInfo.Role} not visible for current user)");
+                        }
                     }
                     else
                     {
-                        // Ami sans rôle → Liste disponible
+                        // Ami sans rôle → Liste disponible (avec boutons filtrés)
                         AvailableFriends.Add(new FriendItem
                         {
                             UserId = friend.Id,
                             Username = friend.Username,
                             DisplayName = friend.DisplayName ?? friend.Username,
-                            AvatarUrl = avatarUrl
+                            AvatarUrl = avatarUrl,
+                            CanAssignSuperAdmin = canAssignSuperAdmin,
+                            CanAssignAdmin = canAssignAdmin,
+                            CanAssignModerator = canAssignModerator
                         });
                         Console.WriteLine($"[RoomModeration]   -> Added to AVAILABLE list");
                     }
@@ -115,6 +142,37 @@ namespace PaLX.Client
                 Console.WriteLine($"[RoomModeration] Erreur chargement: {ex.Message}");
                 ToastService.Error($"Erreur: {ex.Message}");
             }
+        }
+        
+        /// <summary>
+        /// Détermine si l'utilisateur actuel peut voir un rôle donné
+        /// Owner voit tout, SuperAdmin voit Admin+Moderator, Admin voit Moderator
+        /// </summary>
+        private bool CanSeeRole(string role)
+        {
+            if (_isOwner) return true; // Owner voit tout
+            
+            return _currentUserRole switch
+            {
+                "SuperAdmin" => role == "Admin" || role == "Moderator", // Voit Admin et Moderator
+                "Admin" => role == "Moderator", // Voit seulement Moderator
+                _ => false
+            };
+        }
+        
+        /// <summary>
+        /// Détermine si l'utilisateur actuel peut retirer un rôle donné
+        /// </summary>
+        private bool CanRemoveRole(string role)
+        {
+            if (_isOwner) return true; // Owner peut tout retirer
+            
+            return _currentUserRole switch
+            {
+                "SuperAdmin" => role == "Admin" || role == "Moderator", // Peut retirer Admin et Moderator
+                "Admin" => role == "Moderator", // Peut retirer seulement Moderator
+                _ => false
+            };
         }
 
         /// <summary>
@@ -173,7 +231,8 @@ namespace PaLX.Client
                         Username = friend.Username,
                         DisplayName = friend.DisplayName,
                         AvatarUrl = friend.AvatarUrl,
-                        Role = role
+                        Role = role,
+                        CanRemove = CanRemoveRole(role) // Appliquer les permissions
                     });
                     
                     UpdateUI();
@@ -210,14 +269,23 @@ namespace PaLX.Client
                 
                 if (result.Success)
                 {
-                    // Déplacer de RoomAdmins vers AvailableFriends
+                    // Déplacer de RoomAdmins vers AvailableFriends avec les permissions appropriées
                     RoomAdmins.Remove(admin);
+                    
+                    // Déterminer les permissions d'attribution
+                    bool canAssignSuperAdmin = _isOwner;
+                    bool canAssignAdmin = _isOwner || _currentUserRole == "SuperAdmin";
+                    bool canAssignModerator = _isOwner || _currentUserRole == "SuperAdmin" || _currentUserRole == "Admin";
+                    
                     AvailableFriends.Add(new FriendItem
                     {
                         UserId = admin.UserId,
                         Username = admin.Username,
                         DisplayName = admin.DisplayName,
-                        AvatarUrl = admin.AvatarUrl
+                        AvatarUrl = admin.AvatarUrl,
+                        CanAssignSuperAdmin = canAssignSuperAdmin,
+                        CanAssignAdmin = canAssignAdmin,
+                        CanAssignModerator = canAssignModerator
                     });
                     
                     UpdateUI();
@@ -269,7 +337,7 @@ namespace PaLX.Client
     // ═══════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// Ami disponible (sans rôle)
+    /// Ami disponible (sans rôle) avec permissions d'attribution
     /// </summary>
     public class FriendItem
     {
@@ -277,10 +345,23 @@ namespace PaLX.Client
         public string Username { get; set; } = "";
         public string DisplayName { get; set; } = "";
         public string AvatarUrl { get; set; } = "";
+        
+        // Permissions d'attribution selon le rôle de l'utilisateur courant
+        public bool CanAssignSuperAdmin { get; set; } = false;
+        public bool CanAssignAdmin { get; set; } = false;
+        public bool CanAssignModerator { get; set; } = false;
+        
+        // Pour le binding XAML (Visibility)
+        public System.Windows.Visibility SuperAdminButtonVisibility => 
+            CanAssignSuperAdmin ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        public System.Windows.Visibility AdminButtonVisibility => 
+            CanAssignAdmin ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+        public System.Windows.Visibility ModeratorButtonVisibility => 
+            CanAssignModerator ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
     }
 
     /// <summary>
-    /// Administrateur du salon (avec rôle)
+    /// Administrateur du salon (avec rôle) avec permission de retrait
     /// </summary>
     public class AdminItem
     {
@@ -289,6 +370,13 @@ namespace PaLX.Client
         public string DisplayName { get; set; } = "";
         public string AvatarUrl { get; set; } = "";
         public string Role { get; set; } = "";
+        
+        // Permission de retrait selon le rôle de l'utilisateur courant
+        public bool CanRemove { get; set; } = true;
+        
+        // Pour le binding XAML
+        public System.Windows.Visibility RemoveButtonVisibility => 
+            CanRemove ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         
         public string RoleDisplayName => Role switch
         {

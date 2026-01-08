@@ -19,6 +19,10 @@ namespace PaLX.Client
         private int _userRoomSubscriptionLevel = 0; // Basic par défaut
         private string? _selectedAvatarPath; // Chemin de l'avatar sélectionné
         private RoomModerationWindow? _moderationWindow; // Référence à la fenêtre de modération
+        
+        // Propriétés de rôle pour la gestion des permissions
+        private readonly bool _isOwner = false;
+        private readonly string? _userRole = null; // SuperAdmin, Admin, Moderator ou null
 
         // Limites par niveau d'abonnement Room
         private static readonly Dictionary<int, (int MaxMic, int MaxCam, int MaxUsers, string Name)> SubscriptionLimits = new()
@@ -79,8 +83,10 @@ namespace PaLX.Client
         {
             _editingRoomId = room.Id;
             _editingRoom = room;
-            Title = "Modifier le Salon";
-            Console.WriteLine($"[CreateRoomWindow] Editing room: Id={room.Id}, Name={room.Name}");
+            _isOwner = room.IsOwner;
+            _userRole = room.UserRole;
+            Title = _isOwner ? "Modifier le Salon" : "Gestion du Salon";
+            Console.WriteLine($"[CreateRoomWindow] Editing room: Id={room.Id}, Name={room.Name}, IsOwner={_isOwner}, UserRole={_userRole}");
         }
 
         private async void Window_Loaded(object sender, RoutedEventArgs e)
@@ -120,16 +126,82 @@ namespace PaLX.Client
                         }
                     }
                     
-                    // Afficher la section Administration (réservée au propriétaire)
-                    if (_editingRoom.IsOwner)
-                    {
-                        AdminSection.Visibility = Visibility.Visible;
-                    }
+                    // ═══════════════════════════════════════════════════════════════
+                    // GESTION DES PERMISSIONS SELON LE RÔLE
+                    // ═══════════════════════════════════════════════════════════════
+                    ConfigurePermissionsForRole();
                 }
             }
             catch (Exception ex)
             {
                 ToastService.Error($"Erreur d'initialisation: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Configure les permissions et la visibilité des éléments selon le rôle de l'utilisateur
+        /// </summary>
+        private void ConfigurePermissionsForRole()
+        {
+            Console.WriteLine($"[CreateRoomWindow] ConfigurePermissionsForRole - IsOwner={_isOwner}, UserRole={_userRole}");
+            
+            if (_isOwner)
+            {
+                // ═══════════════════════════════════════════════════════════════
+                // OWNER : Accès complet - peut tout modifier et gérer tous les rôles
+                // ═══════════════════════════════════════════════════════════════
+                AdminSection.Visibility = Visibility.Visible;
+                ModerationButton.Visibility = Visibility.Visible;
+                
+                // Tous les champs sont modifiables
+                RoomNameBox.IsEnabled = true;
+                DescriptionBox.IsEnabled = true;
+                CategoryCombo.IsEnabled = true;
+                SubCategoryCombo.IsEnabled = true;
+                AdultCheck.IsEnabled = true;
+            }
+            else if (_userRole == "SuperAdmin" || _userRole == "Admin")
+            {
+                // ═══════════════════════════════════════════════════════════════
+                // SUPERADMIN / ADMIN : Peut gérer le salon mais pas modifier les infos de base
+                // ═══════════════════════════════════════════════════════════════
+                AdminSection.Visibility = Visibility.Visible;
+                ModerationButton.Visibility = Visibility.Visible;
+                
+                // Champs réservés au Owner (lecture seule)
+                RoomNameBox.IsEnabled = false;
+                DescriptionBox.IsEnabled = false;
+                CategoryCombo.IsEnabled = false;
+                SubCategoryCombo.IsEnabled = false;
+                AdultCheck.IsEnabled = false;
+                
+                // Style lecture seule
+                RoomNameBox.Opacity = 0.6;
+                DescriptionBox.Opacity = 0.6;
+                CategoryCombo.Opacity = 0.6;
+                SubCategoryCombo.Opacity = 0.6;
+                AdultCheck.Opacity = 0.6;
+            }
+            else if (_userRole == "Moderator")
+            {
+                // ═══════════════════════════════════════════════════════════════
+                // MODERATOR : Peut voir le salon mais pas accéder à la modération
+                // ═══════════════════════════════════════════════════════════════
+                AdminSection.Visibility = Visibility.Collapsed; // Pas d'accès à la modération
+                
+                // Champs réservés au Owner (lecture seule)
+                RoomNameBox.IsEnabled = false;
+                DescriptionBox.IsEnabled = false;
+                CategoryCombo.IsEnabled = false;
+                SubCategoryCombo.IsEnabled = false;
+                AdultCheck.IsEnabled = false;
+                
+                // Style lecture seule
+                RoomNameBox.Opacity = 0.6;
+                DescriptionBox.Opacity = 0.6;
+                CategoryCombo.Opacity = 0.6;
+                SubCategoryCombo.Opacity = 0.6;
+                AdultCheck.Opacity = 0.6;
             }
         }
 
@@ -275,7 +347,7 @@ namespace PaLX.Client
 
         private void OpenModeration_Click(object sender, RoutedEventArgs e)
         {
-            Console.WriteLine($"[CreateRoomWindow] OpenModeration_Click - _editingRoomId={_editingRoomId}");
+            Console.WriteLine($"[CreateRoomWindow] OpenModeration_Click - _editingRoomId={_editingRoomId}, IsOwner={_isOwner}, UserRole={_userRole}");
             
             // La modération n'est disponible que pour les salons existants
             if (!_editingRoomId.HasValue || _editingRoomId.Value == 0)
@@ -293,9 +365,10 @@ namespace PaLX.Client
             
             string roomName = string.IsNullOrEmpty(RoomNameBox.Text) ? "Mon Salon" : RoomNameBox.Text;
             
-            Console.WriteLine($"[CreateRoomWindow] Creating RoomModerationWindow with roomId={_editingRoomId.Value}, roomName={roomName}");
+            Console.WriteLine($"[CreateRoomWindow] Creating RoomModerationWindow with roomId={_editingRoomId.Value}, roomName={roomName}, isOwner={_isOwner}, userRole={_userRole}");
             
-            _moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName);
+            // Passer les informations de rôle pour filtrer les permissions
+            _moderationWindow = new RoomModerationWindow(_editingRoomId.Value, roomName, _isOwner, _userRole);
             _moderationWindow.Owner = this;
             _moderationWindow.Closed += (s, args) => _moderationWindow = null;
             _moderationWindow.Show(); // Non-bloquant pour ne pas figer l'interface

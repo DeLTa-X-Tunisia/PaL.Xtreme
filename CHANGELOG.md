@@ -7,6 +7,27 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.5.1] - 2026-01-08
+
+### ✨ Nouvelles fonctionnalités
+- **Système de Permissions Hiérarchiques** : Contrôle d'accès basé sur le rôle
+  - **RoomOwner** : Accès complet (Nom, Description, Catégorie, 18+, Modération)
+  - **SuperAdmin** : Peut attribuer Admin 🔧 et Moderator ⭐ (pas SuperAdmin 👑)
+  - **Admin** : Peut attribuer Moderator 🔧 uniquement
+  - **Moderator** : Aucun accès à la fenêtre de Modération
+  - Champs du salon en lecture seule pour les non-propriétaires (opacité 0.6)
+
+### 🔧 Améliorations
+- **Filtrage visuel des boutons** : Seuls les boutons autorisés par le rôle sont affichés
+- **Filtrage de la liste des admins** : Chaque rôle ne voit que les rôles inférieurs
+- **Bouton Modération conditionnel** : Masqué pour les Moderators
+
+### 🐛 Corrections
+- Correction du doublon `</Button>` dans RoomModerationWindow.xaml
+- Ajout des propriétés de visibilité dans les modèles `FriendItem` et `AdminItem`
+
+---
+
 ## [1.5.0] - 2026-01-08
 
 ### ✨ Nouvelles fonctionnalités

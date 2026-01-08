@@ -154,21 +154,24 @@
                                                            FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
                                             </StackPanel>
                                             
-                                            <!-- Boutons de rôle -->
+                                            <!-- Boutons de rôle (visibilité selon les permissions) -->
                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                                 <Button Style="{StaticResource RoleButtonStyle}" 
                                                         Background="#9B59B6" ToolTip="SuperAdmin"
-                                                        Tag="{Binding}" Click="AssignSuperAdmin_Click">
+                                                        Tag="{Binding}" Click="AssignSuperAdmin_Click"
+                                                        Visibility="{Binding SuperAdminButtonVisibility}">
                                                     <TextBlock Text="👑" FontSize="16"/>
                                                 </Button>
                                                 <Button Style="{StaticResource RoleButtonStyle}" 
                                                         Background="#E74C3C" ToolTip="Admin"
-                                                        Tag="{Binding}" Click="AssignAdmin_Click">
+                                                        Tag="{Binding}" Click="AssignAdmin_Click"
+                                                        Visibility="{Binding AdminButtonVisibility}">
                                                     <TextBlock Text="⭐" FontSize="16"/>
                                                 </Button>
                                                 <Button Style="{StaticResource RoleButtonStyle}" 
                                                         Background="#3498DB" ToolTip="Modérateur"
-                                                        Tag="{Binding}" Click="AssignModerator_Click">
+                                                        Tag="{Binding}" Click="AssignModerator_Click"
+                                                        Visibility="{Binding ModeratorButtonVisibility}">
                                                     <TextBlock Text="🔧" FontSize="16"/>
                                                 </Button>
                                             </StackPanel>
@@ -284,10 +287,11 @@
                                                            FontWeight="SemiBold" Foreground="White"/>
                                             </Border>
                                             
-                                            <!-- Bouton supprimer -->
+                                            <!-- Bouton supprimer (visibilité selon les permissions) -->
                                             <Button Grid.Column="3" Style="{StaticResource RemoveButtonStyle}"
                                                     ToolTip="Retirer le rôle" Tag="{Binding}" 
-                                                    Click="RemoveRole_Click">
+                                                    Click="RemoveRole_Click"
+                                                    Visibility="{Binding RemoveButtonVisibility}">
                                                 <TextBlock Text="❌" FontSize="14"/>
                                             </Button>
                                         </Grid>
