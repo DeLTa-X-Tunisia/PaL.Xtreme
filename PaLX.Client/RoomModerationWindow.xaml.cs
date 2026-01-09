@@ -100,12 +100,17 @@ namespace PaLX.Client
                         // Ami avec un rôle → Vérifier si l'utilisateur peut le voir
                         if (CanSeeRole(roleInfo.Role))
                         {
+                            // Utiliser l'avatar du roleInfo si disponible, sinon celui de l'ami
+                            string adminAvatarUrl = !string.IsNullOrEmpty(roleInfo.AvatarUrl) 
+                                ? BuildAvatarUrl(roleInfo.AvatarUrl) 
+                                : avatarUrl;
+                            
                             RoomAdmins.Add(new AdminItem
                             {
                                 UserId = friend.Id,
                                 Username = friend.Username,
-                                DisplayName = friend.DisplayName ?? friend.Username,
-                                AvatarUrl = avatarUrl,
+                                DisplayName = roleInfo.DisplayName ?? friend.DisplayName ?? friend.Username,
+                                AvatarUrl = adminAvatarUrl,
                                 Role = roleInfo.Role,
                                 CanRemove = CanRemoveRole(roleInfo.Role) // Peut-on retirer ce rôle ?
                             });
@@ -130,6 +135,29 @@ namespace PaLX.Client
                             CanAssignModerator = canAssignModerator
                         });
                         Console.WriteLine($"[RoomModeration]   -> Added to AVAILABLE list");
+                    }
+                }
+                
+                // Ajouter les administrateurs qui ne sont PAS des amis
+                if (roles != null)
+                {
+                    var friendUserIds = friends.Select(f => f.Id).ToHashSet();
+                    foreach (var roleInfo in roles.Where(r => !friendUserIds.Contains(r.UserId) && !string.IsNullOrEmpty(r.Role)))
+                    {
+                        if (CanSeeRole(roleInfo.Role))
+                        {
+                            string adminAvatarUrl = BuildAvatarUrl(roleInfo.AvatarUrl);
+                            RoomAdmins.Add(new AdminItem
+                            {
+                                UserId = roleInfo.UserId,
+                                Username = roleInfo.Username,
+                                DisplayName = roleInfo.DisplayName ?? roleInfo.Username,
+                                AvatarUrl = adminAvatarUrl,
+                                Role = roleInfo.Role,
+                                CanRemove = CanRemoveRole(roleInfo.Role)
+                            });
+                            Console.WriteLine($"[RoomModeration] Non-friend admin {roleInfo.Username} added to ADMINS list");
+                        }
                     }
                 }
                 
@@ -192,13 +220,20 @@ namespace PaLX.Client
         /// </summary>
         private string BuildAvatarUrl(string? avatarPath)
         {
+            var defaultAvatar = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default_avatar.png");
+            
             if (string.IsNullOrEmpty(avatarPath))
-                return System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default_avatar.png");
+                return defaultAvatar;
             
-            if (avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\"))
-                return System.IO.File.Exists(avatarPath) ? avatarPath 
-                    : System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default_avatar.png");
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
             
+            // Si c'est un chemin local absolu (Windows: C:\... ou chemin réseau \\...)
+            if (avatarPath.Contains(":\\") || avatarPath.StartsWith("\\\\"))
+                return System.IO.File.Exists(avatarPath) ? avatarPath : defaultAvatar;
+            
+            // Sinon c'est un chemin relatif du serveur (comme /uploads/... ou uploads/...)
             return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 

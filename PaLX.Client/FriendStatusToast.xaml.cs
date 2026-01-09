@@ -46,13 +46,14 @@ namespace PaLX.Client
 
         private void SetAvatar(string? avatarPath)
         {
-            if (!string.IsNullOrEmpty(avatarPath) && File.Exists(avatarPath))
+            if (!string.IsNullOrEmpty(avatarPath))
             {
                 try
                 {
+                    string avatarUrl = BuildAvatarUrl(avatarPath);
                     var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(avatarPath);
+                    bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.EndInit();
                     
@@ -68,6 +69,20 @@ namespace PaLX.Client
             {
                 ShowPlaceholder();
             }
+        }
+
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return "";
+            
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            return $"{Services.ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private void ShowPlaceholder()

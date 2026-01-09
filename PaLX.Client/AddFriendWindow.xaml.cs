@@ -57,6 +57,21 @@ namespace PaLX.Client
             }
         }
 
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
+            if (string.IsNullOrEmpty(avatarPath))
+                return defaultAvatar;
+            
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
+        }
+
         private void OnFriendUpdate(string username)
         {
             Dispatcher.Invoke(() =>
@@ -78,14 +93,10 @@ namespace PaLX.Client
         private async void LoadRequests()
         {
             var requests = await ApiService.Instance.GetPendingRequestsAsync();
-            // Fix Avatar Paths for UI
-            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
+            // Fix Avatar Paths for UI - support server URLs
             foreach (var r in requests)
             {
-                if (string.IsNullOrEmpty(r.AvatarPath) || !File.Exists(r.AvatarPath))
-                {
-                    r.AvatarPath = defaultAvatar;
-                }
+                r.AvatarPath = BuildAvatarUrl(r.AvatarPath);
             }
             RequestsList.ItemsSource = requests;
         }
@@ -99,14 +110,10 @@ namespace PaLX.Client
         {
             var results = await ApiService.Instance.SearchUsersAsync(query);
             
-            // Fix Avatar Paths for UI
-            var defaultAvatar = System.IO.Path.GetFullPath("Assets/default_avatar.png");
+            // Fix Avatar Paths for UI - support server URLs
             foreach (var r in results)
             {
-                if (string.IsNullOrEmpty(r.AvatarPath) || !File.Exists(r.AvatarPath))
-                {
-                    r.AvatarPath = defaultAvatar; 
-                }
+                r.AvatarPath = BuildAvatarUrl(r.AvatarPath);
             }
             
             UsersList.ItemsSource = results;

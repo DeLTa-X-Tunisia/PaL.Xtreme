@@ -375,8 +375,8 @@ namespace PaLX.API.Services
         private async Task AddMemberToRoomInternal(NpgsqlConnection conn, int roomId, int userId, int roleId, bool isInvisible = false)
         {
             var sql = @"
-                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"")
-                VALUES (@rid, @uid, @role, @inv)";
+                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"", ""IsCamOn"", ""IsMicOn"", ""HasHandRaised"", ""IsMuted"")
+                VALUES (@rid, @uid, @role, @inv, false, false, false, false)";
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("rid", roomId);
             cmd.Parameters.AddWithValue("uid", userId);

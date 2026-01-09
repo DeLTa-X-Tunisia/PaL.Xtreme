@@ -94,8 +94,14 @@ namespace PaLX.Client.Services
         public event Action<string>? OnPartnerLeft;
 
         public HubConnection? GetHubConnection() => _hubConnection;
+        public HubConnection? HubConnection => _roomHubConnection ?? _hubConnection;
         public VoiceCallService? VoiceService { get; private set; }
         public VideoCallService? VideoService { get; private set; }
+        
+        /// <summary>
+        /// Indique si l'utilisateur a un abonnement premium actif
+        /// </summary>
+        public bool HasPremiumSubscription { get; private set; } = false;
         
         public string GetBaseUrl() => BaseUrl;
 

@@ -82,16 +82,21 @@ namespace PaLX.Client
                 }
 
                 // Load Avatar
-                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                if (!string.IsNullOrEmpty(profile.AvatarPath))
                 {
                     _avatarPath = profile.AvatarPath;
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(_avatarPath);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
-                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    try
+                    {
+                        string avatarUrl = BuildAvatarUrl(profile.AvatarPath);
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                        AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    }
+                    catch { /* Ignore avatar load errors */ }
                 }
             }
         }
@@ -106,7 +111,7 @@ namespace PaLX.Client
             TriggerAvatarUpload();
         }
 
-        private void TriggerAvatarUpload()
+        private async void TriggerAvatarUpload()
         {
             OpenFileDialog openFileDialog = new OpenFileDialog();
             openFileDialog.Filter = "Image files (*.jpg, *.jpeg, *.png)|*.jpg;*.jpeg;*.png";
@@ -115,32 +120,63 @@ namespace PaLX.Client
                 try
                 {
                     string sourcePath = openFileDialog.FileName;
-                    string appDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Avatars");
-                    if (!Directory.Exists(appDataPath))
-                    {
-                        Directory.CreateDirectory(appDataPath);
-                    }
-
-                    string fileName = $"{_username}_{DateTime.Now.Ticks}{Path.GetExtension(sourcePath)}";
-                    string destPath = Path.Combine(appDataPath, fileName);
-
-                    File.Copy(sourcePath, destPath, true);
-                    _avatarPath = destPath;
-
+                    
+                    // Afficher l'image immédiatement en local pendant l'upload
                     var bitmap = new BitmapImage();
                     bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(destPath);
+                    bitmap.UriSource = new Uri(sourcePath);
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
                     bitmap.EndInit();
-
                     AvatarEllipse.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
                     AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    
+                    // Upload sur le serveur
+                    var serverUrl = await ApiService.Instance.UploadImageAsync(sourcePath);
+                    if (!string.IsNullOrEmpty(serverUrl))
+                    {
+                        // Stocker l'URL du serveur (relative)
+                        _avatarPath = serverUrl;
+                    }
+                    else
+                    {
+                        // Fallback: garder le chemin local si l'upload échoue
+                        string appDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Avatars");
+                        if (!Directory.Exists(appDataPath))
+                        {
+                            Directory.CreateDirectory(appDataPath);
+                        }
+                        string fileName = $"{_username}_{DateTime.Now.Ticks}{Path.GetExtension(sourcePath)}";
+                        string destPath = Path.Combine(appDataPath, fileName);
+                        File.Copy(sourcePath, destPath, true);
+                        _avatarPath = destPath;
+                        ToastService.Warning("Upload serveur échoué, avatar sauvegardé localement.");
+                    }
                 }
                 catch (Exception ex)
                 {
                     ToastService.Error($"Erreur lors du chargement de l'image : {ex.Message}");
                 }
             }
+        }
+
+        /// <summary>
+        /// Construit l'URL complète de l'avatar à partir d'un chemin local ou relatif
+        /// </summary>
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return ApiService.BaseUrl + "/Assets/default_avatar.png";
+            
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            // Si c'est un chemin local qui existe
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            // Sinon c'est un chemin relatif du serveur
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private void Cancel_Click(object sender, RoutedEventArgs e)

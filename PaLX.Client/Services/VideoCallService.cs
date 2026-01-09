@@ -1,34 +1,25 @@
 // Copyright (c) 2026 Azizi Mounir. All rights reserved.
-// Video Call Service v2.0 - Professional WebRTC with Modular Architecture
-// Features: Opus audio (priority) + G.711 fallback, VP8 video, STUN/TURN, DTLS-SRTP
+// Video Call Service v3.0 - MixedReality.WebRTC Native Implementation
+// Features: Native camera/mic, H.264/VP8 codecs, fast startup, screen sharing
 
 using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
+using System.Windows.Media;
+using System.Windows;
 using Microsoft.AspNetCore.SignalR.Client;
-using NAudio.Wave;
-using OpenCvSharp;
-using OpenCvSharp.WpfExtensions;
-using SIPSorcery.Net;
-using SIPSorceryMedia.Abstractions;
-using PaLX.Client.Services.Interfaces;
-using PaLX.Client.Services.Encoders;
+using Microsoft.MixedReality.WebRTC;
+using System.Threading;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace PaLX.Client.Services
 {
     /// <summary>
-    /// Professional WebRTC Video Call Service v2.0
-    /// 
-    /// Architecture:
-    /// - Modular design with separate capture, encoding, and transport layers
-    /// - Opus audio codec (priority) with G.711 fallback
-    /// - VP8 video codec with adaptive bitrate
-    /// - STUN + TURN support for reliable NAT traversal
-    /// - DTLS-SRTP encryption
+    /// Professional WebRTC Video Call Service v3.0
+    /// Uses MixedReality.WebRTC for native camera/mic access and encoding
+    /// Independent from VoiceCallService
     /// </summary>
     public class VideoCallService : IDisposable
     {
@@ -37,46 +28,38 @@ namespace PaLX.Client.Services
         private readonly HubConnection _hubConnection;
         
         // WebRTC
-        private RTCPeerConnection? _peerConnection;
-        private List<RTCIceServer> _iceServers;
+        private PeerConnection? _peerConnection;
+        private Transceiver? _videoTransceiver;
+        private Transceiver? _audioTransceiver;
         
-        // Video
-        private VideoCapture? _camera;
-        private Thread? _cameraThread;
-        private volatile bool _isCameraRunning;
-        private IPaLXVideoEncoder? _videoEncoder;
-        private readonly object _encoderLock = new();
+        // Media Sources
+        private DeviceVideoTrackSource? _videoSource;
+        private DeviceAudioTrackSource? _audioSource;
+        private ExternalVideoTrackSource? _screenSource;
         
-        // Audio - Using modular encoders
-        private WaveInEvent? _waveIn;
-        private WaveOutEvent? _waveOut;
-        private BufferedWaveProvider? _playbackBuffer;
-        private IPaLXAudioEncoder? _audioEncoder;
-        private bool _useOpus = true; // Opus priority, fallback to G.711
-        
-        // Encoder Factory
-        private readonly IEncoderFactory _encoderFactory;
+        // Local Tracks
+        private LocalVideoTrack? _localVideoTrack;
+        private LocalAudioTrack? _localAudioTrack;
         
         // State
         private bool _isCallActive = false;
         private bool _isVideoEnabled = true;
         private bool _isAudioEnabled = true;
+        private bool _isScreenSharing = false;
         private string _currentCallId = string.Empty;
         private string _currentPartner = string.Empty;
-        private readonly SemaphoreSlim _connectionLock = new(1, 1);
+        private bool _disposed = false;
         
-        // Screen Share
-        private bool _isScreenSharing = false;
+        // Screen capture
         private Thread? _screenCaptureThread;
         private volatile bool _isScreenCaptureRunning;
         
-        // Quality settings - defaults to configured quality
-        private int _targetBitrate = 1200; // Will be overridden by settings
-        private int _currentFps = 30;
-        private DateTime _lastQualityCheck = DateTime.Now;
+        // Frame conversion
+        private readonly object _frameLock = new();
         
-        // TURN Configuration
-        private TurnServerConfig? _turnConfig;
+        // Cleanup synchronization
+        private readonly object _cleanupLock = new();
+        private bool _isCleaningUp = false;
 
         #endregion
 
@@ -93,8 +76,6 @@ namespace PaLX.Client.Services
         public event Action<bool>? OnPartnerAudioToggled;
         public event Action<bool>? OnScreenShareToggled;
         public event Action<string>? OnError;
-        public event Action<int>? OnBitrateChanged;
-        public event Action<AudioCodec>? OnAudioCodecChanged;
 
         #endregion
 
@@ -104,124 +85,15 @@ namespace PaLX.Client.Services
         public bool IsVideoEnabled => _isVideoEnabled;
         public bool IsAudioEnabled => _isAudioEnabled;
         public bool IsScreenSharing => _isScreenSharing;
-        public string CurrentCallId => _currentCallId;
-        public string CurrentPartner => _currentPartner;
-        public int CurrentBitrate => _targetBitrate;
-        public AudioCodec CurrentAudioCodec => _audioEncoder?.Codec ?? AudioCodec.Opus;
-        public bool IsOpusEnabled => _useOpus;
 
         #endregion
 
         #region Constructor
 
-        public VideoCallService(HubConnection hubConnection, TurnServerConfig? turnConfig = null)
+        public VideoCallService(HubConnection hubConnection)
         {
             _hubConnection = hubConnection;
-            _turnConfig = turnConfig;
-            _encoderFactory = new EncoderFactory();
-            
-            // Initialiser la qualité vidéo depuis les paramètres
-            var quality = SettingsService.CurrentVideoQuality;
-            _targetBitrate = quality.Bitrate;
-            _currentFps = quality.Fps;
-            
-            // Configure ICE servers
-            _iceServers = BuildIceServers(turnConfig);
-            
             InitializeSignalR();
-        }
-
-        /// <summary>
-        /// Build ICE server list with STUN and optional TURN
-        /// </summary>
-        private List<RTCIceServer> BuildIceServers(TurnServerConfig? turnConfig)
-        {
-            var servers = new List<RTCIceServer>
-            {
-                // Public STUN servers (always available)
-                new RTCIceServer { urls = "stun:stun.l.google.com:19302" },
-                new RTCIceServer { urls = "stun:stun1.l.google.com:19302" },
-                new RTCIceServer { urls = "stun:stun2.l.google.com:19302" },
-                new RTCIceServer { urls = "stun:stun3.l.google.com:19302" },
-                new RTCIceServer { urls = "stun:stun4.l.google.com:19302" },
-                new RTCIceServer { urls = "stun:stun.stunprotocol.org:3478" }
-            };
-            
-            // Add TURN server if configured (essential for ~20% of connections)
-            if (turnConfig != null && !string.IsNullOrEmpty(turnConfig.Url))
-            {
-                servers.Add(new RTCIceServer
-                {
-                    urls = turnConfig.Url,
-                    username = turnConfig.Username,
-                    credential = turnConfig.Credential
-                });
-                
-                // Add TURNS (TLS) if available
-                if (!string.IsNullOrEmpty(turnConfig.TlsUrl))
-                {
-                    servers.Add(new RTCIceServer
-                    {
-                        urls = turnConfig.TlsUrl,
-                        username = turnConfig.Username,
-                        credential = turnConfig.Credential
-                    });
-                }
-            }
-            
-            return servers;
-        }
-
-        #endregion
-
-        #region TURN Configuration
-
-        /// <summary>
-        /// Configure TURN server dynamically
-        /// </summary>
-        public void ConfigureTurnServer(TurnServerConfig config)
-        {
-            _turnConfig = config;
-            _iceServers = BuildIceServers(config);
-            OnStatusChanged?.Invoke($"TURN configuré: {config.Url}");
-        }
-
-        /// <summary>
-        /// Update TURN credentials (for time-limited auth)
-        /// </summary>
-        public void UpdateTurnCredentials(string username, string credential)
-        {
-            if (_turnConfig != null)
-            {
-                _turnConfig.Username = username;
-                _turnConfig.Credential = credential;
-                _iceServers = BuildIceServers(_turnConfig);
-            }
-        }
-
-        #endregion
-
-        #region Audio Codec Configuration
-
-        /// <summary>
-        /// Enable/disable Opus codec (use G.711 as fallback)
-        /// </summary>
-        public void SetOpusEnabled(bool enabled)
-        {
-            _useOpus = enabled;
-            OnStatusChanged?.Invoke(enabled ? "Opus activé (haute qualité)" : "G.711 activé (compatibilité)");
-        }
-
-        /// <summary>
-        /// Set audio bitrate for Opus (ignored for G.711)
-        /// </summary>
-        public void SetAudioBitrate(int kbps)
-        {
-            if (_audioEncoder is OpusAudioEncoder opusEncoder)
-            {
-                opusEncoder.TargetBitrate = kbps;
-                OnStatusChanged?.Invoke($"Bitrate audio: {kbps} kbps");
-            }
         }
 
         #endregion
@@ -235,7 +107,7 @@ namespace PaLX.Client.Services
             {
                 if (_isCallActive)
                 {
-                    _hubConnection.SendAsync("DeclineVideoCall", sender, callId);
+                    _ = _hubConnection.SendAsync("DeclineVideoCall", sender, callId);
                     return;
                 }
                 OnIncomingVideoCall?.Invoke(sender, callId);
@@ -254,18 +126,20 @@ namespace PaLX.Client.Services
             });
 
             // Call declined
-            _hubConnection.On<string, string>("VideoCallDeclined", (callee, callId) =>
+            _hubConnection.On<string, string>("VideoCallDeclined", async (callee, callId) =>
             {
                 OnVideoCallDeclined?.Invoke(callee, callId);
                 OnStatusChanged?.Invoke("Appel refusé");
+                await ApiService.Instance.UpdateStatusAsync(0); // Reset to Online
                 CleanupCall();
             });
 
             // Call ended
-            _hubConnection.On<string, string>("VideoCallEnded", (partner, callId) =>
+            _hubConnection.On<string, string>("VideoCallEnded", async (partner, callId) =>
             {
                 OnVideoCallEnded?.Invoke(partner, callId);
                 OnStatusChanged?.Invoke("Appel terminé");
+                await ApiService.Instance.UpdateStatusAsync(0); // Reset to Online
                 CleanupCall();
             });
 
@@ -280,64 +154,72 @@ namespace PaLX.Client.Services
                     
                     if (_peerConnection != null)
                     {
-                        var result = _peerConnection.setRemoteDescription(new RTCSessionDescriptionInit
-                        {
-                            type = RTCSdpType.offer,
-                            sdp = sdpOffer
-                        });
+                        var desc = new SdpMessage { Type = SdpMessageType.Offer, Content = sdpOffer };
+                        await _peerConnection.SetRemoteDescriptionAsync(desc);
                         
-                        if (result == SetDescriptionResultEnum.OK)
+                        if (_peerConnection.CreateAnswer())
                         {
-                            var answer = _peerConnection.createAnswer();
-                            await _peerConnection.setLocalDescription(answer);
-                            
-                            await _hubConnection.SendAsync("SendVideoAnswer", _currentPartner, _currentCallId, answer.sdp);
                             OnStatusChanged?.Invoke("Négociation...");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    OnError?.Invoke($"Erreur SDP: {ex.Message}");
+                    OnError?.Invoke($"Erreur SDP offer: {ex.Message}");
                 }
             });
 
             // Receive SDP answer
-            _hubConnection.On<string, string, string>("ReceiveVideoAnswer", (sender, callId, sdpAnswer) =>
+            _hubConnection.On<string, string, string>("ReceiveVideoAnswer", async (sender, callId, sdpAnswer) =>
             {
                 if (_currentCallId != callId || _peerConnection == null) return;
                 
-                _peerConnection.setRemoteDescription(new RTCSessionDescriptionInit
+                try
                 {
-                    type = RTCSdpType.answer,
-                    sdp = sdpAnswer
-                });
-                OnStatusChanged?.Invoke("Connexion établie");
+                    var desc = new SdpMessage { Type = SdpMessageType.Answer, Content = sdpAnswer };
+                    await _peerConnection.SetRemoteDescriptionAsync(desc);
+                    OnStatusChanged?.Invoke("Connecté");
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke($"Erreur SDP answer: {ex.Message}");
+                }
             });
 
             // Receive ICE candidate
-            _hubConnection.On<string, string, string, int, string>("ReceiveVideoIceCandidate",
-                (sender, callId, candidate, sdpMLineIndex, sdpMid) =>
+            _hubConnection.On<string, string, string, int, string>("ReceiveVideoIceCandidate", 
+                (sender, callId, candidate, sdpMlineIndex, sdpMid) =>
             {
                 if (_currentCallId != callId || _peerConnection == null) return;
                 
-                _peerConnection.addIceCandidate(new RTCIceCandidateInit
+                try
                 {
-                    candidate = candidate,
-                    sdpMid = sdpMid,
-                    sdpMLineIndex = (ushort)sdpMLineIndex
-                });
+                    _peerConnection.AddIceCandidate(new IceCandidate
+                    {
+                        Content = candidate,
+                        SdpMlineIndex = sdpMlineIndex,
+                        SdpMid = sdpMid
+                    });
+                }
+                catch (Exception ex)
+                {
+                    OnError?.Invoke($"Erreur ICE: {ex.Message}");
+                }
             });
 
-            // Partner toggled video/audio
+            // Partner toggled video
             _hubConnection.On<string, string, bool>("PartnerVideoToggled", (sender, callId, isEnabled) =>
             {
-                if (_currentCallId == callId) OnPartnerVideoToggled?.Invoke(isEnabled);
+                if (_currentCallId != callId) return;
+                OnPartnerVideoToggled?.Invoke(isEnabled);
+                if (!isEnabled) OnRemoteVideoFrame?.Invoke(null);
             });
 
+            // Partner toggled audio
             _hubConnection.On<string, string, bool>("PartnerAudioToggled", (sender, callId, isEnabled) =>
             {
-                if (_currentCallId == callId) OnPartnerAudioToggled?.Invoke(isEnabled);
+                if (_currentCallId != callId) return;
+                OnPartnerAudioToggled?.Invoke(isEnabled);
             });
         }
 
@@ -345,7 +227,7 @@ namespace PaLX.Client.Services
 
         #region Call Management
 
-        public async Task RequestVideoCall(string receiver)
+        public async Task RequestVideoCall(string targetUser)
         {
             if (_isCallActive)
             {
@@ -353,11 +235,11 @@ namespace PaLX.Client.Services
                 return;
             }
 
+            _currentPartner = targetUser;
             _currentCallId = Guid.NewGuid().ToString();
-            _currentPartner = receiver;
-            OnStatusChanged?.Invoke("Appel en cours...");
             
-            await _hubConnection.SendAsync("RequestVideoCall", receiver, _currentCallId);
+            OnStatusChanged?.Invoke($"Appel vers {targetUser}...");
+            await _hubConnection.SendAsync("RequestVideoCall", targetUser, _currentCallId);
         }
 
         public async Task AcceptVideoCall(string caller, string callId)
@@ -366,6 +248,7 @@ namespace PaLX.Client.Services
             _currentCallId = callId;
             _isCallActive = true;
             
+            await ApiService.Instance.UpdateStatusAsync(3); // En appel
             OnStatusChanged?.Invoke("Connexion...");
             await _hubConnection.SendAsync("AcceptVideoCall", caller, callId);
         }
@@ -373,45 +256,54 @@ namespace PaLX.Client.Services
         public async Task DeclineVideoCall(string caller, string callId)
         {
             await _hubConnection.SendAsync("DeclineVideoCall", caller, callId);
-        }
-
-        /// <summary>
-        /// Cancel an outgoing call before it's accepted (caller hangs up during ringing)
-        /// </summary>
-        public async Task CancelVideoCall()
-        {
-            if (string.IsNullOrEmpty(_currentPartner)) return;
-            
-            // Notify the receiver that the call was cancelled
-            await _hubConnection.SendAsync("EndVideoCall", _currentPartner, _currentCallId);
             CleanupCall();
         }
 
         public async Task EndVideoCall()
         {
-            // Check if there's any call (active or pending) to end
-            if (string.IsNullOrEmpty(_currentPartner)) return;
+            if (!string.IsNullOrEmpty(_currentPartner) && !string.IsNullOrEmpty(_currentCallId))
+            {
+                await _hubConnection.SendAsync("EndVideoCall", _currentPartner, _currentCallId);
+            }
             
-            await _hubConnection.SendAsync("EndVideoCall", _currentPartner, _currentCallId);
+            await ApiService.Instance.UpdateStatusAsync(0); // En ligne
             CleanupCall();
         }
+
+        #endregion
+
+        #region Media Controls
 
         public async Task ToggleVideo()
         {
             _isVideoEnabled = !_isVideoEnabled;
+            System.Diagnostics.Debug.WriteLine($"[VideoCall] ToggleVideo: _isVideoEnabled={_isVideoEnabled}");
+            
+            // Don't disable the track itself - just stop sending frames to UI
+            // Disabling the native track can cause crashes
             
             if (!string.IsNullOrEmpty(_currentPartner))
             {
                 await _hubConnection.SendAsync("ToggleVideoStream", _currentPartner, _currentCallId, _isVideoEnabled);
             }
             
-            if (!_isVideoEnabled) OnLocalVideoFrame?.Invoke(null);
             OnStatusChanged?.Invoke(_isVideoEnabled ? "Caméra activée" : "Caméra désactivée");
         }
 
         public async Task ToggleAudio()
         {
             _isAudioEnabled = !_isAudioEnabled;
+            System.Diagnostics.Debug.WriteLine($"[VideoCall] ToggleAudio: _isAudioEnabled={_isAudioEnabled}, _localAudioTrack={_localAudioTrack != null}");
+            
+            if (_localAudioTrack != null)
+            {
+                _localAudioTrack.Enabled = _isAudioEnabled;
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Audio track enabled set to: {_localAudioTrack.Enabled}");
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("[VideoCall] WARNING: _localAudioTrack is null!");
+            }
             
             if (!string.IsNullOrEmpty(_currentPartner))
             {
@@ -429,51 +321,15 @@ namespace PaLX.Client.Services
             
             if (_isScreenSharing)
             {
-                // Increase bitrate for screen share (text needs more quality)
-                if (_videoEncoder != null)
-                {
-                    _videoEncoder.TargetBitrate = 1500; // Higher bitrate for screen share
-                }
-                
-                // Stop camera first and wait for it to fully stop
-                StopCameraCapture();
-                Thread.Sleep(200); // Delay to ensure camera is fully released
-                
-                // Start screen capture
-                StartScreenCapture();
-                OnStatusChanged?.Invoke("Partage d'écran activé");
+                await StartScreenShare();
             }
             else
             {
-                // Stop screen capture first and wait
-                StopScreenCapture();
-                Thread.Sleep(300); // Longer delay to ensure screen capture thread is fully stopped
-                
-                // Restore normal bitrate
-                if (_videoEncoder != null)
-                {
-                    _videoEncoder.TargetBitrate = _targetBitrate;
-                }
-                
-                // Restart camera in a try-catch to prevent crashes
-                try
-                {
-                    StartCameraCapture();
-                }
-                catch (Exception ex)
-                {
-                    OnError?.Invoke($"Erreur réactivation caméra: {ex.Message}");
-                }
-                OnStatusChanged?.Invoke("Partage d'écran désactivé");
+                await StopScreenShare();
             }
             
             OnScreenShareToggled?.Invoke(_isScreenSharing);
-            
-            // Notify partner (optional - for UI indication)
-            if (!string.IsNullOrEmpty(_currentPartner))
-            {
-                await _hubConnection.SendAsync("ToggleVideoStream", _currentPartner, _currentCallId, true);
-            }
+            OnStatusChanged?.Invoke(_isScreenSharing ? "Partage d'écran activé" : "Partage d'écran désactivé");
         }
 
         #endregion
@@ -482,465 +338,353 @@ namespace PaLX.Client.Services
 
         private async Task InitializeWebRTC(bool isCaller)
         {
-            await _connectionLock.WaitAsync();
             try
             {
-                var config = new RTCConfiguration
+                OnStatusChanged?.Invoke("Initialisation WebRTC...");
+                
+                // Initialize media FIRST - before peer connection
+                await InitializeMedia();
+                
+                // Create peer connection
+                var config = new PeerConnectionConfiguration
                 {
-                    iceServers = _iceServers,
-                    X_UseRtpFeedbackProfile = true
+                    IceServers = new System.Collections.Generic.List<IceServer>
+                    {
+                        new IceServer { Urls = { "stun:stun.l.google.com:19302" } },
+                        new IceServer { Urls = { "stun:stun1.l.google.com:19302" } }
+                    }
                 };
-
-                _peerConnection = new RTCPeerConnection(config);
-
-                // Initialize encoders using factory
-                _videoEncoder = _encoderFactory.CreateVideoEncoder(VideoCodec.VP8);
-                _videoEncoder.TargetBitrate = _targetBitrate;
                 
-                // Choose audio codec: Opus (priority) or G.711 (fallback)
-                _audioEncoder = _useOpus 
-                    ? _encoderFactory.CreateAudioEncoder(AudioCodec.Opus)
-                    : _encoderFactory.CreateAudioEncoder(AudioCodec.PCMU);
+                _peerConnection = new PeerConnection();
+                await _peerConnection.InitializeAsync(config);
                 
-                OnAudioCodecChanged?.Invoke(_audioEncoder.Codec);
-                OnStatusChanged?.Invoke($"Audio: {_audioEncoder.Codec}");
-
-                // Add video track (VP8) - dynamic format with ID 96
-                var videoFormat = new SDPAudioVideoMediaFormat(SDPMediaTypesEnum.video, 96, "VP8", 90000);
-                var videoTrack = new MediaStreamTrack(
-                    SDPMediaTypesEnum.video,
-                    false,
-                    new List<SDPAudioVideoMediaFormat> { videoFormat },
-                    MediaStreamStatusEnum.SendRecv);
-                _peerConnection.addTrack(videoTrack);
-
-                // Add audio track based on selected codec
-                SDPAudioVideoMediaFormat audioFormat;
-                if (_useOpus)
+                // Setup event handlers
+                _peerConnection.LocalSdpReadytoSend += OnLocalSdpReady;
+                _peerConnection.IceCandidateReadytoSend += OnIceCandidateReady;
+                _peerConnection.Connected += () => 
                 {
-                    // Opus: dynamic ID 111, 48kHz, stereo
-                    audioFormat = new SDPAudioVideoMediaFormat(
-                        SDPMediaTypesEnum.audio, 111, "opus", 48000, 2, "minptime=10;useinbandfec=1");
+                    OnStatusChanged?.Invoke("Connecté ✓");
+                    System.Diagnostics.Debug.WriteLine("[VideoCall] PeerConnection connected!");
+                };
+                _peerConnection.IceStateChanged += state => 
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] ICE state: {state}");
+                    if (state == IceConnectionState.Disconnected || state == IceConnectionState.Failed)
+                    {
+                        OnStatusChanged?.Invoke("Connexion perdue");
+                    }
+                };
+                
+                // Handle remote video - subscribe to BOTH frame formats
+                _peerConnection.VideoTrackAdded += (track) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote VIDEO track added: {track.Name}");
+                    track.I420AVideoFrameReady += OnRemoteI420AFrameReady;
+                    track.Argb32VideoFrameReady += OnRemoteArgb32FrameReady;
+                };
+                
+                // Handle remote audio
+                _peerConnection.AudioTrackAdded += (track) =>
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote AUDIO track added: {track.Name}");
+                    OnStatusChanged?.Invoke("Audio distant connecté 🔊");
+                };
+                
+                if (isCaller)
+                {
+                    // CALLER: Add transceivers and attach local tracks, then create offer
+                    _videoTransceiver = _peerConnection.AddTransceiver(MediaKind.Video);
+                    _videoTransceiver.DesiredDirection = Transceiver.Direction.SendReceive;
+                    if (_localVideoTrack != null)
+                    {
+                        _videoTransceiver.LocalVideoTrack = _localVideoTrack;
+                        System.Diagnostics.Debug.WriteLine("[VideoCall] CALLER: Video track attached");
+                    }
+                    
+                    _audioTransceiver = _peerConnection.AddTransceiver(MediaKind.Audio);
+                    _audioTransceiver.DesiredDirection = Transceiver.Direction.SendReceive;
+                    if (_localAudioTrack != null)
+                    {
+                        _audioTransceiver.LocalAudioTrack = _localAudioTrack;
+                        System.Diagnostics.Debug.WriteLine("[VideoCall] CALLER: Audio track attached");
+                    }
+                    
+                    // Create offer
+                    System.Diagnostics.Debug.WriteLine("[VideoCall] CALLER: Creating offer...");
+                    _peerConnection.CreateOffer();
                 }
                 else
                 {
-                    // G.711 PCMU: well-known format
-                    audioFormat = new SDPAudioVideoMediaFormat(SDPWellKnownMediaFormatsEnum.PCMU);
-                }
-                
-                var audioTrack = new MediaStreamTrack(
-                    SDPMediaTypesEnum.audio,
-                    false,
-                    new List<SDPAudioVideoMediaFormat> { audioFormat },
-                    MediaStreamStatusEnum.SendRecv);
-                _peerConnection.addTrack(audioTrack);
-
-                // ICE candidate callback
-                _peerConnection.onicecandidate += (candidate) =>
-                {
-                    if (candidate != null && !string.IsNullOrEmpty(_currentPartner))
+                    // RECEIVER: Register TransceiverAdded handler BEFORE SetRemoteDescription
+                    // The transceivers will be created when SetRemoteDescription processes the offer
+                    _peerConnection.TransceiverAdded += (transceiver) =>
                     {
-                        _hubConnection.SendAsync("SendVideoIceCandidate", 
-                            _currentPartner, _currentCallId,
-                            candidate.candidate, candidate.sdpMLineIndex, candidate.sdpMid ?? "");
-                    }
-                };
-
-                // Connection state
-                _peerConnection.onconnectionstatechange += (state) =>
-                {
-                    switch (state)
-                    {
-                        case RTCPeerConnectionState.connected:
-                            OnStatusChanged?.Invoke("Juste un instant...");
-                            _isCallActive = true;
-                            // Set status to "En appel" (3)
-                            ApiService.Instance.UpdateStatusAsync(3);
-                            StartMediaCapture();
-                            break;
-                        case RTCPeerConnectionState.disconnected:
-                            OnStatusChanged?.Invoke("Déconnecté");
-                            break;
-                        case RTCPeerConnectionState.failed:
-                            OnError?.Invoke("Échec de connexion WebRTC");
-                            CleanupCall();
-                            break;
-                    }
-                };
-
-                // ICE state
-                _peerConnection.oniceconnectionstatechange += (state) =>
-                {
-                    OnStatusChanged?.Invoke($"ICE: {state}");
-                };
-
-                // Receive remote video
-                _peerConnection.OnVideoFrameReceived += OnRemoteVideoFrameReceived;
-
-                // Receive remote audio
-                _peerConnection.OnRtpPacketReceived += OnRtpPacketReceived;
-
-                // Create offer if caller
-                if (isCaller)
-                {
-                    var offer = _peerConnection.createOffer();
-                    await _peerConnection.setLocalDescription(offer);
-                    
-                    await _hubConnection.SendAsync("SendVideoOffer", _currentPartner, _currentCallId, offer.sdp);
-                    OnStatusChanged?.Invoke("Offre envoyée...");
+                        System.Diagnostics.Debug.WriteLine($"[VideoCall] RECEIVER: TransceiverAdded - {transceiver.MediaKind}");
+                        
+                        transceiver.DesiredDirection = Transceiver.Direction.SendReceive;
+                        
+                        if (transceiver.MediaKind == MediaKind.Video)
+                        {
+                            _videoTransceiver = transceiver;
+                            if (_localVideoTrack != null)
+                            {
+                                transceiver.LocalVideoTrack = _localVideoTrack;
+                                System.Diagnostics.Debug.WriteLine("[VideoCall] RECEIVER: Video track attached to transceiver");
+                            }
+                        }
+                        else if (transceiver.MediaKind == MediaKind.Audio)
+                        {
+                            _audioTransceiver = transceiver;
+                            if (_localAudioTrack != null)
+                            {
+                                transceiver.LocalAudioTrack = _localAudioTrack;
+                                System.Diagnostics.Debug.WriteLine("[VideoCall] RECEIVER: Audio track attached to transceiver");
+                            }
+                        }
+                    };
+                    System.Diagnostics.Debug.WriteLine("[VideoCall] RECEIVER: TransceiverAdded handler registered, ready for SetRemoteDescription");
                 }
             }
             catch (Exception ex)
             {
                 OnError?.Invoke($"Erreur WebRTC: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] WebRTC Error: {ex}");
                 CleanupCall();
             }
-            finally
-            {
-                _connectionLock.Release();
-            }
         }
 
-        #endregion
-
-        #region Media Capture
-
-        private void StartMediaCapture()
-        {
-            StartCameraCapture();
-            StartAudioCapture();
-            StartAudioPlayback();
-        }
-
-        private void StartCameraCapture()
+        private async Task InitializeMedia()
         {
             try
             {
-                // Ensure previous camera is fully released
-                if (_camera != null)
-                {
-                    try { _camera.Release(); } catch { }
-                    try { _camera.Dispose(); } catch { }
-                    _camera = null;
-                    Thread.Sleep(100); // Small delay after disposing
-                }
+                OnStatusChanged?.Invoke("Accès caméra...");
                 
-                // Utiliser la caméra sélectionnée dans les paramètres
+                // Get selected camera from settings
                 int cameraIndex = SettingsService.SelectedCameraIndex;
-                _camera = new VideoCapture(cameraIndex);
+                var devices = await DeviceVideoTrackSource.GetCaptureDevicesAsync();
                 
-                if (!_camera.IsOpened())
+                string? deviceId = null;
+                if (devices.Count > cameraIndex)
                 {
-                    OnError?.Invoke("Impossible d'accéder à la caméra");
-                    return;
+                    deviceId = devices[cameraIndex].id;
                 }
-
-                // Appliquer la qualité vidéo configurée
+                else if (devices.Count > 0)
+                {
+                    deviceId = devices[0].id;
+                }
+                
+                // Create video source with configured quality
                 var quality = SettingsService.CurrentVideoQuality;
-                _camera.Set(VideoCaptureProperties.FrameWidth, quality.Width);
-                _camera.Set(VideoCaptureProperties.FrameHeight, quality.Height);
-                _camera.Set(VideoCaptureProperties.Fps, quality.Fps);
-                
-                // Optimisations pour une meilleure qualité d'image
-                _camera.Set(VideoCaptureProperties.BufferSize, 1); // Réduire le lag
-                _camera.Set(VideoCaptureProperties.AutoExposure, 1); // Activer l'auto-exposition
-                _camera.Set(VideoCaptureProperties.AutoFocus, 1); // Activer l'autofocus si disponible
-                _camera.Set(VideoCaptureProperties.FourCC, VideoWriter.FourCC('M', 'J', 'P', 'G')); // Format MJPEG pour meilleure qualité
-                
-                // Mettre à jour le bitrate et FPS
-                _targetBitrate = quality.Bitrate;
-                _currentFps = quality.Fps;
-                
-                // Appliquer le bitrate à l'encodeur
-                if (_videoEncoder != null)
+                var videoSettings = new LocalVideoDeviceInitConfig
                 {
-                    _videoEncoder.TargetBitrate = _targetBitrate;
-                }
-
-                _isCameraRunning = true;
-                _cameraThread = new Thread(CameraCaptureLoop)
-                {
-                    IsBackground = true,
-                    Name = "WebRTCCameraThread",
-                    Priority = ThreadPriority.AboveNormal
+                    videoDevice = new VideoCaptureDevice { id = deviceId ?? "" },
+                    width = (uint)quality.Width,
+                    height = (uint)quality.Height,
+                    framerate = quality.Fps
                 };
-                _cameraThread.Start();
+                
+                _videoSource = await DeviceVideoTrackSource.CreateAsync(videoSettings);
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Video source created for device: {deviceId}");
+                
+                // Subscribe to BOTH frame formats - Windows may use either
+                _videoSource.I420AVideoFrameReady += OnLocalI420AFrameReady;
+                _videoSource.Argb32VideoFrameReady += OnLocalArgb32FrameReady;
+                System.Diagnostics.Debug.WriteLine("[VideoCall] Subscribed to I420A and ARGB32 frame events");
+                
+                // Create local video track
+                _localVideoTrack = LocalVideoTrack.CreateFromSource(_videoSource, new LocalVideoTrackInitConfig
+                {
+                    trackName = "video_track"
+                });
+                _localVideoTrack.Enabled = true; // Ensure video is enabled
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Video track created, enabled: {_localVideoTrack.Enabled}");
+                
+                OnStatusChanged?.Invoke("Accès micro...");
+                
+                // Create audio source with default device
+                _audioSource = await DeviceAudioTrackSource.CreateAsync();
+                System.Diagnostics.Debug.WriteLine("[VideoCall] Audio source created");
+                
+                // Create local audio track
+                _localAudioTrack = LocalAudioTrack.CreateFromSource(_audioSource, new LocalAudioTrackInitConfig
+                {
+                    trackName = "audio_track"
+                });
+                _localAudioTrack.Enabled = true; // Ensure audio is enabled
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Audio track created, enabled: {_localAudioTrack.Enabled}");
+                
+                OnStatusChanged?.Invoke("Média initialisé ✓");
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"Erreur caméra: {ex.Message}");
+                OnError?.Invoke($"Erreur média: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Media Error: {ex}");
             }
-        }
-
-        private void CameraCaptureLoop()
-        {
-            using var frame = new Mat();
-            var frameInterval = TimeSpan.FromMilliseconds(1000.0 / _currentFps);
-            var lastFrameTime = DateTime.Now;
-            uint rtpTimestamp = 0;
-
-            while (_isCameraRunning && _camera != null && _camera.IsOpened())
-            {
-                try
-                {
-                    var elapsed = DateTime.Now - lastFrameTime;
-                    if (elapsed < frameInterval)
-                    {
-                        Thread.Sleep(frameInterval - elapsed);
-                    }
-                    lastFrameTime = DateTime.Now;
-
-                    if (!_camera.Read(frame) || frame.Empty())
-                    {
-                        Thread.Sleep(10);
-                        continue;
-                    }
-
-                    // Local preview
-                    if (_isVideoEnabled)
-                    {
-                        try
-                        {
-                            var previewBitmap = frame.ToBitmapSource();
-                            previewBitmap.Freeze();
-                            OnLocalVideoFrame?.Invoke(previewBitmap);
-                        }
-                        catch { }
-                    }
-
-                    // Encode and send via WebRTC
-                    if (_isCallActive && _isVideoEnabled && _peerConnection != null && _videoEncoder != null)
-                    {
-                        try
-                        {
-                            // Get actual frame dimensions
-                            int frameWidth = frame.Width;
-                            int frameHeight = frame.Height;
-                            
-                            // Convert BGR to byte array
-                            byte[] bgrData = new byte[frame.Total() * frame.ElemSize()];
-                            System.Runtime.InteropServices.Marshal.Copy(frame.Data, bgrData, 0, bgrData.Length);
-                            
-                            lock (_encoderLock)
-                            {
-                                // Use actual frame dimensions for encoding
-                                var encodedFrame = _videoEncoder.Encode(bgrData, frameWidth, frameHeight);
-                                
-                                if (encodedFrame != null && encodedFrame.Data.Length > 0)
-                                {
-                                    rtpTimestamp += (uint)(90000 / _currentFps);
-                                    _peerConnection.SendVideo(rtpTimestamp, encodedFrame.Data);
-                                }
-                            }
-                            
-                            CheckAndAdaptQuality();
-                        }
-                        catch { }
-                    }
-                }
-                catch (ThreadInterruptedException)
-                {
-                    break;
-                }
-                catch
-                {
-                    Thread.Sleep(50);
-                }
-            }
-        }
-
-        private void OnRemoteVideoFrameReceived(IPEndPoint ep, uint timestamp, byte[] encodedFrame, VideoFormat format)
-        {
-            try
-            {
-                if (_videoEncoder == null) return;
-
-                var decodedFrame = _videoEncoder.Decode(encodedFrame);
-                
-                if (decodedFrame != null && decodedFrame.Data != null)
-                {
-                    int width = decodedFrame.Width;
-                    int height = decodedFrame.Height;
-                    
-                    using var mat = Mat.FromPixelData(height, width, MatType.CV_8UC3, decodedFrame.Data);
-                    var bitmap = mat.ToBitmapSource();
-                    bitmap.Freeze();
-                    OnRemoteVideoFrame?.Invoke(bitmap);
-                }
-            }
-            catch { }
         }
 
         #endregion
 
-        #region Screen Capture
+        #region Screen Sharing
 
-        private void StopCameraCapture()
-        {
-            _isCameraRunning = false;
-            
-            // Wait for thread to finish
-            if (_cameraThread != null && _cameraThread.IsAlive)
-            {
-                _cameraThread.Join(1000);
-            }
-            _cameraThread = null;
-            
-            // Release camera resources
-            try
-            {
-                _camera?.Release();
-                _camera?.Dispose();
-            }
-            catch { }
-            _camera = null;
-        }
-
-        private void StartScreenCapture()
+        private async Task StartScreenShare()
         {
             try
             {
+                // Stop camera
+                _localVideoTrack?.Dispose();
+                _videoSource?.Dispose();
+                
+                // Create external source for screen capture
+                _screenSource = ExternalVideoTrackSource.CreateFromArgb32Callback(ScreenCaptureCallback);
+                
+                _localVideoTrack = LocalVideoTrack.CreateFromSource(_screenSource, new LocalVideoTrackInitConfig
+                {
+                    trackName = "screen_track"
+                });
+                
+                if (_videoTransceiver != null)
+                {
+                    _videoTransceiver.LocalVideoTrack = _localVideoTrack;
+                }
+                
+                // Start screen capture thread
                 _isScreenCaptureRunning = true;
                 _screenCaptureThread = new Thread(ScreenCaptureLoop)
                 {
                     IsBackground = true,
-                    Name = "WebRTCScreenCaptureThread",
-                    Priority = ThreadPriority.AboveNormal
+                    Name = "ScreenCaptureThread"
                 };
                 _screenCaptureThread.Start();
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"Erreur capture d'écran: {ex.Message}");
+                OnError?.Invoke($"Erreur partage écran: {ex.Message}");
+                _isScreenSharing = false;
             }
         }
 
-        private void StopScreenCapture()
+        private async Task StopScreenShare()
         {
+            // Stop capture thread first
             _isScreenCaptureRunning = false;
-            _isScreenSharing = false; // Ensure loop condition is false
+            _screenCaptureThread?.Join(1000);
+            _screenCaptureThread = null;
             
-            // Wait for thread to finish with timeout
-            try
+            // Detach screen track from transceiver BEFORE disposing
+            if (_videoTransceiver != null)
             {
-                if (_screenCaptureThread != null && _screenCaptureThread.IsAlive)
+                _videoTransceiver.LocalVideoTrack = null;
+            }
+            
+            // Dispose the screen video track BEFORE disposing the source
+            _localVideoTrack?.Dispose();
+            _localVideoTrack = null;
+            
+            // Now safe to dispose the screen source
+            _screenSource?.Dispose();
+            _screenSource = null;
+            
+            // Reinitialize camera
+            await InitializeMedia();
+            
+            // Reattach camera track
+            if (_videoTransceiver != null && _localVideoTrack != null)
+            {
+                _videoTransceiver.LocalVideoTrack = _localVideoTrack;
+            }
+        }
+
+        // Screen capture buffer
+        private IntPtr _screenArgb32Buffer = IntPtr.Zero;
+        private int _screenWidth;
+        private int _screenHeight;
+        private int _screenBufferSize;
+
+        private void ScreenCaptureCallback(in FrameRequest request)
+        {
+            lock (_frameLock)
+            {
+                if (_screenArgb32Buffer != IntPtr.Zero && _screenWidth > 0 && _screenHeight > 0)
                 {
-                    if (!_screenCaptureThread.Join(2000)) // Longer timeout
+                    var frame = new Argb32VideoFrame
                     {
-                        // Thread didn't finish, try to interrupt
-                        try { _screenCaptureThread.Interrupt(); } catch { }
-                    }
+                        data = _screenArgb32Buffer,
+                        width = (uint)_screenWidth,
+                        height = (uint)_screenHeight,
+                        stride = _screenWidth * 4
+                    };
+                    
+                    request.CompleteRequest(frame);
                 }
             }
-            catch { }
-            _screenCaptureThread = null;
         }
 
         private void ScreenCaptureLoop()
         {
-            var frameInterval = TimeSpan.FromMilliseconds(1000.0 / 10); // 10 fps for screen share (better quality)
-            var lastFrameTime = DateTime.Now;
-            uint rtpTimestamp = 0;
-
-            // Get screen dimensions
-            int screenWidth = (int)System.Windows.SystemParameters.PrimaryScreenWidth;
-            int screenHeight = (int)System.Windows.SystemParameters.PrimaryScreenHeight;
+            var frameInterval = TimeSpan.FromMilliseconds(1000.0 / 15); // 15 FPS for screen share
             
-            // Target resolution for encoding
-            int targetWidth = 1920;
-            int targetHeight = 1080;
-
-            while (_isScreenCaptureRunning && _isScreenSharing)
+            while (_isScreenCaptureRunning)
             {
                 try
                 {
-                    var elapsed = DateTime.Now - lastFrameTime;
+                    var startTime = DateTime.Now;
+                    
+                    // Capture screen
+                    using var bitmap = CaptureScreen();
+                    if (bitmap != null)
+                    {
+                        // Convert to ARGB32 buffer
+                        lock (_frameLock)
+                        {
+                            _screenWidth = bitmap.Width;
+                            _screenHeight = bitmap.Height;
+                            
+                            var bmpData = bitmap.LockBits(
+                                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                                ImageLockMode.ReadOnly,
+                                System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                            
+                            try
+                            {
+                                int requiredSize = bmpData.Stride * bmpData.Height;
+                                
+                                // Allocate or reallocate buffer if needed
+                                if (_screenArgb32Buffer == IntPtr.Zero || _screenBufferSize < requiredSize)
+                                {
+                                    if (_screenArgb32Buffer != IntPtr.Zero)
+                                    {
+                                        Marshal.FreeHGlobal(_screenArgb32Buffer);
+                                    }
+                                    _screenArgb32Buffer = Marshal.AllocHGlobal(requiredSize);
+                                    _screenBufferSize = requiredSize;
+                                }
+                                
+                                // Copy bitmap data
+                                unsafe
+                                {
+                                    Buffer.MemoryCopy(
+                                        (void*)bmpData.Scan0,
+                                        (void*)_screenArgb32Buffer,
+                                        requiredSize,
+                                        requiredSize);
+                                }
+                            }
+                            finally
+                            {
+                                bitmap.UnlockBits(bmpData);
+                            }
+                        }
+                        
+                        // Also show local preview
+                        var bitmapSource = BitmapToBitmapSource(bitmap);
+                        bitmapSource?.Freeze();
+                        OnLocalVideoFrame?.Invoke(bitmapSource);
+                    }
+                    
+                    var elapsed = DateTime.Now - startTime;
                     if (elapsed < frameInterval)
                     {
                         Thread.Sleep(frameInterval - elapsed);
-                    }
-                    lastFrameTime = DateTime.Now;
-
-                    // Capture screen using Graphics.CopyFromScreen
-                    using var screenBitmap = new System.Drawing.Bitmap(screenWidth, screenHeight, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-                    using (var graphics = System.Drawing.Graphics.FromImage(screenBitmap))
-                    {
-                        graphics.CopyFromScreen(0, 0, 0, 0, new System.Drawing.Size(screenWidth, screenHeight));
-                    }
-
-                    // Lock bits in BGR format (24bpp)
-                    var bmpData = screenBitmap.LockBits(
-                        new System.Drawing.Rectangle(0, 0, screenWidth, screenHeight),
-                        System.Drawing.Imaging.ImageLockMode.ReadOnly,
-                        System.Drawing.Imaging.PixelFormat.Format24bppRgb);
-                    
-                    try
-                    {
-                        // Handle stride properly - copy row by row if stride doesn't match
-                        int expectedStride = screenWidth * 3;
-                        byte[] bgrData;
-                        
-                        if (bmpData.Stride == expectedStride)
-                        {
-                            // Stride matches, direct copy
-                            bgrData = new byte[screenHeight * expectedStride];
-                            System.Runtime.InteropServices.Marshal.Copy(bmpData.Scan0, bgrData, 0, bgrData.Length);
-                        }
-                        else
-                        {
-                            // Stride doesn't match, copy row by row
-                            bgrData = new byte[screenHeight * expectedStride];
-                            for (int y = 0; y < screenHeight; y++)
-                            {
-                                IntPtr rowPtr = bmpData.Scan0 + (y * bmpData.Stride);
-                                System.Runtime.InteropServices.Marshal.Copy(rowPtr, bgrData, y * expectedStride, expectedStride);
-                            }
-                        }
-                        
-                        screenBitmap.UnlockBits(bmpData);
-                        
-                        // Create Mat from BGR data
-                        using var mat = Mat.FromPixelData(screenHeight, screenWidth, MatType.CV_8UC3, bgrData);
-                        
-                        // Resize to target resolution
-                        using var resizedMat = new Mat();
-                        Cv2.Resize(mat, resizedMat, new OpenCvSharp.Size(targetWidth, targetHeight), 0, 0, InterpolationFlags.Linear);
-
-                        // Local preview
-                        try
-                        {
-                            var previewBitmap = resizedMat.ToBitmapSource();
-                            previewBitmap.Freeze();
-                            OnLocalVideoFrame?.Invoke(previewBitmap);
-                        }
-                        catch { }
-
-                        // Encode and send via WebRTC
-                        if (_isCallActive && _peerConnection != null && _videoEncoder != null)
-                        {
-                            try
-                            {
-                                byte[] frameData = new byte[resizedMat.Total() * resizedMat.ElemSize()];
-                                System.Runtime.InteropServices.Marshal.Copy(resizedMat.Data, frameData, 0, frameData.Length);
-                                
-                                lock (_encoderLock)
-                                {
-                                    var encodedFrame = _videoEncoder.Encode(frameData, targetWidth, targetHeight);
-                                    
-                                    if (encodedFrame != null && encodedFrame.Data.Length > 0)
-                                    {
-                                        rtpTimestamp += (uint)(90000 / 10);
-                                        _peerConnection.SendVideo(rtpTimestamp, encodedFrame.Data);
-                                    }
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-                    catch
-                    {
-                        screenBitmap.UnlockBits(bmpData);
-                        throw;
                     }
                 }
                 catch (ThreadInterruptedException)
@@ -952,137 +696,297 @@ namespace PaLX.Client.Services
                     Thread.Sleep(50);
                 }
             }
+            
+            // Free screen buffer
+            if (_screenArgb32Buffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(_screenArgb32Buffer);
+                _screenArgb32Buffer = IntPtr.Zero;
+            }
+        }
+
+        private Bitmap? CaptureScreen()
+        {
+            try
+            {
+                var screenBounds = System.Windows.Forms.Screen.PrimaryScreen?.Bounds;
+                if (screenBounds == null) return null;
+                
+                var bitmap = new Bitmap(screenBounds.Value.Width, screenBounds.Value.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                using var graphics = Graphics.FromImage(bitmap);
+                graphics.CopyFromScreen(screenBounds.Value.Location, System.Drawing.Point.Empty, screenBounds.Value.Size);
+                
+                return bitmap;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         #endregion
 
-        #region Audio Capture/Playback
+        #region Frame Conversion
 
-        private void StartAudioCapture()
+        private int _localFrameCount = 0;
+        private int _remoteFrameCount = 0;
+
+        private void OnLocalI420AFrameReady(I420AVideoFrame frame)
+        {
+            if (!_isVideoEnabled) return;
+            
+            try
+            {
+                _localFrameCount++;
+                if (_localFrameCount % 30 == 1) // Log every 30 frames
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Local I420A frame #{_localFrameCount}, size: {frame.width}x{frame.height}");
+                }
+                
+                var bitmapSource = I420AToBitmapSource(frame);
+                bitmapSource?.Freeze();
+                OnLocalVideoFrame?.Invoke(bitmapSource);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Local I420A frame error: {ex.Message}");
+            }
+        }
+
+        private void OnLocalArgb32FrameReady(Argb32VideoFrame frame)
+        {
+            if (!_isVideoEnabled) return;
+            
+            try
+            {
+                _localFrameCount++;
+                if (_localFrameCount % 30 == 1) // Log every 30 frames
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Local ARGB32 frame #{_localFrameCount}, size: {frame.width}x{frame.height}");
+                }
+                
+                var bitmapSource = Argb32ToBitmapSource(frame);
+                bitmapSource?.Freeze();
+                OnLocalVideoFrame?.Invoke(bitmapSource);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Local ARGB32 frame error: {ex.Message}");
+            }
+        }
+
+        private void OnRemoteI420AFrameReady(I420AVideoFrame frame)
         {
             try
             {
-                // Configure audio format based on codec
-                int sampleRate = _audioEncoder?.SampleRate ?? 48000;
-                int channels = _audioEncoder?.Channels ?? 2;
+                _remoteFrameCount++;
+                if (_remoteFrameCount % 30 == 1) // Log every 30 frames
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote I420A frame #{_remoteFrameCount}, size: {frame.width}x{frame.height}");
+                }
                 
-                _waveIn = new WaveInEvent
-                {
-                    WaveFormat = new WaveFormat(sampleRate, 16, channels),
-                    BufferMilliseconds = 20
-                };
+                var bitmapSource = I420AToBitmapSource(frame);
+                bitmapSource?.Freeze();
+                OnRemoteVideoFrame?.Invoke(bitmapSource);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote I420A frame error: {ex.Message}");
+            }
+        }
 
-                _waveIn.DataAvailable += (s, e) =>
+        private void OnRemoteArgb32FrameReady(Argb32VideoFrame frame)
+        {
+            try
+            {
+                _remoteFrameCount++;
+                if (_remoteFrameCount % 30 == 1) // Log every 30 frames
                 {
-                    if (!_isCallActive || !_isAudioEnabled || _peerConnection == null || _audioEncoder == null)
-                        return;
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote ARGB32 frame #{_remoteFrameCount}, size: {frame.width}x{frame.height}");
+                }
+                
+                var bitmapSource = Argb32ToBitmapSource(frame);
+                bitmapSource?.Freeze();
+                OnRemoteVideoFrame?.Invoke(bitmapSource);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Remote ARGB32 frame error: {ex.Message}");
+            }
+        }
 
-                    try
+        /// <summary>
+        /// Convert ARGB32 frame to WPF BitmapSource (much simpler - direct format)
+        /// </summary>
+        private BitmapSource? Argb32ToBitmapSource(Argb32VideoFrame frame)
+        {
+            try
+            {
+                int width = (int)frame.width;
+                int height = (int)frame.height;
+                int stride = (int)frame.stride;
+                
+                if (width <= 0 || height <= 0) return null;
+                
+                // ARGB32 can be copied directly - it's already in a compatible format
+                return BitmapSource.Create(
+                    width, height,
+                    96, 96,
+                    PixelFormats.Bgra32, // ARGB32 is stored as BGRA on little-endian systems
+                    null,
+                    frame.data,
+                    stride * height,
+                    stride);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] Argb32ToBitmapSource error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Convert I420A frame to WPF BitmapSource
+        /// Uses IntPtr for data access with proper stride handling
+        /// </summary>
+        private BitmapSource? I420AToBitmapSource(I420AVideoFrame frame)
+        {
+            try
+            {
+                int width = (int)frame.width;
+                int height = (int)frame.height;
+                
+                if (width <= 0 || height <= 0) return null;
+                
+                // Get strides - these may be different from width!
+                int strideY = (int)frame.strideY;
+                int strideU = (int)frame.strideU;
+                int strideV = (int)frame.strideV;
+                
+                // Use width as stride if stride is 0 (shouldn't happen but safety)
+                if (strideY == 0) strideY = width;
+                if (strideU == 0) strideU = width / 2;
+                if (strideV == 0) strideV = width / 2;
+                
+                var rgbData = new byte[width * height * 3];
+                
+                // Copy frame data to managed arrays with correct sizes based on strides
+                int ySize = strideY * height;
+                int uvHeight = (height + 1) / 2;
+                int uSize = strideU * uvHeight;
+                int vSize = strideV * uvHeight;
+                
+                var yData = new byte[ySize];
+                var uData = new byte[uSize];
+                var vData = new byte[vSize];
+                
+                Marshal.Copy(frame.dataY, yData, 0, ySize);
+                Marshal.Copy(frame.dataU, uData, 0, uSize);
+                Marshal.Copy(frame.dataV, vData, 0, vSize);
+                
+                // YUV to RGB conversion with proper stride handling
+                int rgbIndex = 0;
+                
+                for (int j = 0; j < height; j++)
+                {
+                    for (int i = 0; i < width; i++)
                     {
-                        // Encode using selected codec (Opus or G.711)
-                        var encodedData = _audioEncoder.Encode(e.Buffer, e.BytesRecorded);
+                        // Use stride for Y plane indexing
+                        int yIndex = j * strideY + i;
+                        // Use stride for UV plane indexing (subsampled)
+                        int uvIndex = (j / 2) * strideU + (i / 2);
                         
-                        if (encodedData.Length > 0)
-                        {
-                            _peerConnection.SendAudio((uint)encodedData.Length, encodedData);
-                        }
+                        int y = yData[yIndex] & 0xFF;
+                        int u = uData[uvIndex] & 0xFF;
+                        int v = vData[uvIndex] & 0xFF;
+                        
+                        int c = y - 16;
+                        int d = u - 128;
+                        int e = v - 128;
+                        
+                        int r = Clamp((298 * c + 409 * e + 128) >> 8);
+                        int g = Clamp((298 * c - 100 * d - 208 * e + 128) >> 8);
+                        int b = Clamp((298 * c + 516 * d + 128) >> 8);
+                        
+                        rgbData[rgbIndex++] = (byte)r;
+                        rgbData[rgbIndex++] = (byte)g;
+                        rgbData[rgbIndex++] = (byte)b;
                     }
-                    catch { }
-                };
-
-                _waveIn.StartRecording();
-                OnStatusChanged?.Invoke("La parole est à vous!");
+                }
+                
+                return BitmapSource.Create(
+                    width, height,
+                    96, 96,
+                    PixelFormats.Rgb24,
+                    null,
+                    rgbData,
+                    width * 3);
             }
             catch (Exception ex)
             {
-                OnError?.Invoke($"Erreur micro: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[VideoCall] I420AToBitmapSource error: {ex.Message}");
+                return null;
             }
         }
 
-        private void StartAudioPlayback()
+        private static int Clamp(int value) => value < 0 ? 0 : (value > 255 ? 255 : value);
+
+        private BitmapSource? BitmapToBitmapSource(Bitmap bitmap)
         {
             try
             {
-                int sampleRate = _audioEncoder?.SampleRate ?? 48000;
-                int channels = _audioEncoder?.Channels ?? 2;
+                var bmpData = bitmap.LockBits(
+                    new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                    ImageLockMode.ReadOnly,
+                    System.Drawing.Imaging.PixelFormat.Format32bppArgb);
                 
-                _playbackBuffer = new BufferedWaveProvider(new WaveFormat(sampleRate, 16, channels))
+                try
                 {
-                    BufferDuration = TimeSpan.FromSeconds(1),
-                    DiscardOnBufferOverflow = true
-                };
-
-                _waveOut = new WaveOutEvent { DesiredLatency = 100 };
-                _waveOut.Init(_playbackBuffer);
-                _waveOut.Play();
-            }
-            catch (Exception ex)
-            {
-                OnError?.Invoke($"Erreur audio: {ex.Message}");
-            }
-        }
-
-        private void OnRtpPacketReceived(IPEndPoint ep, SDPMediaTypesEnum mediaType, RTPPacket rtpPacket)
-        {
-            if (mediaType != SDPMediaTypesEnum.audio || _playbackBuffer == null || _audioEncoder == null)
-                return;
-
-            try
-            {
-                // Decode using selected codec
-                var pcmData = _audioEncoder.Decode(rtpPacket.Payload);
-                
-                if (pcmData.Length > 0)
+                    return BitmapSource.Create(
+                        bitmap.Width, bitmap.Height,
+                        96, 96,
+                        PixelFormats.Bgra32,
+                        null,
+                        bmpData.Scan0,
+                        bmpData.Height * bmpData.Stride,
+                        bmpData.Stride);
+                }
+                finally
                 {
-                    _playbackBuffer.AddSamples(pcmData, 0, pcmData.Length);
+                    bitmap.UnlockBits(bmpData);
                 }
             }
-            catch { }
+            catch
+            {
+                return null;
+            }
         }
 
         #endregion
 
-        #region Quality Management
+        #region SignalR Callbacks
 
-        private void CheckAndAdaptQuality()
+        private void OnLocalSdpReady(SdpMessage sdp)
         {
-            if ((DateTime.Now - _lastQualityCheck).TotalSeconds < 3) return;
-            _lastQualityCheck = DateTime.Now;
-
-            if (_peerConnection?.connectionState == RTCPeerConnectionState.connected)
+            if (string.IsNullOrEmpty(_currentPartner)) return;
+            
+            if (sdp.Type == SdpMessageType.Offer)
             {
-                // Future: implement RTCStats-based adaptation
+                _ = _hubConnection.SendAsync("SendVideoOffer", _currentPartner, _currentCallId, sdp.Content);
+            }
+            else if (sdp.Type == SdpMessageType.Answer)
+            {
+                _ = _hubConnection.SendAsync("SendVideoAnswer", _currentPartner, _currentCallId, sdp.Content);
             }
         }
 
-        public void SetQualityPreset(VideoQuality quality)
+        private void OnIceCandidateReady(IceCandidate candidate)
         {
-            switch (quality)
-            {
-                case VideoQuality.Low:
-                    _targetBitrate = 200;
-                    _currentFps = 15;
-                    break;
-                case VideoQuality.Medium:
-                    _targetBitrate = 500;
-                    _currentFps = 24;
-                    break;
-                case VideoQuality.High:
-                    _targetBitrate = 1000;
-                    _currentFps = 30;
-                    break;
-                case VideoQuality.HD:
-                    _targetBitrate = 2000;
-                    _currentFps = 30;
-                    break;
-            }
+            if (string.IsNullOrEmpty(_currentPartner)) return;
             
-            if (_videoEncoder != null)
-            {
-                _videoEncoder.TargetBitrate = _targetBitrate;
-            }
-            
-            OnBitrateChanged?.Invoke(_targetBitrate);
+            _ = _hubConnection.SendAsync("SendVideoIceCandidate", 
+                _currentPartner, _currentCallId,
+                candidate.Content, candidate.SdpMlineIndex, candidate.SdpMid ?? "");
         }
 
         #endregion
@@ -1091,118 +995,101 @@ namespace PaLX.Client.Services
 
         private void CleanupCall()
         {
-            _isCallActive = false;
-            _currentCallId = string.Empty;
-            _currentPartner = string.Empty;
-            _isVideoEnabled = true;
-            _isAudioEnabled = true;
-            _isScreenSharing = false;
+            // Prevent multiple simultaneous cleanups
+            lock (_cleanupLock)
+            {
+                if (_isCleaningUp) return;
+                _isCleaningUp = true;
+            }
             
-            // Reset status to Online (0)
-            try { ApiService.Instance.UpdateStatusAsync(0); } catch { }
-
-            // Stop camera
-            _isCameraRunning = false;
-            try { _cameraThread?.Interrupt(); _cameraThread?.Join(500); } catch { }
-            _cameraThread = null;
-
-            try { _camera?.Release(); _camera?.Dispose(); } catch { }
-            _camera = null;
-
-            // Stop screen capture
-            _isScreenCaptureRunning = false;
-            try { _screenCaptureThread?.Join(500); } catch { }
-            _screenCaptureThread = null;
-
-            // Stop audio
-            try { _waveIn?.StopRecording(); _waveIn?.Dispose(); } catch { }
-            _waveIn = null;
-
-            try { _waveOut?.Stop(); _waveOut?.Dispose(); } catch { }
-            _waveOut = null;
-            _playbackBuffer = null;
-
-            // Cleanup encoders
-            try { _videoEncoder?.Dispose(); } catch { }
-            _videoEncoder = null;
+            // Reset frame counters
+            _localFrameCount = 0;
+            _remoteFrameCount = 0;
             
-            try { _audioEncoder?.Dispose(); } catch { }
-            _audioEncoder = null;
-
-            // Close peer connection
-            try { _peerConnection?.Close("call ended"); } catch { }
-            _peerConnection = null;
-
-            OnLocalVideoFrame?.Invoke(null);
-            OnRemoteVideoFrame?.Invoke(null);
+            // Run cleanup on background thread to avoid UI blocking
+            Task.Run(() =>
+            {
+                try
+                {
+                    _isCallActive = false;
+                    _isScreenSharing = false;
+                    _isScreenCaptureRunning = false;
+                    _currentCallId = string.Empty;
+                    _currentPartner = string.Empty;
+                    
+                    // Reset video/audio enabled for next call
+                    _isVideoEnabled = true;
+                    _isAudioEnabled = true;
+                    
+                    // Stop screen capture with timeout
+                    if (_screenCaptureThread != null && _screenCaptureThread.IsAlive)
+                    {
+                        _screenCaptureThread.Join(200);
+                        _screenCaptureThread = null;
+                    }
+                    
+                    // Free screen buffer
+                    if (_screenArgb32Buffer != IntPtr.Zero)
+                    {
+                        try { Marshal.FreeHGlobal(_screenArgb32Buffer); } catch { }
+                        _screenArgb32Buffer = IntPtr.Zero;
+                    }
+                    
+                    // Dispose local tracks first
+                    try { _localVideoTrack?.Dispose(); } catch { }
+                    _localVideoTrack = null;
+                    
+                    try { _localAudioTrack?.Dispose(); } catch { }
+                    _localAudioTrack = null;
+                    
+                    // Dispose media sources
+                    try { _videoSource?.Dispose(); } catch { }
+                    _videoSource = null;
+                    
+                    try { _audioSource?.Dispose(); } catch { }
+                    _audioSource = null;
+                    
+                    try { _screenSource?.Dispose(); } catch { }
+                    _screenSource = null;
+                    
+                    // Dispose peer connection last
+                    try { _peerConnection?.Dispose(); } catch { }
+                    _peerConnection = null;
+                    
+                    _videoTransceiver = null;
+                    _audioTransceiver = null;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[VideoCall] Cleanup error: {ex.Message}");
+                }
+                finally
+                {
+                    lock (_cleanupLock)
+                    {
+                        _isCleaningUp = false;
+                    }
+                }
+            });
+            
+            // Clear frames on UI thread
+            try
+            {
+                OnLocalVideoFrame?.Invoke(null);
+                OnRemoteVideoFrame?.Invoke(null);
+            }
+            catch { }
         }
 
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
+            
             CleanupCall();
-            _connectionLock.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         #endregion
     }
-
-    #region Supporting Types
-
-    /// <summary>
-    /// Video quality presets
-    /// </summary>
-    public enum VideoQuality
-    {
-        Low,      // 200kbps, 15fps
-        Medium,   // 500kbps, 24fps
-        High,     // 1Mbps, 30fps
-        HD        // 2Mbps, 30fps
-    }
-
-    /// <summary>
-    /// TURN server configuration
-    /// </summary>
-    public class TurnServerConfig
-    {
-        /// <summary>
-        /// TURN server URL (turn:host:port)
-        /// </summary>
-        public string Url { get; set; } = string.Empty;
-
-        /// <summary>
-        /// TURN over TLS URL (turns:host:port) - optional
-        /// </summary>
-        public string? TlsUrl { get; set; }
-
-        /// <summary>
-        /// TURN username
-        /// </summary>
-        public string? Username { get; set; }
-
-        /// <summary>
-        /// TURN credential/password
-        /// </summary>
-        public string? Credential { get; set; }
-
-        /// <summary>
-        /// Credential type (default: "password")
-        /// </summary>
-        public string CredentialType { get; set; } = "password";
-
-        /// <summary>
-        /// Create default Coturn configuration
-        /// </summary>
-        public static TurnServerConfig CreateCoturn(string host, int port, string username, string password)
-        {
-            return new TurnServerConfig
-            {
-                Url = $"turn:{host}:{port}",
-                TlsUrl = $"turns:{host}:{port + 1}",
-                Username = username,
-                Credential = password
-            };
-        }
-    }
-
-    #endregion
 }

@@ -885,7 +885,9 @@ namespace PaLX.Client
 
                 foreach (var f in friends)
                 {
-                    bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath) && File.Exists(f.AvatarPath);
+                    // Support both local files and server URLs
+                    bool hasAvatar = !string.IsNullOrEmpty(f.AvatarPath);
+                    string? avatarUrl = hasAvatar ? BuildAvatarUrl(f.AvatarPath) : null;
                     
                     int effectiveStatusValue = f.StatusValue;
                     if (_lastSignalRUpdate.ContainsKey(f.Username) && 
@@ -978,7 +980,7 @@ namespace PaLX.Client
                         existingFriend.StatusText = statusText;
                         existingFriend.StatusColor = statusBrush;
                         existingFriend.StatusValue = effectiveStatusValue;
-                        existingFriend.AvatarPath = hasAvatar ? f.AvatarPath : null;
+                        existingFriend.AvatarPath = avatarUrl;
                         existingFriend.AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed;
                         existingFriend.PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible;
                         existingFriend.NameFontWeight = effectiveStatusValue != 6 ? FontWeights.Bold : FontWeights.Normal;
@@ -999,7 +1001,7 @@ namespace PaLX.Client
                             StatusText = statusText,
                             StatusColor = statusBrush,
                             StatusValue = effectiveStatusValue,
-                            AvatarPath = hasAvatar ? f.AvatarPath : null,
+                            AvatarPath = avatarUrl,
                             Username = f.Username,
                             AvatarVisibility = hasAvatar ? Visibility.Visible : Visibility.Collapsed,
                             PlaceholderVisibility = hasAvatar ? Visibility.Collapsed : Visibility.Visible,
@@ -1022,6 +1024,26 @@ namespace PaLX.Client
             }
         }
 
+        /// <summary>
+        /// Construit l'URL complète de l'avatar à partir d'un chemin local ou relatif
+        /// </summary>
+        private string? BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return null;
+            
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            // Si c'est un chemin local qui existe
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            // Sinon c'est un chemin relatif du serveur
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
+        }
+
         private async Task LoadUserProfile(string username)
         {
             try
@@ -1034,15 +1056,20 @@ namespace PaLX.Client
                     UsernameText.Text = $"{profile.LastName} {profile.FirstName}";
 
                     // Load Avatar
-                    if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                    if (!string.IsNullOrEmpty(profile.AvatarPath))
                     {
-                        var bitmap = new BitmapImage();
-                        bitmap.BeginInit();
-                        bitmap.UriSource = new Uri(profile.AvatarPath);
-                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                        bitmap.EndInit();
-                        UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
-                        AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                        try
+                        {
+                            string avatarUrl = BuildAvatarUrl(profile.AvatarPath)!;
+                            var bitmap = new BitmapImage();
+                            bitmap.BeginInit();
+                            bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
+                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                            bitmap.EndInit();
+                            UserAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                            AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                        }
+                        catch { /* Ignore avatar load errors */ }
                     }
                 }
                 else

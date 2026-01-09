@@ -41,15 +41,20 @@ namespace PaLX.Client
                     AgeText.Text = "Non spécifié";
                 }
 
-                if (!string.IsNullOrEmpty(profile.AvatarPath) && File.Exists(profile.AvatarPath))
+                if (!string.IsNullOrEmpty(profile.AvatarPath))
                 {
-                    var bitmap = new BitmapImage();
-                    bitmap.BeginInit();
-                    bitmap.UriSource = new Uri(profile.AvatarPath);
-                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.EndInit();
-                    ProfileAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
-                    AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    try
+                    {
+                        string avatarUrl = BuildAvatarUrl(profile.AvatarPath);
+                        var bitmap = new BitmapImage();
+                        bitmap.BeginInit();
+                        bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
+                        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                        bitmap.EndInit();
+                        ProfileAvatar.Fill = new ImageBrush(bitmap) { Stretch = Stretch.UniformToFill };
+                        AvatarPlaceholder.Visibility = Visibility.Collapsed;
+                    }
+                    catch { /* Ignore avatar load errors */ }
                 }
             }
             else
@@ -57,6 +62,20 @@ namespace PaLX.Client
                 DisplayNameText.Text = _username;
                 UsernameText.Text = $"@{_username}";
             }
+        }
+
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return ApiService.BaseUrl + "/Assets/default_avatar.png";
+            
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private void Close_Click(object sender, RoutedEventArgs e)

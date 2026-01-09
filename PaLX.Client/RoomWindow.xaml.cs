@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using PaLX.Client.Services;
 using PaLX.Client.Controls;
@@ -16,6 +18,9 @@ namespace PaLX.Client
         private readonly int _roomId;
         private readonly RoomViewModel _room;
         private readonly ApiService _apiService;
+        private RoomVideoPeerService? _roomVideoService;
+        private RoomVideoWindow? _videoWindow;
+        private readonly Dictionary<int, PeerVideoWindow> _peerVideoWindows = new(); // Fenêtres de visionnage par userId
         private DispatcherTimer _speakingTimer; // Local user timer
         private DispatcherTimer _globalTimer;   // All users timer
         private DispatcherTimer _uptimeTimer;   // Room uptime timer
@@ -90,8 +95,170 @@ namespace PaLX.Client
             _apiService.OnRoomMemberStatusUpdated += OnStatusUpdated;
             _apiService.OnMemberRoleUpdated += OnMemberRoleUpdated;
             
+            // Initialize Room Video Service
+            InitializeRoomVideoService();
+            
             this.Closed += RoomWindow_Closed;
         }
+
+        private void InitializeRoomVideoService()
+        {
+            try
+            {
+                // Vérifier que la connexion SignalR est disponible
+                if (_apiService.HubConnection == null) 
+                {
+                    System.Diagnostics.Debug.WriteLine("[RoomVideoService] HubConnection not available");
+                    return;
+                }
+                
+                // Déterminer si l'utilisateur a un abonnement premium (niveau > 7 ou abonnement actif)
+                bool isPremium = _apiService.CurrentUserRoleLevel < 7 || _apiService.HasPremiumSubscription;
+                
+                _roomVideoService = new RoomVideoPeerService(
+                    _apiService.HubConnection,
+                    _roomId,
+                    _apiService.CurrentUserId,
+                    _apiService.CurrentUsername,
+                    isPremium
+                );
+                
+                // Abonnement aux événements vidéo pour la fenêtre flottante
+                _roomVideoService.OnLocalVideoFrame += OnLocalVideoFrameReceived;
+                _roomVideoService.OnRemoteVideoFrame += OnRemoteVideoFrameReceived;
+                _roomVideoService.OnPeerCameraStarted += OnPeerCameraStarted;
+                _roomVideoService.OnPeerCameraStopped += OnPeerCameraStopped;
+                _roomVideoService.OnError += OnVideoError;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RoomVideoService] Init error: {ex.Message}");
+            }
+        }
+        
+        #region Video Event Handlers
+        
+        private void OnLocalVideoFrameReceived(BitmapSource? frame)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _videoWindow?.UpdateLocalVideo(frame, _apiService.CurrentUsername);
+            });
+        }
+        
+        private void OnRemoteVideoFrameReceived(int userId, BitmapSource? frame)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // Mettre à jour la fenêtre de visionnage si elle existe pour ce peer
+                if (_peerVideoWindows.TryGetValue(userId, out var peerWindow))
+                {
+                    peerWindow.UpdateVideoFrame(frame);
+                }
+                
+                // Aussi mettre à jour dans la fenêtre principale si elle affiche ce peer
+                _videoWindow?.AddOrUpdateVideo(userId, "", frame, false);
+            });
+        }
+        
+        private void OnPeerCameraStarted(int userId, string username)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // Ouvrir la fenêtre vidéo si pas encore ouverte
+                OpenVideoWindow();
+            });
+        }
+        
+        private void OnPeerCameraStopped(int userId)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _videoWindow?.RemoveVideo(userId);
+            });
+        }
+        
+        private void OnVideoError(string error)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RoomVideo] Error: {error}");
+        }
+        
+        private void OpenVideoWindow()
+        {
+            if (_videoWindow == null || !_videoWindow.IsVisible)
+            {
+                _videoWindow = new RoomVideoWindow(_room.Name);
+                _videoWindow.OnCameraToggled += async (isOn) =>
+                {
+                    if (_roomVideoService == null) return;
+                    
+                    try
+                    {
+                        if (isOn)
+                        {
+                            await _roomVideoService.StartCameraAsync();
+                        }
+                        else
+                        {
+                            await _roomVideoService.StopCameraAsync();
+                            _videoWindow?.RemoveLocalVideo();
+                        }
+                        
+                        // Synchroniser le bouton dans RoomWindow
+                        CamToggle.IsChecked = isOn;
+                        CamIcon.Foreground = new SolidColorBrush(isOn ? Colors.Green : (Color)ColorConverter.ConvertFromString("#6B7280"));
+                        
+                        // Mettre à jour immédiatement le membre local pour que l'icône change
+                        var currentMember = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                        if (currentMember != null) currentMember.IsCamOn = isOn;
+                        
+                        // Mettre à jour le serveur (ignorer les erreurs)
+                        try
+                        {
+                            await _apiService.UpdateRoomStatusAsync(_roomId, isOn, null, null);
+                        }
+                        catch { }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[VideoWindow] Camera error: {ex.Message}");
+                    }
+                };
+                
+                _videoWindow.Closed += async (s, e) =>
+                {
+                    // Si la caméra était active, la désactiver
+                    if (_roomVideoService?.IsCameraEnabled == true)
+                    {
+                        await _roomVideoService.StopCameraAsync();
+                        CamToggle.IsChecked = false;
+                        CamIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280"));
+                        
+                        // Mettre à jour immédiatement le membre local pour que l'icône disparaisse
+                        var currentMember = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                        if (currentMember != null)
+                        {
+                            currentMember.IsCamOn = false;
+                        }
+                        
+                        // Mettre à jour le statut sur le serveur pour notifier les autres
+                        await _apiService.UpdateRoomStatusAsync(_roomId, false, null, null);
+                    }
+                    _videoWindow = null;
+                };
+                
+                // Positionner la fenêtre à droite de RoomWindow
+                _videoWindow.Left = this.Left + this.Width + 10;
+                _videoWindow.Top = this.Top;
+                _videoWindow.Show();
+            }
+            else
+            {
+                _videoWindow.Activate();
+            }
+        }
+        
+        #endregion
 
         private void UptimeTimer_Tick(object? sender, EventArgs? e)
         {
@@ -196,6 +363,32 @@ namespace PaLX.Client
             _apiService.OnRoomUserLeft -= OnUserLeft;
             _apiService.OnRoomMemberStatusUpdated -= OnStatusUpdated;
             _apiService.OnMemberRoleUpdated -= OnMemberRoleUpdated;
+            
+            // Fermer toutes les fenêtres de visionnage peer
+            foreach (var peerWindow in _peerVideoWindows.Values.ToList())
+            {
+                try { peerWindow.Close(); } catch { }
+            }
+            _peerVideoWindows.Clear();
+            
+            // Cleanup Video Window
+            if (_videoWindow != null)
+            {
+                _videoWindow.Close();
+                _videoWindow = null;
+            }
+            
+            // Cleanup Video Service
+            if (_roomVideoService != null)
+            {
+                _roomVideoService.OnLocalVideoFrame -= OnLocalVideoFrameReceived;
+                _roomVideoService.OnRemoteVideoFrame -= OnRemoteVideoFrameReceived;
+                _roomVideoService.OnPeerCameraStarted -= OnPeerCameraStarted;
+                _roomVideoService.OnPeerCameraStopped -= OnPeerCameraStopped;
+                _roomVideoService.OnError -= OnVideoError;
+                _roomVideoService.Dispose();
+                _roomVideoService = null;
+            }
             
             if (_apiService.VoiceService != null)
             {
@@ -442,8 +635,71 @@ namespace PaLX.Client
 
         private async void ToggleCam_Click(object sender, RoutedEventArgs e)
         {
+            if (_roomVideoService == null) return;
+            
             bool newState = CamToggle.IsChecked == true;
-            await _apiService.UpdateRoomStatusAsync(_roomId, newState, null, null);
+            
+            try
+            {
+                if (newState)
+                {
+                    // Vérifier si la limite est atteinte
+                    if (_roomVideoService.ActiveCameraCount >= _roomVideoService.MaxCameras)
+                    {
+                        CamToggle.IsChecked = false;
+                        ShowAlert($"La limite de {_roomVideoService.MaxCameras} caméras est atteinte.");
+                        return;
+                    }
+                    
+                    // Ouvrir la fenêtre vidéo flottante
+                    OpenVideoWindow();
+                    
+                    // Activer la caméra
+                    await _roomVideoService.StartCameraAsync();
+                    
+                    // Mise à jour visuelle
+                    CamIcon.Foreground = new SolidColorBrush(Colors.Green);
+                    
+                    // Mettre à jour immédiatement le membre local
+                    var currentMemberOn = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                    if (currentMemberOn != null) currentMemberOn.IsCamOn = true;
+                }
+                else
+                {
+                    // Désactiver la caméra
+                    await _roomVideoService.StopCameraAsync();
+                    
+                    // Mise à jour visuelle
+                    CamIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280"));
+                    
+                    // Retirer la vidéo locale de la fenêtre flottante
+                    _videoWindow?.RemoveLocalVideo();
+                    
+                    // Mettre à jour immédiatement le membre local
+                    var currentMemberOff = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                    if (currentMemberOff != null) currentMemberOff.IsCamOn = false;
+                }
+                
+                // Mettre à jour le status sur le serveur (ignorer les erreurs serveur si la caméra fonctionne)
+                try
+                {
+                    await _apiService.UpdateRoomStatusAsync(_roomId, newState, null, null);
+                }
+                catch (Exception serverEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Camera] Server update error (ignored): {serverEx.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                // Erreur uniquement si la caméra n'a pas pu démarrer
+                if (newState && !_roomVideoService.IsCameraEnabled)
+                {
+                    CamToggle.IsChecked = false;
+                    System.Diagnostics.Debug.WriteLine($"[Camera] Error: {ex.Message}");
+                    ShowAlert("Impossible d'accéder à la caméra.");
+                }
+            }
         }
 
         private async void ToggleHand_Click(object sender, RoutedEventArgs e)
@@ -476,6 +732,49 @@ namespace PaLX.Client
             // Placeholder: Logic to disable user camera remotely
         }
 
+        /// <summary>
+        /// Ouvre une fenêtre pour visionner la vidéo d'un autre participant
+        /// </summary>
+        private void ViewPeerCamera_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is RoomMemberViewModel member)
+            {
+                // Ne pas ouvrir pour soi-même
+                if (member.UserId == _apiService.CurrentUserId)
+                {
+                    // Ouvrir sa propre fenêtre vidéo
+                    OpenVideoWindow();
+                    return;
+                }
+                
+                // Vérifier si une fenêtre existe déjà pour ce peer
+                if (_peerVideoWindows.TryGetValue(member.UserId, out var existingWindow))
+                {
+                    if (existingWindow.IsVisible)
+                    {
+                        existingWindow.Activate();
+                        return;
+                    }
+                    else
+                    {
+                        _peerVideoWindows.Remove(member.UserId);
+                    }
+                }
+                
+                // Créer une nouvelle fenêtre de visionnage
+                var peerWindow = new PeerVideoWindow(member.UserId, member.DisplayName, _roomId);
+                
+                // Gérer la fermeture
+                peerWindow.Closed += (s, args) =>
+                {
+                    _peerVideoWindows.Remove(member.UserId);
+                };
+                
+                _peerVideoWindows[member.UserId] = peerWindow;
+                peerWindow.Show();
+            }
+        }
+
         private async void Kick_Click(object sender, RoutedEventArgs e) 
         { 
             if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
@@ -504,6 +803,11 @@ namespace PaLX.Client
                     catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
                 }
             }
+        }
+        
+        private void ShowAlert(string message, string title = "Information")
+        {
+            new CustomAlertWindow(message, title).ShowDialog();
         }
     }
 

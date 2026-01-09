@@ -116,7 +116,7 @@ namespace PaLX.Client
                     { 
                         Username = _remoteUser,
                         DisplayName = fullName,
-                        AvatarPath = profile.AvatarPath ?? "/Assets/default_avatar.png"
+                        AvatarPath = BuildAvatarUrl(profile.AvatarPath)
                     });
                 }
                 else
@@ -128,11 +128,30 @@ namespace PaLX.Client
                     { 
                         Username = _remoteUser,
                         DisplayName = displayName,
-                        AvatarPath = "/Assets/default_avatar.png"
+                        AvatarPath = BuildAvatarUrl(null)
                     });
                 }
             }
             catch { }
+        }
+
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            var defaultAvatar = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default_avatar.png");
+            
+            if (string.IsNullOrEmpty(avatarPath))
+                return defaultAvatar;
+            
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            // Si c'est un chemin local absolu qui existe
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("\\\\")) && System.IO.File.Exists(avatarPath))
+                return avatarPath;
+            
+            // Sinon c'est un chemin relatif du serveur
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private void InviteBtn_Click(object sender, RoutedEventArgs e)
@@ -212,7 +231,7 @@ namespace PaLX.Client
                             { 
                                 Username = sender,
                                 DisplayName = fullName,
-                                AvatarPath = profile.AvatarPath ?? "/Assets/default_avatar.png"
+                                AvatarPath = BuildAvatarUrl(profile.AvatarPath)
                             });
                         }
                         else
@@ -222,7 +241,7 @@ namespace PaLX.Client
                             { 
                                 Username = sender,
                                 DisplayName = formattedName,
-                                AvatarPath = "/Assets/default_avatar.png"
+                                AvatarPath = BuildAvatarUrl(null)
                             });
                         }
                     }
@@ -232,7 +251,7 @@ namespace PaLX.Client
                         { 
                             Username = sender,
                             DisplayName = sender,
-                            AvatarPath = "/Assets/default_avatar.png"
+                            AvatarPath = BuildAvatarUrl(null)
                         });
                     }
                 }

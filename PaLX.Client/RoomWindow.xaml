@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:converters="clr-namespace:PaLX.Client.Converters"
+        xmlns:controls="clr-namespace:PaLX.Client.Controls"
         mc:Ignorable="d"
         Title="Salon de Discussion" Height="750" Width="1100"
         WindowStyle="None" AllowsTransparency="True" Background="Transparent"
@@ -172,6 +173,7 @@
             <Grid Grid.Column="0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>  <!-- Header -->
+                    <RowDefinition Height="Auto"/>  <!-- Video Zone -->
                     <RowDefinition Height="*"/>     <!-- Messages -->
                     <RowDefinition Height="Auto"/>  <!-- Input -->
                 </Grid.RowDefinitions>
@@ -271,7 +273,7 @@
                 </Border>
 
                 <!-- MESSAGES AREA -->
-                <Border Grid.Row="1" Background="{StaticResource BackgroundLight}">
+                <Border Grid.Row="2" Background="{StaticResource BackgroundLight}">
                     <ListView x:Name="MessagesList" BorderThickness="0" Background="Transparent" 
                               Margin="16,10" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                               ScrollViewer.CanContentScroll="False">
@@ -370,7 +372,7 @@
                 </Border>
 
                 <!-- INPUT AREA -->
-                <Border Grid.Row="2" Background="White" Padding="16,12" CornerRadius="0,0,0,20">
+                <Border Grid.Row="3" Background="White" Padding="16,12" CornerRadius="0,0,0,20">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="10" ShadowDepth="-2" Opacity="0.05" Color="Black" Direction="90"/>
                     </Border.Effect>
@@ -564,9 +566,25 @@
                                             </TextBlock.Style>
                                         </TextBlock>
 
-                                        <!-- Cam Icon -->
-                                        <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource PrimaryRed}" Margin="4,0"
-                                                   Visibility="{Binding IsCamOn, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                        <!-- Cam Icon - Bouton cliquable pour voir la vidéo -->
+                                        <Button Click="ViewPeerCamera_Click" 
+                                                Visibility="{Binding IsCamOn, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                                Tag="{Binding}"
+                                                Cursor="Hand" ToolTip="Voir la vidéo"
+                                                Background="Transparent" BorderThickness="0" Padding="0" Margin="4,0">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="camBorder" Background="Transparent" CornerRadius="4" Padding="4,2">
+                                                        <TextBlock Text="&#xE714;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="{StaticResource PrimaryRed}"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="camBorder" Property="Background" Value="#FFEBEE"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
                                     </StackPanel>
 
                                     <!-- Context Menu -->

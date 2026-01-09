@@ -7,6 +7,46 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.0] - 2026-01-09
+
+### 🎥 Refonte Complète des Appels Vidéo (MixedReality.WebRTC)
+
+#### Migration vers MixedReality.WebRTC
+- **Nouveau moteur WebRTC** : Migration complète de l'ancien encodeur VP8 vers MixedReality.WebRTC v2.0.2
+- **Démarrage caméra ultra-rapide** : Plus de délai d'1+ minute au démarrage - la caméra démarre instantanément
+- **APIs natives Windows** : Utilisation des APIs natives pour de meilleures performances
+
+#### Audio & Vidéo Bidirectionnels
+- **Audio 100% fonctionnel** : Transmission audio bidirectionnelle parfaite entre appelant et appelé
+- **Vidéo locale et distante** : Affichage correct des deux flux vidéo
+- **Support I420A et ARGB32** : Détection automatique du format de frame de la caméra
+
+#### Partage d'Écran
+- **Partage d'écran fonctionnel** : Capture et transmission de l'écran principal
+- **ExternalVideoTrackSource** : Utilisation de source externe pour le partage d'écran
+- **Arrêt propre** : Nettoyage correct des ressources lors de l'arrêt du partage
+
+#### Contrôles Média
+- **Mute micro** : Désactivation/réactivation du microphone pendant l'appel
+- **Pause caméra** : Mise en pause de la caméra sans crash
+- **Synchronisation distant** : La pause caméra est visible des deux côtés de l'appel
+
+#### Gestion des Appels
+- **Statut "En appel" corrigé** : Le statut revient à "En ligne" après raccrochage
+- **Rappel possible** : Plus de blocage "Utilisateur en appel" après un appel terminé
+- **Nettoyage async** : Fermeture de fenêtre sans freeze grâce au cleanup non-bloquant
+
+### 🗑️ Suppression de l'Ancien Encodeur
+- Supprimé : `VP8Encoder.cs`, `VP8Decoder.cs`, `VP8Native.cs`, `IVideoEncoder.cs`, `IVideoDecoder.cs`
+- Plus de dépendance à libvpx - tout est géré par MixedReality.WebRTC
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/Services/VideoCallService.cs` : Réécrit entièrement (~1000 lignes)
+- `PaLX.Client/VideoCallWindow.xaml.cs` : Ajout gestion pause vidéo partenaire
+- `PaLX.Client/PaLX.Client.csproj` : Ajout package MixedReality.WebRTC
+
+---
+
 ## [1.6.7] - 2026-01-09
 
 ### 🎨 Thème Dynamique - Fenêtre de Modération

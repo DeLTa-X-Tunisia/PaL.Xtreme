@@ -857,13 +857,13 @@ namespace PaLX.Client
                 string fullName = $"{profile.LastName} {profile.FirstName}".Trim();
                 PartnerName.Text = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
                 
-                // Set Avatar
-                if (!string.IsNullOrEmpty(profile.AvatarPath) && System.IO.File.Exists(profile.AvatarPath))
+                // Set Avatar - support both local files and server URLs
+                if (!string.IsNullOrEmpty(profile.AvatarPath))
                 {
-                    _partnerAvatarPath = profile.AvatarPath;
+                    _partnerAvatarPath = BuildAvatarUrl(profile.AvatarPath);
                     try
                     {
-                        AvatarBrush.ImageSource = new BitmapImage(new Uri(profile.AvatarPath, UriKind.Absolute));
+                        AvatarBrush.ImageSource = new BitmapImage(new Uri(_partnerAvatarPath, UriKind.Absolute));
                     }
                     catch { /* Keep default */ }
                 }
@@ -1009,6 +1009,20 @@ namespace PaLX.Client
                 // Cleanup
                 try { System.IO.File.Delete(filePath); } catch { }
             }
+        }
+
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return "";
+            
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && System.IO.File.Exists(avatarPath))
+                return avatarPath;
+            
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private SolidColorBrush GetStatusColor(string status)

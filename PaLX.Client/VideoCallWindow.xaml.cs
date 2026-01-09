@@ -29,6 +29,7 @@ namespace PaLX.Client
         private int _callDuration = 0;
         private bool _isAudioMuted = false;
         private bool _isVideoDisabled = false;
+        private bool _isPartnerVideoDisabled = false;
         private MediaPlayer? _ringtonePlayer;
         private int _dotsCount = 0;
 
@@ -80,15 +81,16 @@ namespace PaLX.Client
             PartnerNameText.Text = _partnerDisplayName;
             IncomingCallerName.Text = _partnerDisplayName;
             
-            // Load partner avatar
-            if (!string.IsNullOrEmpty(_partnerAvatar) && File.Exists(_partnerAvatar))
+            // Load partner avatar - support both local files and server URLs
+            if (!string.IsNullOrEmpty(_partnerAvatar))
             {
                 try
                 {
+                    string avatarUrl = BuildAvatarUrl(_partnerAvatar);
                     var bitmap = new BitmapImage();
                     bitmap.BeginInit();
                     bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                    bitmap.UriSource = new Uri(_partnerAvatar);
+                    bitmap.UriSource = new Uri(avatarUrl, UriKind.Absolute);
                     bitmap.EndInit();
                     PartnerAvatarImage.Source = bitmap;
                 }
@@ -104,6 +106,23 @@ namespace PaLX.Client
             
             // Start dots animation for status
             StartDotsAnimation();
+        }
+
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "default_avatar.png");
+            
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            // Si c'est un chemin local absolu qui existe
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("\\\\")) && File.Exists(avatarPath))
+                return avatarPath;
+            
+            // Sinon c'est un chemin relatif du serveur
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
         private void LoadDefaultAvatar()
@@ -147,7 +166,8 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
-                    if (frame != null)
+                    // Don't update frame if partner has disabled their video
+                    if (frame != null && !_isPartnerVideoDisabled)
                     {
                         RemoteVideoImage.Source = frame;
                         RemoteVideoPlaceholder.Visibility = Visibility.Collapsed;
@@ -179,11 +199,18 @@ namespace PaLX.Client
                     return;
                 }
                 
-                Dispatcher.Invoke(() =>
+                // Use BeginInvoke to avoid deadlock
+                Dispatcher.BeginInvoke(() =>
                 {
+                    if (_isClosing) return;
+                    _isClosing = true;
+                    
                     StopRingtone();  // Stop ringtone when call is declined
+                    _timer?.Stop();
+                    _dotsTimer?.Stop();
                     ToastService.Warning($"{_partnerDisplayName} a refusé l'appel vidéo");
-                    Close();
+                    
+                    try { Close(); } catch { }
                 });
             };
 
@@ -196,12 +223,19 @@ namespace PaLX.Client
                     return;
                 }
                 
-                Dispatcher.Invoke(() =>
+                // Use BeginInvoke to avoid deadlock during cleanup
+                Dispatcher.BeginInvoke(() =>
                 {
+                    if (_isClosing) return;
+                    _isClosing = true;
+                    
                     StopRingtone();  // Stop ringtone when call ends
+                    _timer?.Stop();
+                    _dotsTimer?.Stop();
                     PlayEndCallSound();  // Play end call sound
                     ToastService.Info($"Appel terminé avec {_partnerDisplayName}");
-                    Close();
+                    
+                    try { Close(); } catch { }
                 });
             };
 
@@ -209,10 +243,12 @@ namespace PaLX.Client
             {
                 Dispatcher.Invoke(() =>
                 {
+                    _isPartnerVideoDisabled = !isEnabled;
                     PartnerVideoDisabledOverlay.Visibility = isEnabled ? Visibility.Collapsed : Visibility.Visible;
                     if (!isEnabled)
                     {
                         RemoteVideoPlaceholder.Visibility = Visibility.Visible;
+                        RemoteVideoImage.Source = null; // Clear the last frame
                     }
                 });
             };
@@ -238,7 +274,7 @@ namespace PaLX.Client
         
         private void SetupClosingHandler()
         {
-            this.Closing += async (s, e) =>
+            this.Closing += (s, e) =>
             {
                 if (_isClosing) return;
                 _isClosing = true;
@@ -247,12 +283,16 @@ namespace PaLX.Client
                 _timer?.Stop();
                 _dotsTimer?.Stop();
                 
-                // End the call if it's still active or pending
-                try
+                // End the call asynchronously - don't wait/block
+                // CleanupCall() in service is now non-blocking
+                _ = Task.Run(async () =>
                 {
-                    await _videoCallService.EndVideoCall();
-                }
-                catch { /* Ignore errors during cleanup */ }
+                    try
+                    {
+                        await _videoCallService.EndVideoCall();
+                    }
+                    catch { /* Ignore errors during cleanup */ }
+                });
             };
         }
 
