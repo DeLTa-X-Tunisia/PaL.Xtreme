@@ -4,21 +4,17 @@
         Title="Modération du Salon" 
         Height="700" Width="520"
         WindowStartupLocation="CenterOwner"
-        Background="#1a1a2e"
+        Background="Transparent"
         WindowStyle="None"
         AllowsTransparency="True"
         ResizeMode="CanResizeWithGrip">
 
     <Window.Resources>
-        <!-- Couleurs -->
+        <!-- Couleurs fixes (accents) -->
         <SolidColorBrush x:Key="PrimaryBrush" Color="#6C63FF"/>
         <SolidColorBrush x:Key="DangerBrush" Color="#E74C3C"/>
         <SolidColorBrush x:Key="SuccessBrush" Color="#27AE60"/>
         <SolidColorBrush x:Key="WarningBrush" Color="#F39C12"/>
-        <SolidColorBrush x:Key="SurfaceBrush" Color="#252542"/>
-        <SolidColorBrush x:Key="CardBrush" Color="#2d2d4a"/>
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF"/>
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#B0B0B0"/>
         
         <!-- Style bouton rôle -->
         <Style x:Key="RoleButtonStyle" TargetType="Button">
@@ -75,7 +71,8 @@
         </Style>
     </Window.Resources>
 
-    <Border Background="#1a1a2e" CornerRadius="12" BorderBrush="#6C63FF" BorderThickness="1">
+    <Border Background="{DynamicResource BackgroundBrush}" CornerRadius="12" 
+            BorderBrush="{StaticResource PrimaryBrush}" BorderThickness="1">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="50"/>
@@ -87,18 +84,21 @@
             <!-- ═══════════════════════════════════════════════════════════ -->
             <!-- HEADER -->
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" CornerRadius="12,12,0,0"
+            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12,12,0,0"
                     MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <Grid>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0">
                         <TextBlock Text="🛡️" FontSize="20" VerticalAlignment="Center"/>
                         <TextBlock x:Name="TitleText" Text="Modération du Salon" 
-                                   FontSize="16" FontWeight="SemiBold" Foreground="White" 
+                                   FontSize="16" FontWeight="SemiBold" 
+                                   Foreground="{DynamicResource TextBrush}" 
                                    Margin="10,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                     <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center"
                             Width="40" Height="40" Margin="0,0,8,0"
-                            Background="Transparent" Foreground="#888" FontSize="16"
+                            Background="Transparent" 
+                            Foreground="{DynamicResource TextSecondaryBrush}" 
+                            FontSize="16"
                             BorderThickness="0" Cursor="Hand" Click="Close_Click"/>
                 </Grid>
             </Border>
@@ -106,7 +106,7 @@
             <!-- ═══════════════════════════════════════════════════════════ -->
             <!-- SECTION 1: AMIS DISPONIBLES -->
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="1" Background="{StaticResource CardBrush}" Margin="12,12,12,6" CornerRadius="10">
+            <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" Margin="12,12,12,6" CornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -114,13 +114,13 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Titre section -->
-                    <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}" CornerRadius="10,10,0,0" Padding="14,10">
+                    <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10,10,0,0" Padding="14,10">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👥" FontSize="16"/>
                             <TextBlock Text="Amis disponibles" FontSize="14" FontWeight="SemiBold" 
-                                       Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                       Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="AvailableCountText" Text="(0)" FontSize="12" 
-                                       Foreground="{StaticResource TextSecondaryBrush}" 
+                                       Foreground="{DynamicResource TextSecondaryBrush}" 
                                        Margin="8,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
@@ -130,7 +130,7 @@
                         <ItemsControl x:Name="AvailableFriendsList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Border Background="{StaticResource SurfaceBrush}" CornerRadius="8" 
+                                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="8" 
                                             Margin="0,4" Padding="10,8">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
@@ -149,9 +149,9 @@
                                             <!-- Nom -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
                                                 <TextBlock Text="{Binding DisplayName}" FontSize="13" 
-                                                           FontWeight="Medium" Foreground="White"/>
+                                                           FontWeight="Medium" Foreground="{DynamicResource TextBrush}"/>
                                                 <TextBlock Text="{Binding Username, StringFormat='@{0}'}" 
-                                                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </StackPanel>
                                             
                                             <!-- Boutons de rôle (visibilité selon les permissions) -->
@@ -186,7 +186,7 @@
                     <TextBlock x:Name="NoAvailableFriendsText" Grid.Row="1" 
                                Text="Tous vos amis ont déjà un rôle" 
                                HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"
+                               Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                Visibility="Collapsed"/>
                 </Grid>
             </Border>
@@ -200,7 +200,7 @@
             <!-- ═══════════════════════════════════════════════════════════ -->
             <!-- SECTION 2: ADMINISTRATEURS DU SALON -->
             <!-- ═══════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="3" Background="{StaticResource CardBrush}" Margin="12,6,12,12" CornerRadius="10">
+            <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" Margin="12,6,12,12" CornerRadius="10">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -208,13 +208,13 @@
                     </Grid.RowDefinitions>
                     
                     <!-- Titre section -->
-                    <Border Grid.Row="0" Background="#3d3d5c" CornerRadius="10,10,0,0" Padding="14,10">
+                    <Border Grid.Row="0" Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10,10,0,0" Padding="14,10">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="👑" FontSize="16"/>
                             <TextBlock Text="Administrateurs du salon" FontSize="14" FontWeight="SemiBold" 
-                                       Foreground="White" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                       Foreground="{DynamicResource TextBrush}" Margin="8,0,0,0" VerticalAlignment="Center"/>
                             <TextBlock x:Name="AdminsCountText" Text="(0)" FontSize="12" 
-                                       Foreground="{StaticResource TextSecondaryBrush}" 
+                                       Foreground="{DynamicResource TextSecondaryBrush}" 
                                        Margin="8,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
@@ -227,16 +227,16 @@
                                     <Border CornerRadius="8" Margin="0,4" Padding="10,8">
                                         <Border.Style>
                                             <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{StaticResource SurfaceBrush}"/>
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceBrush}"/>
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding Role}" Value="SuperAdmin">
-                                                        <Setter Property="Background" Value="#3d2d5c"/>
+                                                        <Setter Property="Background" Value="#E8E0F0"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Role}" Value="Admin">
-                                                        <Setter Property="Background" Value="#5c2d3d"/>
+                                                        <Setter Property="Background" Value="#FCE4E4"/>
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding Role}" Value="Moderator">
-                                                        <Setter Property="Background" Value="#2d4a5c"/>
+                                                        <Setter Property="Background" Value="#E0F0F8"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -259,9 +259,9 @@
                                             <!-- Nom -->
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="10,0">
                                                 <TextBlock Text="{Binding DisplayName}" FontSize="13" 
-                                                           FontWeight="Medium" Foreground="White"/>
+                                                           FontWeight="Medium" Foreground="{DynamicResource TextBrush}"/>
                                                 <TextBlock Text="{Binding Username, StringFormat='@{0}'}" 
-                                                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"/>
                                             </StackPanel>
                                             
                                             <!-- Badge du rôle -->
@@ -307,10 +307,10 @@
                                 Visibility="Collapsed">
                         <TextBlock Text="👤" FontSize="32" HorizontalAlignment="Center" Opacity="0.5"/>
                         <TextBlock Text="Aucun administrateur" 
-                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12"
                                    HorizontalAlignment="Center" Margin="0,8,0,0"/>
                         <TextBlock Text="Cliquez sur 👑 ⭐ ou 🔧 pour attribuer un rôle" 
-                                   Foreground="{StaticResource TextSecondaryBrush}" FontSize="11"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11"
                                    HorizontalAlignment="Center" Margin="0,4,0,0" Opacity="0.7"/>
                     </StackPanel>
                 </Grid>

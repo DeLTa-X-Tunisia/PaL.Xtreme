@@ -7,6 +7,25 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.6.7] - 2026-01-09
+
+### 🎨 Thème Dynamique - Fenêtre de Modération
+
+#### Harmonisation Visuelle Complète
+- **Support thème clair/sombre** : La fenêtre de modération s'adapte automatiquement au thème global
+- **Ressources dynamiques** : Utilisation de `DynamicResource` pour tous les éléments de couleur
+- **Header amélioré** : Fond gris clair doux au lieu du blanc pur (thème clair)
+
+#### Couleurs Pastel pour les Rôles (Thème Clair)
+- 🟣 **SuperAdmin** : Violet lavande `#E8E0F0`
+- 🔴 **Admin** : Rose poudré `#FCE4E4`
+- 🔵 **Moderator** : Bleu ciel `#E0F0F8`
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomModerationWindow.xaml` : Migration vers ressources dynamiques + teintes pastel harmonisées
+
+---
+
 ## [1.6.6] - 2026-01-09
 
 ### 🔊 Son de Démarrage par Rôle
