@@ -48,26 +48,38 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Feedback immédiat** : Toast de confirmation instantané.
     *   **Interface épurée** : Plus de boutons "En attente" ou "Annuler".
 
-### �📹 Appel Vidéo WebRTC v2.0 (Dernière Mise à Jour - v1.6.5)
-*   **Architecture WebRTC Professionnelle** :
-    *   **SIPSorcery WebRTC** : Connexion peer-to-peer avec ICE, DTLS-SRTP pour le chiffrement média.
-    *   **OpenCvSharp4** : Capture vidéo de la webcam avec conversion en temps réel.
-    *   **NAudio** : Capture et lecture audio haute qualité.
-    *   **Support TURN Server** : Configuration Coturn pour traversée NAT/firewall fiable.
+### 🎥 Appel Vidéo MixedReality.WebRTC (Dernière Mise à Jour - v1.7.0)
+*   **Migration MixedReality.WebRTC** :
+    *   **Nouveau Moteur** : Remplacement complet de l'ancien encodeur VP8 par MixedReality.WebRTC v2.0.2.
+    *   **APIs Natives Windows** : Utilisation des APIs WebRTC natives pour performances optimales.
+    *   **Démarrage Instantané** : La caméra démarre immédiatement (plus de délai d'1+ minute).
+    *   **Suppression Encodeurs** : Plus besoin de VP8Encoder, VP8Decoder, libvpx - tout est géré nativement.
 
-*   **Partage d'Écran (Nouveau v1.6.2)** :
-    *   **Capture Plein Écran** : Capture de l'écran principal via `Graphics.CopyFromScreen`.
-    *   **Qualité Optimisée** : Format 24bpp RGB, gestion correcte du stride, résolution 1920x1080.
-    *   **Bitrate Adapté** : 1500 kbps automatique pour le partage d'écran (vs 500 kbps caméra).
-    *   **Toggle Automatique** : Désactivation caméra lors du partage, réactivation à l'arrêt.
+*   **Audio & Vidéo Bidirectionnels** :
+    *   **Audio Parfait** : Transmission audio bidirectionnelle fonctionnelle entre appelant et appelé.
+    *   **Vidéo Locale & Distante** : Affichage correct des deux flux vidéo simultanément.
+    *   **Formats Multiples** : Support automatique I420A et ARGB32 selon la caméra.
+    *   **Transceiver SendReceive** : Configuration optimale pour communication bidirectionnelle.
 
-*   **Gestion Statut "En appel" (Nouveau v1.6.2)** :
-    *   **Changement Automatique** : Statut passe à "En appel" dès connexion vidéo établie.
-    *   **Retour Automatique** : Statut revient à "En ligne" à la fin de l'appel.
-    *   **Vérification Avant Appel** : Message d'alerte si le contact est déjà en appel.
-    *   **Visibilité Contacts** : Les amis voient que l'utilisateur est occupé en appel.
+*   **Partage d'Écran Amélioré** :
+    *   **ExternalVideoTrackSource** : Source vidéo externe pour le partage d'écran.
+    *   **Capture Thread Séparé** : Thread dédié pour la capture d'écran haute performance.
+    *   **Arrêt Propre** : Nettoyage correct des ressources (track détaché avant dispose).
+    *   **Retour Caméra Automatique** : Réactivation de la caméra à l'arrêt du partage.
 
-*   **Améliorations UX v1.6.3** :
+*   **Contrôles Média Fonctionnels** :
+    *   **Mute Micro** : Désactivation/réactivation du microphone pendant l'appel.
+    *   **Pause Caméra** : Mise en pause sans crash (flag interne au lieu de désactiver le track natif).
+    *   **Synchronisation Bidirectionnelle** : La pause caméra est visible des deux côtés via SignalR.
+    *   **UI Cohérente** : Les boutons changent d'apparence selon l'état actuel.
+
+*   **Gestion des Appels Corrigée** :
+    *   **Statut "En appel"** : Reset automatique à "En ligne" quand l'appel se termine (des deux côtés).
+    *   **Rappel Possible** : Plus de blocage "Utilisateur en appel" après un appel terminé.
+    *   **Cleanup Async** : Nettoyage non-bloquant pour éviter le freeze de la fenêtre.
+    *   **Handlers SignalR** : `VideoCallEnded` et `VideoCallDeclined` remettent le statut à Online.
+
+*   **Améliorations UX** :
     *   **Bouton Minimiser** : Fenêtre d'appel vidéo peut être minimisée (bouton bien espacé du bouton fermer).
     *   **Notifications Globales** : Appels entrants notifiés même si la fenêtre de chat n'est pas ouverte.
     *   **Blocage Appels Hors Ligne** : Impossible d'appeler un utilisateur hors ligne (statut 6).
