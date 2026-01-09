@@ -381,7 +381,24 @@ namespace PaLX.Client
         {
             try
             {
-                string soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Sounds", "startup.mp3");
+                // Déterminer le fichier son en fonction du rôle de l'utilisateur
+                int roleLevel = ApiService.Instance.CurrentUserRoleLevel;
+                string soundFileName;
+
+                if (roleLevel == 1) // ServerMaster
+                {
+                    soundFileName = "master_start.mp3";
+                }
+                else if (roleLevel >= 2 && roleLevel <= 6) // ServerEditor(2), ServerSuperAdmin(3), ServerAdmin(4), ServerModerator(5), ServerHelp(6)
+                {
+                    soundFileName = "admin_start.mp3";
+                }
+                else // User (7) ou autre
+                {
+                    soundFileName = "client_start.mp3";
+                }
+
+                string soundPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "start_sound", soundFileName);
                 if (File.Exists(soundPath))
                 {
                     _startupPlayer.Open(new Uri(soundPath));

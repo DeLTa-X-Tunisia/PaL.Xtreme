@@ -7,6 +7,30 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.6.6] - 2026-01-09
+
+### 🔊 Son de Démarrage par Rôle
+
+#### Sons Personnalisés selon le Niveau d'Administration
+- **ServerMaster (Niveau 1)** : Son exclusif `master_start.mp3`
+- **Administrateurs (Niveaux 2-6)** : Son `admin_start.mp3`
+  - ServerEditor (2), ServerSuperAdmin (3), ServerAdmin (4), ServerModerator (5), ServerHelp (6)
+- **Utilisateur (Niveau 7)** : Son standard `client_start.mp3` (inchangé)
+
+### 💬 Chatroom Sans Historique
+
+#### Nouvelle Expérience Chatroom
+- **Pas d'historique** : Les utilisateurs rejoignant un salon ne voient plus les anciens messages
+- **Fenêtre blanche** : Affichage propre avec uniquement le message de bienvenue
+- **Message de bienvenue** : "Bienvenu dans votre salon [Nom]" affiché à l'arrivée
+- **Chats privés préservés** : L'historique reste visible dans les conversations privées
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/MainView.xaml.cs` : Logique de son de démarrage basée sur le rôle utilisateur
+- `PaLX.Client/RoomWindow.xaml.cs` : Suppression du chargement de l'historique des messages
+
+---
+
 ## [1.6.5] - 2026-01-08
 
 ### 🎬 Amélioration de la Qualité Vidéo

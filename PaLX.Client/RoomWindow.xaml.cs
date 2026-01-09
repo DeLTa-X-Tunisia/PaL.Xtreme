@@ -237,7 +237,8 @@ namespace PaLX.Client
         {
             try
             {
-                var messages = await _apiService.GetRoomMessagesAsync(_roomId);
+                // Ne pas charger l'historique des messages pour les chatrooms collectifs
+                // L'utilisateur voit uniquement le message de bienvenue
                 Messages.Clear();
                 
                 // Welcome Message
@@ -250,10 +251,6 @@ namespace PaLX.Client
                     RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E90FF")) // DodgerBlue
                 });
 
-                foreach (var m in messages)
-                {
-                    Messages.Add(MapMessage(m));
-                }
                 if (Messages.Count > 0) MessagesList.ScrollIntoView(Messages.Last());
             }
             catch (Exception ex) { }
