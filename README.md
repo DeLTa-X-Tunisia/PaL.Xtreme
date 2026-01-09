@@ -12,43 +12,13 @@ La solution se compose de trois projets principaux :
 
 > **Note** : Une interface d'administration (modération, rôles, abonnements) sera ajoutée ultérieurement.
 
-## 🌟 Nouveautés & Améliorations Récentes
+## 🌟 Nouveautés & Améliorations
 
-Voici un résumé des dernières fonctionnalités et optimisations intégrées au projet :
+Voici un résumé des fonctionnalités et optimisations intégrées au projet, classées par version (du plus récent au plus ancien) :
 
-### 🎛️ Fenêtre de Modération Repensée (Nouveau v1.5.0)
-*   **Interface à Deux Listes** :
-    *   **Amis disponibles** : Liste des amis sans rôle avec boutons d'attribution.
-    *   **Administrateurs du salon** : Liste des amis avec rôle et badge coloré.
-    *   **Attribution rapide** : Boutons 👑 (SuperAdmin), ⭐ (Admin), 🔧 (Moderator).
-    *   **Suppression en un clic** : Bouton ❌ pour retirer un rôle instantanément.
+---
 
-*   **Synchronisation Temps Réel** :
-    *   **Icône ✏️ dynamique** : Apparaît/Disparaît instantanément chez l'utilisateur.
-    *   **Fermeture automatique** : La fenêtre d'édition se ferme si le rôle est retiré.
-    *   **Toast informatif** : "Vous êtes maintenant SuperAdmin 👑 du salon 'X'".
-    *   **SignalR optimisé** : Notifications envoyées au username (pas à l'ID).
-
-### 👑 Gestion des Rôles Simplifiée (v1.4.0)
-*   **Architecture Simplifiée** :
-    *   **Table Unique `RoomAdmins`** : Remplace les tables `RoomRoleRequests` et `RoomMemberRoles`.
-    *   **Attribution Directe** : Le propriétaire attribue les rôles immédiatement, sans workflow de demande/acceptation.
-    *   **Trois Niveaux** : SuperAdmin 👑, Admin ⭐, Moderator 🔧.
-*   **Permissions Différenciées** :
-    *   **RoomOwner** : Toutes les fonctions (Modifier ✏️, Cacher/Afficher 👁️, Supprimer 🗑️).
-    *   **Admin/Moderator** : Accès uniquement à "Modifier" pour gérer le salon.
-    *   **Utilisateur simple** : Aucun accès aux fonctions d'administration.
-*   **API Rationalisée** :
-    *   `GET /rooms/{id}/roles` : Liste les admins d'un salon.
-    *   `POST /rooms/{id}/roles/assign` : Attribution directe (UPSERT).
-    *   `DELETE /rooms/{id}/roles/{userId}` : Suppression en un clic.
-
-*   **Expérience Utilisateur** :
-    *   **Clic unique** : Un clic sur l'icône de rôle suffit pour attribuer.
-    *   **Feedback immédiat** : Toast de confirmation instantané.
-    *   **Interface épurée** : Plus de boutons "En attente" ou "Annuler".
-
-### 🎥 Appel Vidéo MixedReality.WebRTC (Dernière Mise à Jour - v1.7.0)
+### 🎥 v1.7.0 - Appels Vidéo MixedReality.WebRTC *(Dernière Version)*
 *   **Migration MixedReality.WebRTC** :
     *   **Nouveau Moteur** : Remplacement complet de l'ancien encodeur VP8 par MixedReality.WebRTC v2.0.2.
     *   **APIs Natives Windows** : Utilisation des APIs WebRTC natives pour performances optimales.
@@ -77,23 +47,10 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
     *   **Statut "En appel"** : Reset automatique à "En ligne" quand l'appel se termine (des deux côtés).
     *   **Rappel Possible** : Plus de blocage "Utilisateur en appel" après un appel terminé.
     *   **Cleanup Async** : Nettoyage non-bloquant pour éviter le freeze de la fenêtre.
-    *   **Handlers SignalR** : `VideoCallEnded` et `VideoCallDeclined` remettent le statut à Online.
 
-*   **Améliorations UX** :
-    *   **Bouton Minimiser** : Fenêtre d'appel vidéo peut être minimisée (bouton bien espacé du bouton fermer).
-    *   **Notifications Globales** : Appels entrants notifiés même si la fenêtre de chat n'est pas ouverte.
-    *   **Blocage Appels Hors Ligne** : Impossible d'appeler un utilisateur hors ligne (statut 6).
-    *   **Messages Utilisateur** : "Juste un instant..." et "La parole est à vous!" plus naturels.
+---
 
-### 💬 Chatroom Modernisée (Nouveau v1.6.4)
-*   **Design Cohérent PaL.Xtreme** :
-    *   **Fenêtre Sans Bordure** : Style moderne avec coins arrondis (20px) et ombre portée.
-    *   **Header Gradient Rouge** : Identique au ChatWindow (#E03E2F → #8B2920).
-    *   **Badge 18+** : Indicateur visible pour les salons adultes.
-    *   **Statistiques Modernes** : Compteurs (Total/Hommes/Femmes) dans des pilules semi-transparentes.
-    *   **Bouton Plein Écran** : Agrandir/Restaurer avec double-clic sur le header.
-
-### 🖼️ Avatars Chatroom (Nouveau v1.6.5)
+### 🖼️ v1.6.5 - Avatars Chatroom & UX
 *   **Photos de Profil Réelles** :
     *   **Liste des Membres** : Avatar circulaire avec bordure colorée selon le rôle.
     *   **Bulles de Messages** : Photo de profil à côté de chaque message.
@@ -106,77 +63,83 @@ Voici un résumé des dernières fonctionnalités et optimisations intégrées a
 
 *   **Zone de Messages Améliorée** :
     *   **Bulles Modernes** : Fond blanc, coins arrondis (16px), ombre subtile.
-    *   **Avatars avec Rôle** : Bordure colorée selon le rôle (Owner=Rouge, Admin=Orange, Mod=Bleu, etc.).
+    *   **Avatars avec Rôle** : Bordure colorée selon le rôle (Owner=Rouge, Admin=Orange, Mod=Bleu).
     *   **Badge de Rôle** : Affichage du nom du rôle à côté du pseudo.
-    *   **Messages Système** : Style distinct centré avec icône info.
+
+---
+
+### 💬 v1.6.4 - Chatroom Modernisée
+*   **Design Cohérent PaL.Xtreme** :
+    *   **Fenêtre Sans Bordure** : Style moderne avec coins arrondis (20px) et ombre portée.
+    *   **Header Gradient Rouge** : Identique au ChatWindow (#E03E2F → #8B2920).
+    *   **Badge 18+** : Indicateur visible pour les salons adultes.
+    *   **Statistiques Modernes** : Compteurs (Total/Hommes/Femmes) dans des pilules semi-transparentes.
 
 *   **Sidebar Membres Premium** :
     *   **Liste Interactive** : Hover effect sur les membres.
     *   **Indicateur Micro Actif** : Point vert lumineux sur l'avatar quand le micro est ON.
     *   **Timer de Parole** : Badge rouge avec le temps de parole en cours.
     *   **Animation Pulsante** : Icône micro animée pour visualiser qui parle.
-    *   **Rôle Visuel** : Point coloré + nom du rôle sous chaque pseudo.
 
-*   **Contrôles Utilisateur Redessinés** :
-    *   **Boutons Toggle Circulaires** : Plus grands (52px), effet ombre au survol.
-    *   **Timer de Parole Personnel** : Bandeau rouge avec effet glow quand actif.
-    *   **Interactions Fluides** : Envoi avec Enter, déplacement fenêtre par le header.
+---
 
-*   **Améliorations Backend** :
-    *   **RoleName dans les Messages** : API retourne maintenant le nom du rôle pour chaque message.
-    *   **DTOs Enrichis** : `RoomMessageDto` inclut `RoleName` pour l'affichage du badge.
+### 🎬 v1.6.3 - Corrections Vidéo & Stabilité
+*   **Partage d'écran** : Correction qualité image (format 24bpp, gestion stride).
+*   **Crash Arrêt Partage** : Meilleure synchronisation threads lors du retour caméra.
+*   **Arrêt Sonnerie** : La musique d'appel s'arrête dès que l'appel est accepté/refusé/terminé.
+*   **Bouton Minimiser** : Fenêtre d'appel vidéo peut être minimisée.
+*   **Notifications Globales** : Appels entrants notifiés même si la fenêtre de chat n'est pas ouverte.
 
-*   **Codec Audio Opus** :
-    *   **Concentus 2.2.0** : Implémentation Opus pure managed .NET (pas de dépendances natives).
-    *   **Qualité Audio Supérieure** : 48kHz, bitrate adaptatif 24-64 kbps, FEC pour perte de paquets.
-    *   **Fallback G.711** : μ-law/A-law comme codec de secours pour compatibilité.
+---
 
-*   **Architecture Modulaire** :
-    *   **IMediaCapture** : Abstraction pour capture vidéo/audio (IVideoCapture, IAudioCapture, IAudioPlayback).
-    *   **IMediaEncoder** : Interfaces encodeurs (IPaLXAudioEncoder, IPaLXVideoEncoder, IEncoderFactory).
-    *   **IWebRTCTransport** : Abstraction transport WebRTC avec WebRTCConfig, TurnServerConfig.
-    *   **EncoderFactory** : Factory pattern pour création dynamique des encodeurs.
+### 🎛️ v1.5.0 - Fenêtre de Modération Repensée
+*   **Interface à Deux Listes** :
+    *   **Amis disponibles** : Liste des amis sans rôle avec boutons d'attribution.
+    *   **Administrateurs du salon** : Liste des amis avec rôle et badge coloré.
+    *   **Attribution rapide** : Boutons 👑 (SuperAdmin), ⭐ (Admin), 🔧 (Moderator).
+    *   **Suppression en un clic** : Bouton ❌ pour retirer un rôle instantanément.
 
-*   **Interface VideoCallWindow Premium** :
-    *   **Design Glass/Modern** : Effets de transparence, bordures gradient, ombres portées.
-    *   **Animations** : Boutons Accept/Decline pulsants, anneau avatar rotatif, animation "..." status.
-    *   **Picture-in-Picture** : Vidéo locale repositionnable avec label "Vous".
-    *   **Indicateur Qualité HD** : Icône signal avec status de connexion.
-    *   **Barre de Contrôles Flottante** : Micro, Caméra, Partage d'écran, Raccrocher.
-    *   **Sons Appel Vidéo** : `appel_video.mp3` (sonnerie) + `end_video.mp3` (fin d'appel).
-    *   **Messages Naturels** : "Juste un instant..." et "La parole est à vous!" orientés utilisateur.
+*   **Synchronisation Temps Réel** :
+    *   **Icône ✏️ dynamique** : Apparaît/Disparaît instantanément chez l'utilisateur.
+    *   **Fermeture automatique** : La fenêtre d'édition se ferme si le rôle est retiré.
+    *   **Toast informatif** : "Vous êtes maintenant SuperAdmin 👑 du salon 'X'".
 
-*   **Corrections Stabilité v1.6.3** :
-    *   **Partage d'écran** : Correction qualité image (format 24bpp, gestion stride).
-    *   **Crash Arrêt Partage** : Meilleure synchronisation threads lors du retour caméra.
-    *   **Arrêt Sonnerie** : La musique d'appel s'arrête dès que l'appel est accepté/refusé/terminé.
-    *   **Synchronisation Caméra** : Caméra démarre uniquement après connexion WebRTC établie.
-    *   **Boutons Espacés** : Minimize et Close bien positionnés (plus de superposition).
-    *   **Logique Appel Corrigée** : Vérification statut hors ligne (6) uniquement, pas les autres statuts.
+---
 
-### 🎙️ Mode Sombre & Interface Paramètres (Dernière Mise à Jour - v1.2.0)
+### 👑 v1.4.0 - Gestion des Rôles Simplifiée
+*   **Architecture Simplifiée** :
+    *   **Table Unique `RoomAdmins`** : Remplace les tables `RoomRoleRequests` et `RoomMemberRoles`.
+    *   **Attribution Directe** : Le propriétaire attribue les rôles immédiatement.
+    *   **Trois Niveaux** : SuperAdmin 👑, Admin ⭐, Moderator 🔧.
+*   **Permissions Différenciées** :
+    *   **RoomOwner** : Toutes les fonctions (Modifier ✏️, Cacher/Afficher 👁️, Supprimer 🗑️).
+    *   **Admin/Moderator** : Accès uniquement à "Modifier" pour gérer le salon.
+*   **API Rationalisée** :
+    *   `GET /rooms/{id}/roles` : Liste les admins d'un salon.
+    *   `POST /rooms/{id}/roles/assign` : Attribution directe (UPSERT).
+    *   `DELETE /rooms/{id}/roles/{userId}` : Suppression en un clic.
+
+---
+
+### 🎙️ v1.2.0 - Mode Sombre & Paramètres
 *   **Thème Sombre Complet** :
-    *   **Toggle Mode Sombre** : Nouveau système de thème avec basculement Light/Dark en un clic.
-    *   **Sauvegarde Automatique** : Les préférences de thème sont persistées localement.
-    *   **Couleurs Dark Mode** : Palette sombre moderne (fond #1A1A2E, cartes #25253D, texte clair #EAEAEA).
-    *   **DynamicResource** : Toutes les couleurs utilisent des ressources dynamiques pour un changement instantané.
+    *   **Toggle Mode Sombre** : Basculement Light/Dark en un clic.
+    *   **Sauvegarde Automatique** : Préférences persistées localement.
+    *   **Couleurs Dark Mode** : Palette sombre moderne (fond #1A1A2E, cartes #25253D).
+    *   **DynamicResource** : Changement de thème instantané.
 
 *   **Fenêtre Paramètres Moderne** :
-    *   **Design épuré** : Interface compacte sans scroll, avec icônes colorées pour chaque option.
-    *   **Options disponibles** : Mode Sombre, Sons de notification, Son de démarrage.
-    *   **Section À propos** : Version de l'application et copyright.
-    *   **Fenêtre non-modale** : Ne bloque plus l'application principale.
+    *   **Design épuré** : Interface compacte avec icônes colorées.
+    *   **Options** : Mode Sombre, Sons de notification, Son de démarrage.
+    *   **Section À propos** : Version et copyright.
 
 *   **Barre de Navigation Modernisée** :
     *   **Design "Floating"** : Barre de navigation flottante avec effet de profondeur.
-    *   **Boutons avec fond arrondi** : Chaque icône dans un cercle/carré arrondi stylisé.
-    *   **Bouton central accentué** : "Ajouter un ami" (+) mis en valeur au centre avec ombre rouge.
-    *   **Menu contextuel amélioré** : Menu ⚙️ avec icônes colorées, titres et descriptions :
-        *   👤 Mon Profil → "Modifier mes informations"
-        *   ⚙️ Paramètres → "Thème, sons, préférences"  
-        *   🚫 Utilisateurs bloqués → "Gérer la liste noire"
+    *   **Bouton central accentué** : "Ajouter un ami" (+) mis en valeur.
 
-### 🎨 Modernisation du Chat - Interface WPF Native
+---
+
+## 🔧 Autres Fonctionnalités
 *   **Migration WebView2 → WPF Natif** :
     *   Remplacement complet du rendu HTML/WebView2 par des contrôles WPF natifs dans le Client.
     *   Meilleure performance, fluidité et cohérence visuelle avec le reste de l'application.
