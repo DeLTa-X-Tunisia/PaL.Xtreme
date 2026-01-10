@@ -18,7 +18,15 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🎥 v1.7.0 - Appels Vidéo MixedReality.WebRTC *(Dernière Version)*
+### � v1.7.1 - Interface Appel Vidéo Améliorée *(Dernière Version)*
+*   **Barre de Contrôle Transparente** :
+    *   **Overlay Flottant** : Les boutons (micro, caméra, écran, raccrocher) flottent au-dessus de la vidéo.
+    *   **Vue Complète** : Plus de bande noire en bas - la vidéo occupe tout l'espace.
+    *   **Design Épuré** : Effet d'ombre allégé pour un look moderne et discret.
+
+---
+
+### 🎥 v1.7.0 - Appels Vidéo MixedReality.WebRTC
 *   **Migration MixedReality.WebRTC** :
     *   **Nouveau Moteur** : Remplacement complet de l'ancien encodeur VP8 par MixedReality.WebRTC v2.0.2.
     *   **APIs Natives Windows** : Utilisation des APIs WebRTC natives pour performances optimales.

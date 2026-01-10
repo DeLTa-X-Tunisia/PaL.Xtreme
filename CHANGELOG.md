@@ -7,6 +7,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.1] - 2026-01-10
+
+### 🎨 Amélioration Interface Appel Vidéo
+
+#### Barre de Contrôle Transparente
+- **Overlay transparent** : La barre de contrôle (micro, caméra, écran, raccrocher) est maintenant transparente
+- **Vue vidéo complète** : Plus de bande noire en bas de la fenêtre vidéo
+- **Contrôles flottants** : Les boutons flottent élégamment au-dessus de la vidéo
+- **Effet visuel allégé** : Ombre réduite pour un look plus discret et moderne
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/VideoCallWindow.xaml` : Refonte de la barre de contrôle en overlay transparent
+
+---
+
 ## [1.7.0] - 2026-01-09
 
 ### 🎥 Refonte Complète des Appels Vidéo (MixedReality.WebRTC)

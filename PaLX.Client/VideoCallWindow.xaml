@@ -219,8 +219,7 @@
         
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>      <!-- Video Area -->
-                    <RowDefinition Height="Auto"/>   <!-- Controls -->
+                    <RowDefinition Height="*"/>      <!-- Video Area (full height) -->
                 </Grid.RowDefinitions>
             
                 <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -460,24 +459,24 @@
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
-            </Grid>
-            
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- CONTROLS BAR - Floating Glass Style                              -->
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="1" Background="Transparent" Padding="30,20,30,30">
-                <Grid>
-                    <!-- Incoming Call Controls -->
-                    <StackPanel x:Name="IncomingCallControls" Visibility="Collapsed"
-                                Orientation="Horizontal" HorizontalAlignment="Center">
-                        
-                        <!-- Incoming Call Info -->
-                        <Border Background="#20FFFFFF" CornerRadius="40" Padding="20,15,40,15" Margin="0,0,20,0">
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="📹" FontSize="24" Margin="0,0,12,0" VerticalAlignment="Center"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Appel vidéo entrant" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
-                                    <TextBlock x:Name="IncomingCallerName" Text="" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+                
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <!-- CONTROLS BAR - Transparent Floating Style (Overlay)              -->
+                <!-- ═══════════════════════════════════════════════════════════════ -->
+                <Border Background="Transparent" Padding="30,20,30,30"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Stretch">
+                    <Grid>
+                        <!-- Incoming Call Controls -->
+                        <StackPanel x:Name="IncomingCallControls" Visibility="Collapsed"
+                                    Orientation="Horizontal" HorizontalAlignment="Center">
+                            
+                            <!-- Incoming Call Info -->
+                            <Border Background="#18FFFFFF" CornerRadius="40" Padding="20,15,40,15" Margin="0,0,20,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📹" FontSize="24" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="Appel vidéo entrant" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
+                                        <TextBlock x:Name="IncomingCallerName" Text="" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -504,11 +503,11 @@
                         </StackPanel>
                     </StackPanel>
                     
-                    <!-- Active Call Controls - Glass Container -->
-                    <Border x:Name="ActiveCallControls" Background="#25FFFFFF" CornerRadius="40" 
+                    <!-- Active Call Controls - Transparent Glass Container -->
+                    <Border x:Name="ActiveCallControls" Background="#15000000" CornerRadius="40" 
                             Padding="30,15" HorizontalAlignment="Center">
                         <Border.Effect>
-                            <DropShadowEffect Color="#000" BlurRadius="30" ShadowDepth="0" Opacity="0.4"/>
+                            <DropShadowEffect Color="#000" BlurRadius="15" ShadowDepth="0" Opacity="0.2"/>
                         </Border.Effect>
                         <StackPanel Orientation="Horizontal">
                             <!-- Mute Audio -->
@@ -563,6 +562,7 @@
                     </Border>
                 </Grid>
             </Border>
+            </Grid>
             </Grid>
         </Border>
     </Border>
