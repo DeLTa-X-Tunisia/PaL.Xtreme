@@ -7,6 +7,20 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.2] - 2026-01-10
+
+### 📐 Optimisation Dimensions Fenêtre Vidéo
+
+#### Taille Réduite
+- **Nouvelles dimensions** : 900x600 pixels (au lieu de 1080x720)
+- **Minimum réduit** : 650x450 pixels (au lieu de 800x550)
+- **Meilleure ergonomie** : Fenêtre moins intrusive, laisse plus d'espace écran
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/VideoCallWindow.xaml` : Ajustement des dimensions de la fenêtre
+
+---
+
 ## [1.7.1] - 2026-01-10
 
 ### 🎨 Amélioration Interface Appel Vidéo

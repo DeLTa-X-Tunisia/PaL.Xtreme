@@ -18,7 +18,14 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### � v1.7.1 - Interface Appel Vidéo Améliorée *(Dernière Version)*
+### 📐 v1.7.2 - Dimensions Fenêtre Vidéo Optimisées *(Dernière Version)*
+*   **Taille Réduite** : Fenêtre 900x600 (au lieu de 1080x720) - moins intrusive.
+*   **Minimum Ajusté** : 650x450 pour les petits écrans.
+*   **Meilleure Ergonomie** : Plus d'espace libre sur le bureau.
+
+---
+
+### 🎨 v1.7.1 - Interface Appel Vidéo Améliorée
 *   **Barre de Contrôle Transparente** :
     *   **Overlay Flottant** : Les boutons (micro, caméra, écran, raccrocher) flottent au-dessus de la vidéo.
     *   **Vue Complète** : Plus de bande noire en bas - la vidéo occupe tout l'espace.
