@@ -13,17 +13,19 @@ namespace PaLX.API.Services
         private readonly IHubContext<RoomHub> _roomHubContext;
         private readonly IHubContext<ChatHub> _chatHubContext; // Pour les notifications utilisateur
         private readonly IAccessControlService _accessControl;
+        private readonly ILogger<RoomService> _logger;
 
         // System admin role levels (1-5 have full room access)
         private const int MAX_SYSTEM_ADMIN_LEVEL = 5; // ServerMaster(1) to ServerModerator(5)
 
-        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl)
+        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl, ILogger<RoomService> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
             _roomHubContext = roomHubContext;
             _chatHubContext = chatHubContext;
             _accessControl = accessControl;
+            _logger = logger;
         }
 
         /// <summary>
@@ -156,7 +158,7 @@ namespace PaLX.API.Services
             // Le mode invisible n'est disponible que pour les admins système
             if (isInvisible && !userIsSystemAdmin)
             {
-                Console.WriteLine($"[RoomService] User {userId} tried invisible mode but is not system admin - denied");
+                _logger.LogDebug("[RoomService] User {UserId} tried invisible mode but is not system admin - denied", userId);
                 isInvisible = false;
             }
 
@@ -262,7 +264,7 @@ namespace PaLX.API.Services
                             "Moderator" => (int)RoomRoleLevel.Moderator,   // 5
                             _ => (int)RoomRoleLevel.Member                 // 6
                         };
-                        Console.WriteLine($"[RoomService] User {userId} has admin role '{adminRole}' in room {roomId}, setting RoleId={targetRoleId}");
+                        _logger.LogDebug("[RoomService] User {UserId} has admin role '{AdminRole}' in room {RoomId}, setting RoleId={TargetRoleId}", userId, adminRole, roomId, targetRoleId);
                     }
                 }
             }
@@ -279,7 +281,7 @@ namespace PaLX.API.Services
                         cmd.Parameters.AddWithValue("rid", roomId);
                         cmd.Parameters.AddWithValue("uid", userId);
                         await cmd.ExecuteNonQueryAsync();
-                        Console.WriteLine($"[RoomService] Synchronized RoleId for user {userId} in room {roomId}: {currentRole.Value} → {targetRoleId}");
+                        _logger.LogDebug("[RoomService] Synchronized RoleId for user {UserId} in room {RoomId}: {CurrentRole} → {TargetRoleId}", userId, roomId, currentRole.Value, targetRoleId);
                     }
                 }
                 // Update invisible status AND IsConnected = TRUE
@@ -290,8 +292,8 @@ namespace PaLX.API.Services
                     cmd.Parameters.AddWithValue("rid", roomId);
                     cmd.Parameters.AddWithValue("uid", userId);
                     await cmd.ExecuteNonQueryAsync();
-                    Console.WriteLine($"[RoomService] User {userId} reconnected to room {roomId}, IsConnected=TRUE");
-                    if (isInvisible) Console.WriteLine($"[RoomService] User {userId} joined room {roomId} in INVISIBLE mode");
+                    _logger.LogDebug("[RoomService] User {UserId} reconnected to room {RoomId}, IsConnected=TRUE", userId, roomId);
+                    if (isInvisible) _logger.LogDebug("[RoomService] User {UserId} joined room {RoomId} in INVISIBLE mode", userId, roomId);
                 }
                 
                 // Notify SignalR for reconnection
@@ -318,7 +320,7 @@ namespace PaLX.API.Services
                 // L'utilisateur est invisible - notifier seulement les admins de rang égal ou supérieur
                 var joinerSystemLevel = await GetUserSystemLevelAsync(conn, userId);
                 await NotifyVisibleMembersOnlyAsync(conn, roomId, userId, joinerSystemLevel, "UserJoined", memberDto);
-                Console.WriteLine($"[RoomService] Invisible join: notified only admins level <= {joinerSystemLevel}");
+                _logger.LogDebug("[RoomService] Invisible join: notified only admins level <= {JoinerSystemLevel}", joinerSystemLevel);
             }
             else
             {
@@ -380,7 +382,7 @@ namespace PaLX.API.Services
                 await _roomHubContext.Clients.User(recipientId).SendAsync(eventName, data);
             }
             
-            Console.WriteLine($"[RoomService] Invisible notification sent to {eligibleUserIds.Count} eligible admins");
+            _logger.LogDebug("[RoomService] Invisible notification sent to {Count} eligible admins", eligibleUserIds.Count);
         }
 
         private async Task AddMemberToRoomInternal(NpgsqlConnection conn, int roomId, int userId, int roleId, bool isInvisible = false)
@@ -402,7 +404,7 @@ namespace PaLX.API.Services
             await cmd.ExecuteNonQueryAsync();
             if (isInvisible)
             {
-                Console.WriteLine($"[RoomService] Added member {userId} to room {roomId} in INVISIBLE mode");
+                _logger.LogDebug("[RoomService] Added member {UserId} to room {RoomId} in INVISIBLE mode", userId, roomId);
             }
         }
 
@@ -466,7 +468,7 @@ namespace PaLX.API.Services
 
         public async Task<List<RoomDto>> GetRoomsAsync(int userId, int? categoryId = null)
         {
-            Console.WriteLine($"[RoomService] ========== GetRoomsAsync for userId={userId} ==========");
+            _logger.LogDebug("[RoomService] ========== GetRoomsAsync for userId={UserId} ==========", userId);
             
             var rooms = new List<RoomDto>();
             using var conn = new NpgsqlConnection(_connectionString);
@@ -474,7 +476,7 @@ namespace PaLX.API.Services
 
             // Vérifier si l'utilisateur est un admin système
             bool isSystemAdmin = await IsSystemAdminAsync(conn, userId);
-            Console.WriteLine($"[RoomService] User {userId} isSystemAdmin: {isSystemAdmin}");
+            _logger.LogDebug("[RoomService] User {UserId} isSystemAdmin: {IsSystemAdmin}", userId, isSystemAdmin);
 
             // Logique de filtrage:
             // - IsActive=FALSE (caché par Owner): visible par Owner + admins système
@@ -522,7 +524,7 @@ namespace PaLX.API.Services
                 var roomName = reader.GetString(reader.GetOrdinal("Name"));
                 var isSystemHidden = reader.IsDBNull(reader.GetOrdinal("IsSystemHidden")) ? false : reader.GetBoolean(reader.GetOrdinal("IsSystemHidden"));
                 
-                Console.WriteLine($"[RoomService]   Room {roomId} ({roomName}) - UserRole: {userRole ?? "null"}, IsSystemHidden: {isSystemHidden}");
+                _logger.LogDebug("[RoomService] Room {RoomId} ({RoomName}) - UserRole: {UserRole}, IsSystemHidden: {IsSystemHidden}", roomId, roomName, userRole ?? "null", isSystemHidden);
                 
                 rooms.Add(new RoomDto
                 {
@@ -545,7 +547,7 @@ namespace PaLX.API.Services
                 });
             }
             
-            Console.WriteLine($"[RoomService] Total rooms returned: {rooms.Count}");
+            _logger.LogDebug("[RoomService] Total rooms returned: {Count}", rooms.Count);
             return rooms;
         }
 
@@ -624,7 +626,7 @@ namespace PaLX.API.Services
                 {
                     // C'est un admin système (pas un simple User) → afficher son rôle système
                     roleInfo = RoleDisplayMapper.GetSystemRoleInfo(systemRoleName);
-                    Console.WriteLine($"[RoomService] User {reader.GetInt32(0)} is system admin '{systemRoleName}' (level {systemRoleLevel})");
+                    _logger.LogDebug("[RoomService] User {UserId} is system admin '{SystemRoleName}' (level {SystemRoleLevel})", reader.GetInt32(0), systemRoleName, systemRoleLevel);
                 }
                 else
                 {
@@ -997,7 +999,7 @@ namespace PaLX.API.Services
                 else if (!string.IsNullOrEmpty(systemRoleName) && systemRoleLevel <= 6)
                 {
                     roleInfo = RoleDisplayMapper.GetSystemRoleInfo(systemRoleName);
-                    Console.WriteLine($"[RoomService] User {userId} joined with system role '{systemRoleName}'");
+                    _logger.LogDebug("[RoomService] User {UserId} joined with system role '{SystemRoleName}'", userId, systemRoleName);
                 }
                 else
                 {
@@ -1009,10 +1011,10 @@ namespace PaLX.API.Services
                     UserId = reader.GetInt32(0),
                     Username = reader.GetString(1),
                     DisplayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(reader.GetString(2).ToLower()),
-                    AvatarPath = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    RoleName = roleInfo.DisplayName,
-                    RoleColor = roleInfo.Color,
-                    RoleIcon = roleInfo.Icon,
+                    AvatarPath = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                    RoleName = roleInfo?.DisplayName ?? "Membre",
+                    RoleColor = roleInfo?.Color ?? "#808080",
+                    RoleIcon = roleInfo?.Icon ?? "",
                     IsCamOn = reader.GetBoolean(6),
                     IsMicOn = reader.GetBoolean(7),
                     HasHandRaised = reader.GetBoolean(8),
@@ -1141,7 +1143,7 @@ namespace PaLX.API.Services
             }
             
             // Notifier tous les clients du changement de visibilité en temps réel
-            Console.WriteLine($"[RoomService] Room {roomId} IsActive toggled to {newStatus}, broadcasting to all clients...");
+            _logger.LogDebug("[RoomService] Room {RoomId} IsActive toggled to {NewStatus}, broadcasting to all clients...", roomId, newStatus);
             await _chatHubContext.Clients.All.SendAsync("RoomVisibilityChanged", roomId, newStatus, false);
             
             return newStatus;
@@ -1192,7 +1194,7 @@ namespace PaLX.API.Services
             }
             
             // Notifier tous les clients du changement de visibilité système en temps réel
-            Console.WriteLine($"[RoomService] Room {roomId} IsSystemHidden toggled to {newStatus} by system admin {userId}, broadcasting to all clients...");
+            _logger.LogDebug("[RoomService] Room {RoomId} IsSystemHidden toggled to {NewStatus} by system admin {UserId}, broadcasting to all clients...", roomId, newStatus, userId);
             await _chatHubContext.Clients.All.SendAsync("RoomVisibilityChanged", roomId, !newStatus, newStatus);
             
             return newStatus;
@@ -1321,13 +1323,13 @@ namespace PaLX.API.Services
         /// </summary>
         public async Task<List<RoomRoleInfoDto>> GetRoomRolesAsync(int requesterId, int roomId)
         {
-            Console.WriteLine($"[RoomService] ========== GetRoomRolesAsync for room {roomId} ==========");
+            _logger.LogDebug("[RoomService] ========== GetRoomRolesAsync for room {RoomId} ==========", roomId);
             
             try
             {
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
-                Console.WriteLine($"[RoomService] Database connection opened");
+                _logger.LogDebug("[RoomService] Database connection opened");
 
                 var sql = @"
                     SELECT ra.""UserId"", u.""Username"", 
@@ -1340,11 +1342,11 @@ namespace PaLX.API.Services
 
                 using var cmd = new NpgsqlCommand(sql, conn);
                 cmd.Parameters.AddWithValue("roomId", roomId);
-                Console.WriteLine($"[RoomService] Executing SQL query...");
+                _logger.LogDebug("[RoomService] Executing SQL query...");
 
                 var roles = new List<RoomRoleInfoDto>();
                 using var reader = await cmd.ExecuteReaderAsync();
-                Console.WriteLine($"[RoomService] Query executed, reading results...");
+                _logger.LogDebug("[RoomService] Query executed, reading results...");
                 
                 while (await reader.ReadAsync())
                 {
@@ -1357,16 +1359,15 @@ namespace PaLX.API.Services
                         Role = reader.GetString(4)
                     };
                     roles.Add(role);
-                    Console.WriteLine($"[RoomService]   -> Found: UserId={role.UserId}, Username={role.Username}, Role={role.Role}");
+                    _logger.LogDebug("[RoomService] Found: UserId={UserId}, Username={Username}, Role={Role}", role.UserId, role.Username, role.Role);
                 }
                 
-                Console.WriteLine($"[RoomService] Total roles found: {roles.Count}");
+                _logger.LogDebug("[RoomService] Total roles found: {Count}", roles.Count);
                 return roles;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[RoomService] ERROR in GetRoomRolesAsync: {ex.Message}");
-                Console.WriteLine($"[RoomService] Stack trace: {ex.StackTrace}");
+                _logger.LogWarning(ex, "[RoomService] ERROR in GetRoomRolesAsync");
                 throw;
             }
         }
@@ -1446,7 +1447,7 @@ namespace PaLX.API.Services
             updateMemberCmd.Parameters.AddWithValue("userId", targetUserId);
             await updateMemberCmd.ExecuteNonQueryAsync();
 
-            Console.WriteLine($"[RoomService] Role '{role}' (RoleId={roleId}) assigned to user {targetUserId} in room {roomId}");
+            _logger.LogDebug("[RoomService] Role '{Role}' (RoleId={RoleId}) assigned to user {TargetUserId} in room {RoomId}", role, roleId, targetUserId, roomId);
 
             // ═══════════════════════════════════════════════════════════════════════
             // NOTIFICATION SIGNALR: Informer l'utilisateur qu'il a reçu un rôle
@@ -1475,17 +1476,17 @@ namespace PaLX.API.Services
                 // SignalR utilise le USERNAME comme UserIdentifier, pas l'ID
                 await _chatHubContext.Clients.User(targetUsername)
                     .SendAsync("RoleAssigned", roomId, roomName, role);
-                Console.WriteLine($"[RoomService] SignalR RoleAssigned notification sent to '{targetUsername}' for room {roomId} with role {role}");
+                _logger.LogDebug("[RoomService] SignalR RoleAssigned notification sent to '{TargetUsername}' for room {RoomId} with role {Role}", targetUsername, roomId, role);
                 
                 // Notifier tous les membres du salon pour mise à jour de l'affichage du rôle
                 var roleInfo = RoleDisplayMapper.GetRoleInfo(role);
                 await _roomHubContext.Clients.Group($"Room_{roomId}")
                     .SendAsync("MemberRoleUpdated", targetUserId, roleInfo.DisplayName, roleInfo.Color, roleInfo.Icon);
-                Console.WriteLine($"[RoomService] SignalR MemberRoleUpdated sent to Room_{roomId} for user {targetUserId} with role {roleInfo.DisplayName}");
+                _logger.LogDebug("[RoomService] SignalR MemberRoleUpdated sent to Room_{RoomId} for user {TargetUserId} with role {RoleDisplayName}", roomId, targetUserId, roleInfo.DisplayName);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[RoomService] Warning: Failed to send RoleAssigned notification: {ex.Message}");
+                _logger.LogWarning(ex, "[RoomService] Failed to send RoleAssigned notification");
             }
         }
 
@@ -1533,7 +1534,7 @@ namespace PaLX.API.Services
             updateMemberCmd.Parameters.AddWithValue("userId", targetUserId);
             await updateMemberCmd.ExecuteNonQueryAsync();
 
-            Console.WriteLine($"[RoomService] Role removed for user {targetUserId} in room {roomId} (RoleId reset to Member)");
+            _logger.LogDebug("[RoomService] Role removed for user {TargetUserId} in room {RoomId} (RoleId reset to Member)", targetUserId, roomId);
 
             // ═══════════════════════════════════════════════════════════════════════
             // NOTIFICATION SIGNALR: Informer l'utilisateur que son rôle a été retiré
@@ -1549,18 +1550,18 @@ namespace PaLX.API.Services
                 // SignalR utilise le USERNAME comme UserIdentifier, pas l'ID
                 await _chatHubContext.Clients.User(targetUsername)
                     .SendAsync("RoleRemoved", roomId, roomName);
-                Console.WriteLine($"[RoomService] SignalR RoleRemoved notification sent to '{targetUsername}' for room {roomId}");
+                _logger.LogDebug("[RoomService] SignalR RoleRemoved notification sent to '{TargetUsername}' for room {RoomId}", targetUsername, roomId);
                 
                 // Notifier tous les membres du salon pour mise à jour de l'affichage
                 // Quand un rôle est retiré, l'utilisateur redevient "Membre" (RoomMember)
                 var memberRoleInfo = RoleDisplayMapper.GetRoleInfo("RoomMember");
                 await _roomHubContext.Clients.Group($"Room_{roomId}")
                     .SendAsync("MemberRoleUpdated", targetUserId, memberRoleInfo.DisplayName, memberRoleInfo.Color, memberRoleInfo.Icon);
-                Console.WriteLine($"[RoomService] SignalR MemberRoleUpdated sent to Room_{roomId} for user {targetUserId} (role removed, now Member)");
+                _logger.LogDebug("[RoomService] SignalR MemberRoleUpdated sent to Room_{RoomId} for user {TargetUserId} (role removed, now Member)", roomId, targetUserId);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[RoomService] Warning: Failed to send RoleRemoved notification: {ex.Message}");
+                _logger.LogWarning(ex, "[RoomService] Failed to send RoleRemoved notification");
             }
         }
 

@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using OpenCvSharp;
 using PaLX.Client.Services;
 
 namespace PaLX.Client
@@ -18,7 +19,7 @@ namespace PaLX.Client
     /// - WebRTC direct via VideoCallService optimisé
     /// - Toujours au-dessus, redimensionnable, déplaçable
     /// </summary>
-    public partial class RoomVideoWindow : Window
+    public partial class RoomVideoWindow : System.Windows.Window
     {
         #region Events
         
@@ -42,6 +43,28 @@ namespace PaLX.Client
         
         // State
         private bool _isPinned = true;
+        
+        // Available cameras
+        private List<CameraInfo> _availableCameras = new();
+
+        #endregion
+        
+        #region Inner Classes
+        
+        private class CameraInfo
+        {
+            public int Index { get; set; }
+            public string Name { get; set; } = string.Empty;
+        }
+
+        #endregion
+
+        #region Properties
+        
+        /// <summary>
+        /// État actuel de la caméra locale
+        /// </summary>
+        public bool IsCameraEnabled => _isCameraEnabled;
 
         #endregion
 
@@ -313,22 +336,44 @@ namespace PaLX.Client
 
         #region Camera & Mic Control
 
+        /// <summary>
+        /// Synchronise l'état visuel de la caméra avec l'état réel
+        /// Appelé par RoomWindow quand la caméra est activée/désactivée depuis le bouton principal
+        /// </summary>
+        public void SetCameraState(bool isEnabled)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _isCameraEnabled = isEnabled;
+                UpdateCameraButtonVisual();
+            });
+        }
+
+        private void UpdateCameraButtonVisual()
+        {
+            if (_isCameraEnabled)
+            {
+                CameraIcon.Text = "📷";
+                CameraButton.Style = (Style)FindResource("VideoControlButtonActive");
+                // Cacher le bouton "Activer ma caméra" si visible
+                if (StartCameraBtn != null)
+                {
+                    StartCameraBtn.Visibility = Visibility.Collapsed;
+                }
+            }
+            else
+            {
+                CameraIcon.Text = "📷";
+                CameraButton.Style = (Style)FindResource("VideoControlButton");
+            }
+        }
+
         private void ToggleCamera_Click(object sender, RoutedEventArgs e)
         {
             try
             {
                 _isCameraEnabled = !_isCameraEnabled;
-
-                if (_isCameraEnabled)
-                {
-                    CameraIcon.Text = "📷";
-                    CameraButton.Style = (Style)FindResource("VideoControlButtonActive");
-                }
-                else
-                {
-                    CameraIcon.Text = "📷";
-                    CameraButton.Style = (Style)FindResource("VideoControlButton");
-                }
+                UpdateCameraButtonVisual();
                 
                 // Notifier le RoomWindow pour démarrer/arrêter la caméra via le service
                 OnCameraToggled?.Invoke(_isCameraEnabled);
@@ -337,6 +382,7 @@ namespace PaLX.Client
             {
                 MessageBox.Show($"Erreur caméra: {ex.Message}", "Erreur", MessageBoxButton.OK, MessageBoxImage.Error);
                 _isCameraEnabled = false;
+                UpdateCameraButtonVisual();
             }
         }
 
@@ -364,6 +410,107 @@ namespace PaLX.Client
             var settingsWindow = new SettingsWindow();
             settingsWindow.Owner = this;
             settingsWindow.ShowDialog();
+        }
+        
+        /// <summary>
+        /// Affiche le menu de sélection de caméra
+        /// </summary>
+        private void SwitchCamera_Click(object sender, RoutedEventArgs e)
+        {
+            // Détecter les caméras disponibles
+            DetectAvailableCameras();
+            
+            // Construire le menu
+            CameraMenu.Items.Clear();
+            
+            int currentIndex = SettingsService.SelectedCameraIndex;
+            
+            foreach (var camera in _availableCameras)
+            {
+                var menuItem = new MenuItem
+                {
+                    Header = camera.Name,
+                    Tag = camera.Index,
+                    IsChecked = camera.Index == currentIndex,
+                    Icon = camera.Index == currentIndex ? new TextBlock { Text = "✓" } : null
+                };
+                menuItem.Click += CameraMenuItem_Click;
+                CameraMenu.Items.Add(menuItem);
+            }
+            
+            if (_availableCameras.Count == 0)
+            {
+                CameraMenu.Items.Add(new MenuItem 
+                { 
+                    Header = "Aucune caméra détectée", 
+                    IsEnabled = false 
+                });
+            }
+            
+            // Afficher le menu
+            CameraMenu.IsOpen = true;
+        }
+        
+        /// <summary>
+        /// Détecte les caméras disponibles sur le système
+        /// </summary>
+        private void DetectAvailableCameras()
+        {
+            _availableCameras.Clear();
+            
+            // Tester jusqu'à 10 indices de caméra
+            for (int i = 0; i < 10; i++)
+            {
+                try
+                {
+                    using var testCapture = new VideoCapture(i);
+                    if (testCapture.IsOpened())
+                    {
+                        _availableCameras.Add(new CameraInfo
+                        {
+                            Index = i,
+                            Name = $"📷 Caméra {i + 1}"
+                        });
+                        testCapture.Release();
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+            }
+        }
+        
+        /// <summary>
+        /// Gère le clic sur une caméra du menu
+        /// </summary>
+        private void CameraMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menuItem && menuItem.Tag is int cameraIndex)
+            {
+                // Sauvegarder le choix
+                SettingsService.SelectedCameraIndex = cameraIndex;
+                
+                // Si la caméra est active, la redémarrer avec la nouvelle caméra
+                if (_isCameraEnabled)
+                {
+                    // Déclencher un toggle off puis on pour redémarrer avec la nouvelle caméra
+                    OnCameraToggled?.Invoke(false);
+                    
+                    // Petit délai pour laisser le temps de fermer
+                    System.Threading.Tasks.Task.Delay(500).ContinueWith(_ =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            OnCameraToggled?.Invoke(true);
+                        });
+                    });
+                }
+            }
         }
 
         #endregion
@@ -404,12 +551,9 @@ namespace PaLX.Client
 
         private void Close_Click(object sender, RoutedEventArgs e)
         {
-            // Arrêter la caméra si active
-            if (_isCameraEnabled)
-            {
-                _isCameraEnabled = false;
-                OnCameraToggled?.Invoke(false);
-            }
+            // Note: La désactivation de la caméra sera gérée par le handler Closed dans RoomWindow
+            // On met juste à jour l'état local pour éviter les appels multiples
+            _isCameraEnabled = false;
             
             this.Close();
         }

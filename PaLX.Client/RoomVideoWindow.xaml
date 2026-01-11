@@ -109,8 +109,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="44"/>   <!-- Header -->
-                <RowDefinition Height="*"/>    <!-- Video Grid -->
-                <RowDefinition Height="70"/>   <!-- Controls -->
+                <RowDefinition Height="*"/>    <!-- Video Grid + Controls superposés -->
             </Grid.RowDefinitions>
             
             <!-- ═══════════════════════════════════════════════════════════════ -->
@@ -158,9 +157,9 @@
             </Border>
             
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- VIDEO GRID - Grille adaptive                                     -->
+            <!-- VIDEO GRID - Grille adaptive avec contrôles superposés           -->
             <!-- ═══════════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="1" Background="#12121A">
+            <Border Grid.Row="1" Background="#12121A" CornerRadius="0,0,16,16">
                 <Grid x:Name="VideoGridContainer">
                     <!-- État vide -->
                     <Border x:Name="EmptyState" Visibility="Visible">
@@ -195,14 +194,12 @@
                     <UniformGrid x:Name="VideoGrid" Visibility="Collapsed">
                         <!-- Les cellules vidéo seront ajoutées dynamiquement -->
                     </UniformGrid>
-                </Grid>
-            </Border>
-            
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <!-- CONTROLS - Barre de contrôle                                     -->
-            <!-- ═══════════════════════════════════════════════════════════════ -->
-            <Border Grid.Row="2" Background="#16161E" CornerRadius="0,0,16,16">
-                <Grid>
+                    
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- CONTROLS - Barre de contrôle transparente SUPERPOSÉE            -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <Border VerticalAlignment="Bottom" Background="#60000000" CornerRadius="0,0,16,16" Height="70">
+                        <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -231,6 +228,17 @@
                             <TextBlock x:Name="CameraIcon" Text="📷" FontSize="18"/>
                         </Button>
                         
+                        <!-- Changer de caméra -->
+                        <Button x:Name="SwitchCameraButton" Style="{StaticResource VideoControlButton}" 
+                                Click="SwitchCamera_Click" ToolTip="Changer de caméra">
+                            <TextBlock Text="🔄" FontSize="18"/>
+                            <Button.ContextMenu>
+                                <ContextMenu x:Name="CameraMenu" Placement="Top">
+                                    <!-- Les caméras seront ajoutées dynamiquement -->
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                        </Button>
+                        
                         <!-- Paramètres -->
                         <Button Style="{StaticResource VideoControlButton}" 
                                 Click="Settings_Click" ToolTip="Paramètres">
@@ -246,6 +254,9 @@
                         <TextBlock x:Name="BitrateText" Text="0 kbps" FontSize="10" Foreground="#666" 
                                    VerticalAlignment="Center"/>
                     </StackPanel>
+                </Grid>
+            </Border>
+            <!-- Fin des contrôles superposés -->
                 </Grid>
             </Border>
         </Grid>

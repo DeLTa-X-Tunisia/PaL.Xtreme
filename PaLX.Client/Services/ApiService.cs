@@ -17,6 +17,7 @@ namespace PaLX.Client.Services
         private HubConnection? _hubConnection;
         private HubConnection? _roomHubConnection;
         private string _authToken = string.Empty;
+        private int _currentRoomId = 0; // Pour la reconnexion au groupe SignalR
         public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
         
         public string CurrentUsername { get; private set; } = string.Empty;
@@ -43,6 +44,11 @@ namespace PaLX.Client.Services
         public event Action<int>? OnRoomUserLeft;
         public event Action<int, bool?, bool?, bool?>? OnRoomMemberStatusUpdated;
         public event Action<int, string, string, string>? OnMemberRoleUpdated; // userId, displayName, color, icon
+        
+        // Room Video Events (centralisés ici pour éviter les effets de bord)
+        public event Action<int, int, string>? OnRoomCameraStarted; // roomId, userId, username
+        public event Action<int, int>? OnRoomCameraStopped; // roomId, userId
+        public event Action<int, int, byte[]>? OnRoomVideoFrame; // roomId, userId, frameData
         
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
@@ -96,6 +102,10 @@ namespace PaLX.Client.Services
 
         public HubConnection? GetHubConnection() => _hubConnection;
         public HubConnection? HubConnection => _roomHubConnection ?? _hubConnection;
+        /// <summary>
+        /// Connexion spécifique au RoomHub - utiliser pour toutes les opérations de chatroom
+        /// </summary>
+        public HubConnection? RoomHubConnection => _roomHubConnection;
         public VoiceCallService? VoiceService { get; private set; }
         public VideoCallService? VideoService { get; private set; }
         
@@ -526,12 +536,33 @@ namespace PaLX.Client.Services
             _hubConnection.On<int, string, string, string>("FileRequestSent", (id, receiver, filename, url) => OnFileRequestSent?.Invoke(id, receiver, filename, url));
             _hubConnection.On<int, bool, string>("FileTransferUpdated", (id, isAccepted, url) => OnFileTransferUpdated?.Invoke(id, isAccepted, url));
 
-            // Room Hub Handlers
-            _roomHubConnection.On<RoomMessageDto>("ReceiveMessage", (dto) => OnRoomMessageReceived?.Invoke(dto));
+            // Room Hub Handlers - Messages et membres
+            _roomHubConnection.On<RoomMessageDto>("ReceiveMessage", (dto) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] ReceiveMessage received: RoomId={dto.RoomId}, UserId={dto.UserId}, Content={dto.Content?.Substring(0, Math.Min(20, dto.Content?.Length ?? 0))}...");
+                OnRoomMessageReceived?.Invoke(dto);
+            });
             _roomHubConnection.On<RoomMemberDto>("UserJoined", (member) => OnRoomUserJoined?.Invoke(member));
             _roomHubConnection.On<int>("UserLeft", (uid) => OnRoomUserLeft?.Invoke(uid));
             _roomHubConnection.On<int, bool?, bool?, bool?>("MemberStatusUpdated", (uid, cam, mic, hand) => OnRoomMemberStatusUpdated?.Invoke(uid, cam, mic, hand));
             _roomHubConnection.On<int, string, string, string>("MemberRoleUpdated", (uid, roleName, color, icon) => OnMemberRoleUpdated?.Invoke(uid, roleName, color, icon));
+            
+            // Room Hub Handlers - Vidéo (centralisés ici, une seule inscription)
+            _roomHubConnection.On<int, int, string>("RoomCameraStarted", (roomId, userId, username) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] RoomCameraStarted received: roomId={roomId}, userId={userId}, username={username}");
+                OnRoomCameraStarted?.Invoke(roomId, userId, username);
+            });
+            _roomHubConnection.On<int, int>("RoomCameraStopped", (roomId, userId) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] RoomCameraStopped received: roomId={roomId}, userId={userId}");
+                OnRoomCameraStopped?.Invoke(roomId, userId);
+            });
+            _roomHubConnection.On<int, int, byte[]>("RoomVideoFrame", (roomId, userId, frameData) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] RoomVideoFrame received: roomId={roomId}, userId={userId}, size={frameData?.Length ?? 0}");
+                OnRoomVideoFrame?.Invoke(roomId, userId, frameData);
+            });
 
             // ... (Existing Transfer Handlers) ...
             
@@ -551,6 +582,33 @@ namespace PaLX.Client.Services
                 OnConnectionClosed?.Invoke();
                 await Task.Delay(new Random().Next(0, 5) * 1000);
                 try { await _hubConnection.StartAsync(); } catch { }
+            };
+            
+            // Handler de reconnexion pour RoomHub
+            _roomHubConnection.Closed += async (error) =>
+            {
+                if (_isIntentionalDisconnect) return;
+                System.Diagnostics.Debug.WriteLine($"[RoomHub] Connection closed: {error?.Message}");
+                
+                // Attendre un peu avant de reconnecter
+                await Task.Delay(new Random().Next(1000, 3000));
+                
+                try 
+                { 
+                    await _roomHubConnection.StartAsync();
+                    System.Diagnostics.Debug.WriteLine("[RoomHub] Reconnected successfully");
+                    
+                    // Re-joindre le groupe si on était dans une room
+                    if (_currentRoomId > 0)
+                    {
+                        await _roomHubConnection.InvokeAsync("JoinRoomGroup", _currentRoomId);
+                        System.Diagnostics.Debug.WriteLine($"[RoomHub] Rejoined room group {_currentRoomId}");
+                    }
+                } 
+                catch (Exception ex)
+                { 
+                    System.Diagnostics.Debug.WriteLine($"[RoomHub] Reconnection failed: {ex.Message}");
+                }
             };
 
             // Handlers are already registered above in the new block
@@ -580,6 +638,7 @@ namespace PaLX.Client.Services
             if (_roomHubConnection != null && _roomHubConnection.State == HubConnectionState.Connected)
             {
                 await _roomHubConnection.InvokeAsync("JoinRoomGroup", roomId);
+                _currentRoomId = roomId; // Mémoriser pour la reconnexion
             }
         }
 
@@ -589,6 +648,7 @@ namespace PaLX.Client.Services
             {
                 await _roomHubConnection.InvokeAsync("LeaveRoomGroup", roomId);
             }
+            _currentRoomId = 0; // Réinitialiser
         }
 
         public async Task<List<RoomMemberDto>> GetRoomMembersAsync(int roomId)

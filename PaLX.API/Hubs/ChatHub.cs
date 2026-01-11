@@ -6,11 +6,13 @@ namespace PaLX.API.Hubs
     public class ChatHub : Hub
     {
         private readonly string _connectionString;
+        private readonly ILogger<ChatHub> _logger;
 
-        public ChatHub(IConfiguration configuration)
+        public ChatHub(IConfiguration configuration, ILogger<ChatHub> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
+            _logger = logger;
         }
 
         public async Task SendMessage(string user, string message)
@@ -185,7 +187,10 @@ namespace PaLX.API.Hubs
                     await Clients.Caller.SendAsync("ReceivePrivateMessage", sender, "Nouveau message (Offline)");
                 }
             }
-            catch { }
+            catch (Exception ex) 
+            { 
+                _logger.LogWarning(ex, "[ChatHub] Erreur lors du push des messages offline pour {Username}", username);
+            }
         }
 
         public override async Task OnDisconnectedAsync(Exception? exception)
@@ -242,7 +247,10 @@ namespace PaLX.API.Hubs
                 cmd.Parameters.AddWithValue("u", username);
                 await cmd.ExecuteNonQueryAsync();
             }
-            catch { /* Ignore DB errors during signalr events */ }
+            catch (Exception ex) 
+            { 
+                _logger.LogWarning(ex, "[ChatHub] Erreur DB lors de la fermeture de session pour {Username}", username);
+            }
         }
 
         private async Task<int> GetUserSessionStatusAsync(string username)
@@ -263,7 +271,11 @@ namespace PaLX.API.Hubs
                 var result = await cmd.ExecuteScalarAsync();
                 return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 6;
             }
-            catch { return 6; }
+            catch (Exception ex) 
+            { 
+                _logger.LogWarning(ex, "[ChatHub] Erreur lors de la récupération du statut pour {Username}", username);
+                return 6; 
+            }
         }
 
         private string GetStatusString(int status)
@@ -295,7 +307,10 @@ namespace PaLX.API.Hubs
                 cmd.Parameters.AddWithValue("u", username);
                 await cmd.ExecuteNonQueryAsync();
             }
-            catch { /* Ignore DB errors during signalr events */ }
+            catch (Exception ex) 
+            { 
+                _logger.LogWarning(ex, "[ChatHub] Erreur lors de la mise à jour du statut pour {Username}", username);
+            }
         }
 
         public async Task SendVideoRequest(string receiver, string fileUrl, string fileName, long fileSize)
@@ -552,7 +567,7 @@ namespace PaLX.API.Hubs
                     var result = await cmd.ExecuteScalarAsync();
                     if (result != null)
                     {
-                        originalSender = result.ToString();
+                        originalSender = result.ToString() ?? string.Empty;
                     }
                 }
             }

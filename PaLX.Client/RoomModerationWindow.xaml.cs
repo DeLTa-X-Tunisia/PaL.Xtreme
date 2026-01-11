@@ -88,10 +88,12 @@ namespace PaLX.Client
                 
                 Console.WriteLine($"[RoomModeration] Permissions: CanAssignSuperAdmin={canAssignSuperAdmin}, CanAssignAdmin={canAssignAdmin}, CanAssignModerator={canAssignModerator}");
                 
+                if (friends == null) return;
+                
                 foreach (var friend in friends)
                 {
                     var roleInfo = roles?.FirstOrDefault(r => r.UserId == friend.Id);
-                    string avatarUrl = BuildAvatarUrl(friend.AvatarPath);
+                    string avatarUrl = BuildAvatarUrl(friend.AvatarPath ?? string.Empty) ?? string.Empty;
                     
                     Console.WriteLine($"[RoomModeration] Friend {friend.Username} (ID={friend.Id}) - RoleInfo: {(roleInfo != null ? roleInfo.Role : "null")}");
                     

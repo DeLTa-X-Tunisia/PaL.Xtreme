@@ -16,6 +16,7 @@ namespace PaLX.Client.Services
     /// <summary>
     /// Service simplifié pour la gestion vidéo WebRTC dans les chatrooms
     /// Optimisé pour un démarrage rapide (~2-3 secondes)
+    /// Utilise les événements centralisés d'ApiService pour éviter les problèmes SignalR
     /// </summary>
     public class RoomVideoPeerService : IDisposable
     {
@@ -23,11 +24,13 @@ namespace PaLX.Client.Services
 
         private const int DEFAULT_MAX_CAMERAS = 6;
         private const int PREMIUM_MAX_CAMERAS = 8;
+        private const int MAX_PENDING_FRAMES = 2; // Limite les frames en attente d'envoi
 
         #endregion
 
         #region Fields
 
+        private readonly ApiService _apiService;
         private readonly HubConnection _hubConnection;
         private readonly int _roomId;
         private readonly int _currentUserId;
@@ -39,6 +42,10 @@ namespace PaLX.Client.Services
         private volatile bool _isCameraRunning;
         // Note: Video encoding disabled - using raw frames for now
         private readonly object _encoderLock = new();
+        
+        // Frame sending - évite saturation du ThreadPool
+        private volatile int _pendingFrames = 0;
+        private readonly SemaphoreSlim _frameSemaphore = new(MAX_PENDING_FRAMES, MAX_PENDING_FRAMES);
         
         // Remote peers
         private readonly ConcurrentDictionary<int, RemotePeerState> _remotePeers = new();
@@ -82,13 +89,17 @@ namespace PaLX.Client.Services
 
         #region Constructor
 
-        public RoomVideoPeerService(HubConnection hubConnection, int roomId, int userId, string username, bool isPremium = false)
+        public RoomVideoPeerService(ApiService apiService, int roomId, int userId, string username, bool isPremium = false)
         {
-            _hubConnection = hubConnection;
+            _apiService = apiService;
+            // Utiliser explicitement RoomHubConnection pour les opérations de chatroom
+            _hubConnection = apiService.RoomHubConnection ?? throw new InvalidOperationException("RoomHubConnection is not available");
             _roomId = roomId;
             _currentUserId = userId;
             _currentUsername = username;
             _maxCameras = isPremium ? PREMIUM_MAX_CAMERAS : DEFAULT_MAX_CAMERAS;
+            
+            System.Diagnostics.Debug.WriteLine($"[RoomVideo] Service created: roomId={roomId}, userId={userId}, hubState={_hubConnection.State}");
             
             InitializeSignalR();
         }
@@ -99,33 +110,41 @@ namespace PaLX.Client.Services
 
         private void InitializeSignalR()
         {
-            // Peer a activé sa caméra
-            _hubConnection.On<int, int, string>("RoomCameraStarted", (roomId, userId, username) =>
-            {
-                if (roomId != _roomId || userId == _currentUserId) return;
-                
-                _remotePeers.TryAdd(userId, new RemotePeerState { UserId = userId, Username = username });
-                OnPeerCameraStarted?.Invoke(userId, username);
-                OnStatusChanged?.Invoke($"{username} a activé sa caméra");
-            });
+            // S'abonner aux événements centralisés d'ApiService (pas directement à la connexion SignalR)
+            // Cela évite les problèmes de handlers multiples sur la connexion
+            _apiService.OnRoomCameraStarted += HandleCameraStarted;
+            _apiService.OnRoomCameraStopped += HandleCameraStopped;
+            _apiService.OnRoomVideoFrame += HandleVideoFrame;
+        }
+        
+        private void HandleCameraStarted(int roomId, int userId, string username)
+        {
+            // Ignorer si disposed, mauvaise room, ou propre événement
+            if (_isDisposed || roomId != _roomId || userId == _currentUserId) return;
             
-            // Peer a désactivé sa caméra
-            _hubConnection.On<int, int>("RoomCameraStopped", (roomId, userId) =>
-            {
-                if (roomId != _roomId) return;
-                
-                _remotePeers.TryRemove(userId, out _);
-                OnPeerCameraStopped?.Invoke(userId);
-            });
+            _remotePeers.TryAdd(userId, new RemotePeerState { UserId = userId, Username = username });
+            OnPeerCameraStarted?.Invoke(userId, username);
+            OnStatusChanged?.Invoke($"{username} a activé sa caméra");
+        }
+        
+        private void HandleCameraStopped(int roomId, int userId)
+        {
+            // Ignorer si disposed ou mauvaise room
+            if (_isDisposed || roomId != _roomId) return;
             
-            // Frame vidéo reçue d'un peer (pour affichage)
-            _hubConnection.On<int, int, byte[]>("RoomVideoFrame", (roomId, userId, frameData) =>
-            {
-                if (roomId != _roomId || userId == _currentUserId) return;
-                
-                // Décoder et afficher
-                ProcessReceivedFrame(userId, frameData);
-            });
+            _remotePeers.TryRemove(userId, out _);
+            OnPeerCameraStopped?.Invoke(userId);
+        }
+        
+        private void HandleVideoFrame(int roomId, int userId, byte[] frameData)
+        {
+            // Ignorer si disposed, mauvaise room, ou propre frame
+            if (_isDisposed || roomId != _roomId || userId == _currentUserId) return;
+            
+            System.Diagnostics.Debug.WriteLine($"[RoomVideo] Received frame from user {userId}, size={frameData.Length}");
+            
+            // Décoder et afficher
+            ProcessReceivedFrame(userId, frameData);
         }
 
         #endregion
@@ -133,7 +152,7 @@ namespace PaLX.Client.Services
         #region Camera Control
 
         /// <summary>
-        /// Démarre la caméra locale - Optimisé pour démarrage rapide
+        /// Démarre la caméra locale - Optimisé pour démarrage rapide et non-bloquant
         /// </summary>
         public async Task StartCameraAsync()
         {
@@ -148,30 +167,24 @@ namespace PaLX.Client.Services
                     return;
                 }
                 
-                // Ouvrir la caméra - Configuration optimisée pour démarrage rapide
-                int cameraIndex = SettingsService.SelectedCameraIndex;
-                _camera = new VideoCapture(cameraIndex);
-                
-                if (!_camera.IsOpened())
-                {
-                    OnError?.Invoke("Impossible d'accéder à la caméra");
-                    return;
-                }
-                
-                // Configuration minimale pour démarrage rapide
-                var quality = SettingsService.CurrentVideoQuality;
-                _camera.Set(VideoCaptureProperties.FrameWidth, quality.Width);
-                _camera.Set(VideoCaptureProperties.FrameHeight, quality.Height);
-                _camera.Set(VideoCaptureProperties.Fps, quality.Fps);
-                _camera.Set(VideoCaptureProperties.BufferSize, 1); // Réduire le lag
-                
-                // Note: Video encoding disabled for now - using raw frames
-                
                 _isCameraEnabled = true;
                 _isCameraRunning = true;
                 
-                // Démarrer le thread de capture
-                _cameraThread = new Thread(CameraCaptureLoop)
+                // Notifier le serveur AVANT de démarrer la capture
+                if (_hubConnection.State == HubConnectionState.Connected)
+                {
+                    try
+                    {
+                        await _hubConnection.SendAsync("StartRoomCamera", _roomId).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[RoomVideo] StartRoomCamera error: {ex.Message}");
+                    }
+                }
+                
+                // Démarrer le thread de capture qui initialisera la caméra (évite blocage UI)
+                _cameraThread = new Thread(CameraCaptureLoopWithInit)
                 {
                     IsBackground = true,
                     Name = "RoomVideoCameraThread",
@@ -179,10 +192,7 @@ namespace PaLX.Client.Services
                 };
                 _cameraThread.Start();
                 
-                // Notifier le serveur
-                await _hubConnection.SendAsync("StartRoomCamera", _roomId);
-                
-                OnStatusChanged?.Invoke("Caméra activée");
+                OnStatusChanged?.Invoke("Caméra en cours d'activation...");
             }
             catch (Exception ex)
             {
@@ -222,8 +232,18 @@ namespace PaLX.Client.Services
                 
                 // Note: Video encoder cleanup disabled
                 
-                // Notifier le serveur
-                await _hubConnection.SendAsync("StopRoomCamera", _roomId);
+                // Notifier le serveur seulement si connecté
+                if (_hubConnection.State == HubConnectionState.Connected)
+                {
+                    try
+                    {
+                        await _hubConnection.SendAsync("StopRoomCamera", _roomId).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[RoomVideo] StopRoomCamera error: {ex.Message}");
+                    }
+                }
                 
                 OnStatusChanged?.Invoke("Caméra désactivée");
             }
@@ -237,6 +257,55 @@ namespace PaLX.Client.Services
 
         #region Camera Capture Loop
 
+        /// <summary>
+        /// Boucle de capture avec initialisation de la caméra dans le thread (non-bloquant pour UI)
+        /// </summary>
+        private void CameraCaptureLoopWithInit()
+        {
+            try
+            {
+                // Initialiser la caméra DANS le thread de capture (évite blocage UI)
+                int cameraIndex = SettingsService.SelectedCameraIndex;
+                _camera = new VideoCapture(cameraIndex);
+                
+                if (!_camera.IsOpened())
+                {
+                    _isCameraEnabled = false;
+                    _isCameraRunning = false;
+                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    {
+                        OnError?.Invoke("Impossible d'accéder à la caméra");
+                    });
+                    return;
+                }
+                
+                // Configuration minimale pour démarrage rapide
+                var quality = SettingsService.CurrentVideoQuality;
+                _camera.Set(VideoCaptureProperties.FrameWidth, quality.Width);
+                _camera.Set(VideoCaptureProperties.FrameHeight, quality.Height);
+                _camera.Set(VideoCaptureProperties.Fps, quality.Fps);
+                _camera.Set(VideoCaptureProperties.BufferSize, 1);
+                
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    OnStatusChanged?.Invoke("Caméra activée");
+                });
+                
+                // Démarrer la boucle de capture
+                CameraCaptureLoop();
+            }
+            catch (Exception ex)
+            {
+                _isCameraEnabled = false;
+                _isCameraRunning = false;
+                System.Diagnostics.Debug.WriteLine($"[RoomVideo] Camera init error: {ex.Message}");
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                {
+                    OnError?.Invoke($"Erreur initialisation caméra: {ex.Message}");
+                });
+            }
+        }
+        
         private void CameraCaptureLoop()
         {
             using var frame = new Mat();
@@ -261,17 +330,18 @@ namespace PaLX.Client.Services
                         continue;
                     }
 
-                    // Preview local (UI thread)
-                    System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
+                    // Preview local (UI thread) - copier les données pour éviter race condition
+                    try
                     {
-                        try
+                        using var frameCopy = frame.Clone();
+                        var bitmap = frameCopy.ToBitmapSource();
+                        bitmap.Freeze();
+                        System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                         {
-                            var bitmap = frame.ToBitmapSource();
-                            bitmap.Freeze();
                             OnLocalVideoFrame?.Invoke(bitmap);
-                        }
-                        catch { }
-                    });
+                        });
+                    }
+                    catch { }
 
                     // Encoder en JPEG et envoyer aux autres participants
                     SendJpegFrame(frame);
@@ -286,28 +356,59 @@ namespace PaLX.Client.Services
 
         private void SendJpegFrame(Mat frame)
         {
+            // Skip si trop de frames en attente (évite saturation du ThreadPool)
+            if (_pendingFrames >= MAX_PENDING_FRAMES) return;
+            
+            // Skip si connexion non active
+            if (_hubConnection.State != HubConnectionState.Connected) return;
+            
             try
             {
                 // Réduire la qualité pour la transmission
                 var quality = SettingsService.CurrentVideoQuality;
-                int jpegQuality = quality.Bitrate > 1000000 ? 70 : 50; // Qualité adaptée au bitrate
+                int jpegQuality = quality.Bitrate > 1000000 ? 60 : 40; // Qualité réduite pour performance
                 
                 // Encoder en JPEG
                 var encodeParams = new ImageEncodingParam[] { new ImageEncodingParam(ImwriteFlags.JpegQuality, jpegQuality) };
                 Cv2.ImEncode(".jpg", frame, out var jpegData, encodeParams);
                 
-                if (jpegData != null && jpegData.Length > 0)
+                if (jpegData != null && jpegData.Length > 0 && jpegData.Length < 80000)
                 {
-                    // Envoyer via SignalR (limiter à ~100KB max)
-                    if (jpegData.Length < 100000)
-                    {
-                        _ = _hubConnection.SendAsync("SendRoomVideoFrame", _roomId, jpegData);
-                    }
+                    // Incrémenter le compteur de frames en attente
+                    Interlocked.Increment(ref _pendingFrames);
+                    
+                    // Envoyer de manière asynchrone sans bloquer
+                    _ = SendFrameAsync(jpegData);
                 }
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[RoomVideo] SendJpeg error: {ex.Message}");
+            }
+        }
+        
+        private async Task SendFrameAsync(byte[] frameData)
+        {
+            try
+            {
+                if (_hubConnection.State == HubConnectionState.Connected && !_isDisposed)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomVideo] Sending frame to room {_roomId}, size={frameData.Length}, hubState={_hubConnection.State}");
+                    await _hubConnection.SendAsync("SendRoomVideoFrame", _roomId, frameData).ConfigureAwait(false);
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomVideo] Cannot send frame: hubState={_hubConnection.State}, disposed={_isDisposed}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RoomVideo] Frame send error: {ex.Message}");
+            }
+            finally
+            {
+                // Toujours décrémenter, même en cas d'erreur
+                Interlocked.Decrement(ref _pendingFrames);
             }
         }
 
@@ -330,16 +431,26 @@ namespace PaLX.Client.Services
                 
                 if (mat != null && !mat.Empty())
                 {
+                    System.Diagnostics.Debug.WriteLine($"[RoomVideo] Decoded frame for user {userId}, size={mat.Width}x{mat.Height}");
+                    
                     System.Windows.Application.Current?.Dispatcher.BeginInvoke(() =>
                     {
                         try
                         {
                             var bitmap = mat.ToBitmapSource();
                             bitmap.Freeze();
+                            System.Diagnostics.Debug.WriteLine($"[RoomVideo] Invoking OnRemoteVideoFrame for user {userId}");
                             OnRemoteVideoFrame?.Invoke(userId, bitmap);
                         }
-                        catch { }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[RoomVideo] Bitmap conversion error: {ex.Message}");
+                        }
                     });
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomVideo] Failed to decode frame for user {userId}");
                 }
             }
             catch (Exception ex)
@@ -357,7 +468,34 @@ namespace PaLX.Client.Services
             if (_isDisposed) return;
             _isDisposed = true;
             
-            _ = StopCameraAsync();
+            // Désabonner proprement des événements ApiService (événements C#, pas SignalR)
+            // Cela ne touche pas à la connexion SignalR elle-même
+            try
+            {
+                _apiService.OnRoomCameraStarted -= HandleCameraStarted;
+                _apiService.OnRoomCameraStopped -= HandleCameraStopped;
+                _apiService.OnRoomVideoFrame -= HandleVideoFrame;
+            }
+            catch { }
+            
+            // Arrêter la caméra de manière synchrone si possible
+            _isCameraRunning = false;
+            _isCameraEnabled = false;
+            
+            try
+            {
+                _cameraThread?.Join(1000);
+                _camera?.Release();
+                _camera?.Dispose();
+            }
+            catch { }
+            
+            // Nettoyer le sémaphore
+            try
+            {
+                _frameSemaphore.Dispose();
+            }
+            catch { }
             
             _remotePeers.Clear();
             

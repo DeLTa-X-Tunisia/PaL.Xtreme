@@ -76,8 +76,8 @@ namespace PaLX.Client
             _globalTimer.Tick += GlobalTimer_Tick;
             _globalTimer.Start();
 
-            // Join SignalR Group
-            _apiService.JoinRoomGroupAsync(_roomId);
+            // Join SignalR Group (avec retry si nécessaire)
+            _ = JoinRoomGroupWithRetryAsync();
 
             // Default Mute
             if (_apiService.VoiceService != null)
@@ -105,10 +105,10 @@ namespace PaLX.Client
         {
             try
             {
-                // Vérifier que la connexion SignalR est disponible
-                if (_apiService.HubConnection == null) 
+                // Vérifier que la connexion SignalR RoomHub est disponible
+                if (_apiService.RoomHubConnection == null) 
                 {
-                    System.Diagnostics.Debug.WriteLine("[RoomVideoService] HubConnection not available");
+                    System.Diagnostics.Debug.WriteLine("[RoomVideoService] RoomHubConnection not available");
                     return;
                 }
                 
@@ -116,7 +116,7 @@ namespace PaLX.Client
                 bool isPremium = _apiService.CurrentUserRoleLevel < 7 || _apiService.HasPremiumSubscription;
                 
                 _roomVideoService = new RoomVideoPeerService(
-                    _apiService.HubConnection,
+                    _apiService,
                     _roomId,
                     _apiService.CurrentUserId,
                     _apiService.CurrentUsername,
@@ -165,8 +165,15 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
-                // Ouvrir la fenêtre vidéo si pas encore ouverte
-                OpenVideoWindow();
+                // Mettre à jour l'icône caméra du membre dans la liste
+                var member = Members.FirstOrDefault(m => m.UserId == userId);
+                if (member != null)
+                {
+                    member.IsCamOn = true;
+                }
+                
+                // Si la fenêtre vidéo est déjà ouverte, elle recevra les frames automatiquement
+                // Ne pas ouvrir automatiquement - l'utilisateur doit cliquer sur l'icône caméra
             });
         }
         
@@ -174,6 +181,14 @@ namespace PaLX.Client
         {
             Dispatcher.Invoke(() =>
             {
+                // Mettre à jour l'icône caméra du membre dans la liste
+                var member = Members.FirstOrDefault(m => m.UserId == userId);
+                if (member != null)
+                {
+                    member.IsCamOn = false;
+                }
+                
+                // Retirer la vidéo de la fenêtre si elle est ouverte
                 _videoWindow?.RemoveVideo(userId);
             });
         }
@@ -185,11 +200,22 @@ namespace PaLX.Client
         
         private void OpenVideoWindow()
         {
-            if (_videoWindow == null || !_videoWindow.IsVisible)
+            // Vérifier si une fenêtre existe déjà (évite les doublons)
+            if (_videoWindow != null)
             {
-                _videoWindow = new RoomVideoWindow(_room.Name);
-                _videoWindow.OnCameraToggled += async (isOn) =>
+                // Si elle existe, juste la rendre visible et l'activer
+                if (!_videoWindow.IsVisible)
                 {
+                    _videoWindow.Show();
+                }
+                _videoWindow.Activate();
+                return;
+            }
+            
+            // Créer une nouvelle fenêtre seulement si elle n'existe pas
+            _videoWindow = new RoomVideoWindow(_room.Name);
+            _videoWindow.OnCameraToggled += async (isOn) =>
+            {
                     if (_roomVideoService == null) return;
                     
                     try
@@ -225,12 +251,33 @@ namespace PaLX.Client
                     }
                 };
                 
-                _videoWindow.Closed += async (s, e) =>
+                _videoWindow.Closed += (s, e) =>
                 {
-                    // Si la caméra était active, la désactiver
-                    if (_roomVideoService?.IsCameraEnabled == true)
+                    // Exécuter le nettoyage de manière sécurisée
+                    _ = CleanupVideoWindowAsync();
+                };
+                
+                // Positionner la fenêtre à droite de RoomWindow
+                _videoWindow.Left = this.Left + this.Width + 10;
+                _videoWindow.Top = this.Top;
+                _videoWindow.Show();
+        }
+        
+        /// <summary>
+        /// Nettoie les ressources après fermeture de la fenêtre vidéo
+        /// </summary>
+        private async Task CleanupVideoWindowAsync()
+        {
+            try
+            {
+                // Si la caméra était active, la désactiver
+                if (_roomVideoService?.IsCameraEnabled == true)
+                {
+                    await _roomVideoService.StopCameraAsync();
+                    
+                    // Mettre à jour l'UI via le Dispatcher
+                    await Dispatcher.InvokeAsync(() =>
                     {
-                        await _roomVideoService.StopCameraAsync();
                         CamToggle.IsChecked = false;
                         CamIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280"));
                         
@@ -240,22 +287,60 @@ namespace PaLX.Client
                         {
                             currentMember.IsCamOn = false;
                         }
-                        
-                        // Mettre à jour le statut sur le serveur pour notifier les autres
+                    });
+                    
+                    // Mettre à jour le statut sur le serveur pour notifier les autres
+                    try
+                    {
                         await _apiService.UpdateRoomStatusAsync(_roomId, false, null, null);
                     }
-                    _videoWindow = null;
-                };
-                
-                // Positionner la fenêtre à droite de RoomWindow
-                _videoWindow.Left = this.Left + this.Width + 10;
-                _videoWindow.Top = this.Top;
-                _videoWindow.Show();
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[VideoWindow] Server update error (ignored): {ex.Message}");
+                    }
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _videoWindow.Activate();
+                System.Diagnostics.Debug.WriteLine($"[VideoWindow] Cleanup error: {ex.Message}");
             }
+            finally
+            {
+                _videoWindow = null;
+            }
+        }
+        
+        #endregion
+
+        #region SignalR Group Management
+        
+        /// <summary>
+        /// Rejoint le groupe SignalR avec retry si la connexion n'est pas prête
+        /// </summary>
+        private async Task JoinRoomGroupWithRetryAsync()
+        {
+            const int maxRetries = 3;
+            const int delayMs = 1000;
+            
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    await _apiService.JoinRoomGroupAsync(_roomId);
+                    System.Diagnostics.Debug.WriteLine($"[RoomWindow] Successfully joined room group {_roomId}");
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomWindow] Failed to join room group (attempt {i + 1}): {ex.Message}");
+                    if (i < maxRetries - 1)
+                    {
+                        await Task.Delay(delayMs);
+                    }
+                }
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[RoomWindow] Could not join room group after {maxRetries} attempts");
         }
         
         #endregion
@@ -415,7 +500,7 @@ namespace PaLX.Client
                     Members.Add(MapMember(m));
                     if (m.Username != _apiService.CurrentUsername && _apiService.VoiceService != null)
                     {
-                        _apiService.VoiceService.ConnectToPeer(m.Username);
+                        _ = _apiService.VoiceService.ConnectToPeer(m.Username);
                     }
                 }
                 UpdateCounts();
@@ -446,7 +531,7 @@ namespace PaLX.Client
 
                 if (Messages.Count > 0) MessagesList.ScrollIntoView(Messages.Last());
             }
-            catch (Exception ex) { }
+            catch { }
         }
 
         /// <summary>
@@ -476,9 +561,9 @@ namespace PaLX.Client
                 UserId = m.UserId,
                 Username = m.Username,
                 DisplayName = m.DisplayName,
-                AvatarPath = BuildAvatarUrl(m.AvatarPath),
+                AvatarPath = BuildAvatarUrl(m.AvatarPath) ?? string.Empty,
                 RoleName = m.RoleName,
-                RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
+                RoleColor = new BrushConverter().ConvertFrom(m.RoleColor ?? "#808080") as SolidColorBrush ?? Brushes.Gray,
                 IsMicOn = m.IsMicOn,
                 IsCamOn = m.IsCamOn,
                 HasHandRaised = m.HasHandRaised,
@@ -493,10 +578,10 @@ namespace PaLX.Client
             {
                 Id = m.Id,
                 DisplayName = m.DisplayName,
-                AvatarPath = BuildAvatarUrl(m.AvatarPath),
+                AvatarPath = BuildAvatarUrl(m.AvatarPath) ?? string.Empty,
                 Content = m.Content,
                 Timestamp = m.Timestamp,
-                RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
+                RoleColor = new BrushConverter().ConvertFrom(m.RoleColor ?? "#808080") as SolidColorBrush ?? Brushes.Gray,
                 RoleName = m.RoleName,
                 MessageType = m.MessageType
             };
@@ -521,9 +606,15 @@ namespace PaLX.Client
         // SignalR Handlers
         private void OnMessageReceived(RoomMessageDto dto)
         {
-            if (dto.RoomId != _roomId) return;
+            System.Diagnostics.Debug.WriteLine($"[RoomWindow] OnMessageReceived: RoomId={dto.RoomId}, MyRoomId={_roomId}, UserId={dto.UserId}");
+            if (dto.RoomId != _roomId) 
+            {
+                System.Diagnostics.Debug.WriteLine($"[RoomWindow] Message ignored - wrong room");
+                return;
+            }
             Application.Current.Dispatcher.Invoke(() =>
             {
+                System.Diagnostics.Debug.WriteLine($"[RoomWindow] Adding message to UI: {dto.Content?.Substring(0, Math.Min(20, dto.Content?.Length ?? 0))}...");
                 Messages.Add(MapMessage(dto));
                 MessagesList.ScrollIntoView(Messages.Last());
             });
@@ -677,6 +768,9 @@ namespace PaLX.Client
                     // Activer la caméra
                     await _roomVideoService.StartCameraAsync();
                     
+                    // Synchroniser l'état dans la fenêtre vidéo
+                    _videoWindow?.SetCameraState(true);
+                    
                     // Mise à jour visuelle
                     CamIcon.Foreground = new SolidColorBrush(Colors.Green);
                     
@@ -692,7 +786,8 @@ namespace PaLX.Client
                     // Mise à jour visuelle
                     CamIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280"));
                     
-                    // Retirer la vidéo locale de la fenêtre flottante
+                    // Synchroniser l'état et retirer la vidéo locale de la fenêtre flottante
+                    _videoWindow?.SetCameraState(false);
                     _videoWindow?.RemoveLocalVideo();
                     
                     // Mettre à jour immédiatement le membre local
@@ -843,7 +938,7 @@ namespace PaLX.Client
 
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
         public string AvatarPath { get; set; } = string.Empty;
         
         public string RoleName 
@@ -908,11 +1003,11 @@ namespace PaLX.Client
     public class RoomMessageViewModel
     {
         public int Id { get; set; }
-        public string DisplayName { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
         public string AvatarPath { get; set; } = string.Empty;
-        public string Content { get; set; }
+        public string Content { get; set; } = string.Empty;
         public DateTime Timestamp { get; set; }
-        public Brush RoleColor { get; set; }
+        public Brush RoleColor { get; set; } = Brushes.Gray;
         public string RoleName { get; set; } = "Membre";
         public string MessageType { get; set; } = "Text";
         

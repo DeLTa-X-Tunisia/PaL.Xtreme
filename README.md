@@ -18,7 +18,25 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### � v1.7.3 - Contrôle de Session Unique *(Dernière Version)*
+### 🎥 v1.7.4 - Correction Vidéo Chatroom *(Dernière Version)*
+*   **Correction Connexion SignalR** :
+    *   **RoomHubConnection Explicite** : Nouvelle propriété dédiée aux opérations chatroom.
+    *   **Correction Critique** : Les frames vidéo étaient envoyées sur le mauvais Hub - corrigé.
+    *   **Peer Video Fonctionnel** : User B peut maintenant voir la vidéo de User A.
+
+*   **Fenêtre Vidéo Chatroom Améliorée** :
+    *   **Barre Transparente** : Overlay semi-transparent sur la vidéo.
+    *   **Changement de Caméra** : Bouton 🔄 avec menu pour sélectionner la caméra.
+    *   **Liste Dynamique** : Détection automatique des périphériques.
+
+*   **Optimisations Performance** :
+    *   **Frame Limiting** : Max 2 frames en attente pour éviter saturation.
+    *   **Init Non-Bloquante** : Caméra s'initialise en arrière-plan.
+    *   **Événements Centralisés** : Handlers SignalR uniques dans ApiService.
+
+---
+
+### 🔐 v1.7.3 - Contrôle de Session Unique
 *   **Détection de Session Active** :
     *   **Vérification Automatique** : Détecte si l'utilisateur est déjà connecté sur un autre appareil.
     *   **Infos Détaillées** : Affiche le nom de l'appareil, l'IP et l'heure de connexion.
@@ -446,6 +464,56 @@ L'accès à ce dépôt est accordé **uniquement** pour :
 Toute violation de ces termes peut entraîner des poursuites judiciaires conformément aux lois sur la propriété intellectuelle en vigueur.
 
 Pour toute demande de licence ou autorisation, contactez : **Azizi Mounir** via [GitHub](https://github.com/DeLTa-X-Tunisia)
+
+---
+
+## 🔧 Configuration Développeur
+
+### Prérequis
+
+- .NET 10.0 SDK
+- PostgreSQL 15+
+- Visual Studio 2022 ou VS Code
+
+### Variables d'environnement requises
+
+Avant de démarrer l'API, configurez ces variables :
+
+```bash
+# Windows PowerShell
+$env:PALX_DB_PASSWORD = "votre_mot_de_passe_db"
+$env:PALX_JWT_SECRET = "votre_cle_secrete_64_caracteres_minimum"
+
+# Linux/macOS
+export PALX_DB_PASSWORD="votre_mot_de_passe_db"
+export PALX_JWT_SECRET="votre_cle_secrete_64_caracteres_minimum"
+```
+
+Voir `.env.example` pour plus de détails.
+
+### Lancement
+
+```bash
+# Build complet
+dotnet build PaL.Xtreme.sln
+
+# Lancer l'API
+cd PaLX.API && dotnet run
+
+# Lancer les tests
+dotnet test PaLX.API.Tests
+```
+
+### Architecture Sécurité
+
+| Mesure | Implémentation |
+|--------|----------------|
+| **Authentification** | JWT Bearer (expiration 24h) |
+| **Mots de passe** | BCrypt hash + minimum 8 caractères |
+| **Rate Limiting** | 100 req/min global, 5/min sur login |
+| **Upload** | Limites: 10MB images, 100MB vidéo, 25MB audio |
+| **Logging** | Serilog structuré (console + fichier) |
+| **Secrets** | Variables d'environnement obligatoires |
 
 ---
 

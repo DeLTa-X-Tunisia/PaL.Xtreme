@@ -49,8 +49,7 @@ namespace PaLX.Client
         // WPF Native Messages Collection
         private ObservableCollection<ChatMessageItem> _messages = new ObservableCollection<ChatMessageItem>();
         private ChatMessageItem? _currentlyPlayingAudio = null;
-        private bool _hasMoreMessages = false;
-        private int _currentPage = 0;
+        // NOTE: _hasMoreMessages et _currentPage retirés - non utilisés actuellement
         private const int PageSize = 50;
 
         public ChatWindow(string currentUser, string partnerUser)
@@ -63,7 +62,7 @@ namespace PaLX.Client
             // Init Timer
             _recordingTimer = new DispatcherTimer();
             _recordingTimer.Interval = TimeSpan.FromSeconds(1);
-            _recordingTimer.Tick += RecordingTimer_Tick;
+            _recordingTimer.Tick += RecordingTimer_Tick!;
 
             // Init Voice Service
             _voiceService = ApiService.Instance.VoiceService!;
@@ -213,7 +212,7 @@ namespace PaLX.Client
             
             var win = new VoiceCallWindow(_voiceService, _partnerUser, false);
             win.Show();
-            _voiceService.RequestCall(_partnerUser);
+            _ = _voiceService.RequestCall(_partnerUser);
         }
 
         private void VideoCall_Click(object sender, RoutedEventArgs e)
@@ -986,7 +985,7 @@ namespace PaLX.Client
             if (System.IO.File.Exists(filePath))
             {
                 // Upload
-                string url = await ApiService.Instance.UploadAudioAsync(filePath);
+                string? url = await ApiService.Instance.UploadAudioAsync(filePath);
                 if (!string.IsNullOrEmpty(url))
                 {
                     // Ensure Absolute URL

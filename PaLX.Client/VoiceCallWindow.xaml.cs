@@ -80,7 +80,7 @@ namespace PaLX.Client
 
             _timer = new DispatcherTimer();
             _timer.Interval = TimeSpan.FromSeconds(1);
-            _timer.Tick += Timer_Tick;
+            _timer.Tick += Timer_Tick!;
 
             this.Closing += VoiceCallWindow_Closing;
         }
@@ -169,7 +169,7 @@ namespace PaLX.Client
             inviteWindow.Owner = this;
             if (inviteWindow.ShowDialog() == true && !string.IsNullOrEmpty(inviteWindow.SelectedFriend))
             {
-                _voiceService.RequestCall(inviteWindow.SelectedFriend);
+                _ = _voiceService.RequestCall(inviteWindow.SelectedFriend);
                 // Add to UI immediately as pending? Or wait for accept?
                 // Let's wait for accept or just show as invited.
                 // For now, we just send the invite.
@@ -346,7 +346,7 @@ namespace PaLX.Client
             _isMuted = !_isMuted;
             _voiceService.ToggleMute(_isMuted);
             MuteBtn.Content = _isMuted ? "🔇" : "🎙️";
-            MuteBtn.Background = _isMuted ? System.Windows.Media.Brushes.Red : (System.Windows.Media.Brush)new System.Windows.Media.BrushConverter().ConvertFrom("#444");
+            MuteBtn.Background = _isMuted ? System.Windows.Media.Brushes.Red : (System.Windows.Media.Brush)(new System.Windows.Media.BrushConverter().ConvertFrom("#444") ?? System.Windows.Media.Brushes.DarkGray);
         }
 
         private void EndCallBtn_Click(object sender, RoutedEventArgs e)

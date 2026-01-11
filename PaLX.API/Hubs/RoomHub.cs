@@ -150,6 +150,8 @@ namespace PaLX.API.Hubs
         {
             var userId = GetUserId();
             
+            Console.WriteLine($"[RoomHub] SendRoomVideoFrame: roomId={roomId}, userId={userId}, size={frameData?.Length ?? 0}");
+            
             // Envoyer à tous les autres membres du room (sauf l'expéditeur)
             await Clients.OthersInGroup($"Room_{roomId}").SendAsync("RoomVideoFrame", roomId, userId, frameData);
         }

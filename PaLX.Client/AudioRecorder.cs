@@ -8,9 +8,9 @@ namespace PaLX.Client
     public class AudioRecorder
     {
         [DllImport("winmm.dll", EntryPoint = "mciSendStringA", CharSet = CharSet.Ansi)]
-        private static extern int mciSendString(string lpstrCommand, StringBuilder lpstrReturnString, int uReturnLength, IntPtr hwndCallback);
+        private static extern int mciSendString(string lpstrCommand, StringBuilder? lpstrReturnString, int uReturnLength, IntPtr hwndCallback);
 
-        private string _tempFile;
+        private string _tempFile = string.Empty;
 
         public void StartRecording()
         {

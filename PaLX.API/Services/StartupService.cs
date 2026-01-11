@@ -5,11 +5,13 @@ namespace PaLX.API.Services
     public class StartupService : IHostedService
     {
         private readonly string _connectionString;
+        private readonly ILogger<StartupService> _logger;
 
-        public StartupService(IConfiguration configuration)
+        public StartupService(IConfiguration configuration, ILogger<StartupService> logger)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
+            _logger = logger;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -64,7 +66,7 @@ namespace PaLX.API.Services
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Migration Warning: {ex.Message}");
+                    _logger.LogWarning(ex, "[StartupService] Migration warning");
                 }
 
                 // Reset all active sessions to Offline (6) on startup
@@ -80,11 +82,11 @@ namespace PaLX.API.Services
                 using var cmdCleanup = new NpgsqlCommand(cleanupSql, conn);
                 var deleted = await cmdCleanup.ExecuteNonQueryAsync(cancellationToken);
                 if (deleted > 0)
-                    Console.WriteLine($"StartupService: Cleaned {deleted} room members from previous session.");
+                    _logger.LogInformation("[StartupService] Cleaned {Count} room members from previous session", deleted);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"StartupService Error: {ex.Message}");
+                _logger.LogError(ex, "[StartupService] Startup error");
             }
         }
 

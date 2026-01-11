@@ -14,15 +14,54 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using PaLX.API.Hubs;
 using PaLX.API.Services;
+using Serilog;
+using Serilog.Events;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION SERILOG (Logging Structuré)
+// ═══════════════════════════════════════════════════════════════════════════
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("System", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "PaLX.API")
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(
+        path: "logs/palx-api-.log",
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 30,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}")
+    .CreateLogger();
+
+try
+{
+    Log.Information("🚀 Démarrage de PaLX.API...");
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Host.UseSerilog(); // Utiliser Serilog pour tout le logging ASP.NET Core
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONFIGURATION DES SECRETS (Variables d'environnement)
+// CONFIGURATION DES SECRETS (Variables d'environnement OBLIGATOIRES)
 // ═══════════════════════════════════════════════════════════════════════════
-var dbPassword = Environment.GetEnvironmentVariable("PALX_DB_PASSWORD") ?? "2012704"; // Fallback pour dev
+var dbPassword = Environment.GetEnvironmentVariable("PALX_DB_PASSWORD") 
+    ?? throw new InvalidOperationException(
+        "❌ PALX_DB_PASSWORD non défini. " +
+        "Configurez cette variable d'environnement avant de démarrer l'API. " +
+        "Voir .env.example pour plus d'informations.");
+
 var jwtSecretKey = Environment.GetEnvironmentVariable("PALX_JWT_SECRET") 
-    ?? "k8Xp2sN9vQ4wY7zA1cF6hJ3mR0tU5iO8bL2eD9gK4nW7xZ1qP6"; // 48 chars = 384 bits
+    ?? throw new InvalidOperationException(
+        "❌ PALX_JWT_SECRET non défini. " +
+        "Configurez cette variable d'environnement avec une clé de 64+ caractères. " +
+        "Voir .env.example pour plus d'informations.");
+
+// Validation de la longueur minimale de la clé JWT (sécurité)
+if (jwtSecretKey.Length < 32)
+    throw new InvalidOperationException(
+        "❌ PALX_JWT_SECRET trop court. Minimum 32 caractères requis pour la sécurité.");
 
 // Override connection string with env variable password
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")?
@@ -37,7 +76,7 @@ builder.Configuration["Jwt:Key"] = jwtKey;
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddOpenApi();
-builder.Services.AddScoped<IUserService, UserService>();
+// Note: IUserService est enregistré plus bas avec IAuthService
 builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IAccessControlService, AccessControlService>();
@@ -139,6 +178,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Serilog request logging (requêtes HTTP)
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "{RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000}ms";
+    options.GetLevel = (httpContext, elapsed, ex) => 
+        ex != null ? LogEventLevel.Error :
+        httpContext.Response.StatusCode >= 500 ? LogEventLevel.Error :
+        httpContext.Response.StatusCode >= 400 ? LogEventLevel.Warning :
+        LogEventLevel.Information;
+});
+
 // Rate Limiting Middleware (AVANT auth)
 app.UseRateLimiter();
 
@@ -151,4 +201,15 @@ app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<RoomHub>("/roomHub");
 
-app.Run();
+    Log.Information("✅ PaLX.API démarré avec succès");
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "❌ Erreur fatale lors du démarrage de PaLX.API");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}

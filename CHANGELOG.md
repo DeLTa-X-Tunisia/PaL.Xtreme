@@ -7,6 +7,41 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.4] - 2026-01-11
+
+### 🎥 Correction Vidéo Chatroom - Peer Video
+
+#### Correction Connexion SignalR
+- **RoomHubConnection explicite** : Nouvelle propriété `RoomHubConnection` dans ApiService pour les opérations de chatroom
+- **Correction RoomVideoPeerService** : Utilise maintenant explicitement `RoomHubConnection` au lieu de `HubConnection` générique
+- **Correction critique** : Les frames vidéo étaient envoyées sur ChatHub au lieu de RoomHub - corrigé
+
+#### Amélioration Fenêtre Vidéo Chatroom
+- **Barre de contrôle transparente** : Overlay semi-transparent (#60000000) au-dessus de la vidéo
+- **Bouton changement de caméra** : Icône 🔄 avec menu contextuel pour sélectionner la caméra
+- **Liste dynamique des caméras** : Détection automatique des périphériques disponibles
+
+#### Optimisations Performance
+- **Frame limiting** : Maximum 2 frames en attente (`MAX_PENDING_FRAMES`) pour éviter saturation ThreadPool
+- **Initialisation non-bloquante** : La caméra s'initialise en arrière-plan via `CameraCaptureLoopWithInit`
+- **Logging détaillé** : Traçage complet du flux vidéo (envoi, réception, décodage)
+
+#### Événements Centralisés
+- **ApiService Events** : `OnRoomCameraStarted`, `OnRoomCameraStopped`, `OnRoomVideoFrame` centralisés
+- **Handlers uniques** : Évite les handlers SignalR multiples en centralisant dans ApiService
+- **PeerVideoWindow simplifié** : Reçoit les frames via `UpdateVideoFrame()` appelé par RoomWindow
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/Services/ApiService.cs` : Ajout propriété `RoomHubConnection`, logging événements vidéo
+- `PaLX.Client/Services/RoomVideoPeerService.cs` : Utilise `RoomHubConnection`, frame limiting, logging
+- `PaLX.Client/RoomWindow.xaml.cs` : Vérification `RoomHubConnection`
+- `PaLX.Client/RoomVideoWindow.xaml` : Barre contrôle transparente, bouton caméra switcher
+- `PaLX.Client/RoomVideoWindow.xaml.cs` : Logique changement de caméra
+- `PaLX.Client/PeerVideoWindow.xaml.cs` : Simplifié pour utiliser événements centralisés
+- `PaLX.API/Hubs/RoomHub.cs` : Logging `SendRoomVideoFrame`
+
+---
+
 ## [1.7.3] - 2026-01-11
 
 ### 🔐 Contrôle de Session Unique

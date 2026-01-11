@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaLX.API", "PaLX.API\PaLX.A
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaLX.Launcher", "PaLX.Launcher\PaLX.Launcher.csproj", "{3E8149F4-6191-4AC7-AE55-437843372640}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PaLX.API.Tests", "PaLX.API.Tests\PaLX.API.Tests.csproj", "{73536365-1664-4D2A-BA65-7F963F6C193C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -55,6 +57,18 @@ Global
 		{3E8149F4-6191-4AC7-AE55-437843372640}.Release|x64.Build.0 = Release|Any CPU
 		{3E8149F4-6191-4AC7-AE55-437843372640}.Release|x86.ActiveCfg = Release|Any CPU
 		{3E8149F4-6191-4AC7-AE55-437843372640}.Release|x86.Build.0 = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|x64.Build.0 = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Debug|x86.Build.0 = Debug|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|x64.ActiveCfg = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|x64.Build.0 = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|x86.ActiveCfg = Release|Any CPU
+		{73536365-1664-4D2A-BA65-7F963F6C193C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

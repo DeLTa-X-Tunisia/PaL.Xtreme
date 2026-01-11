@@ -5,13 +5,13 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media.Imaging;
-using Microsoft.AspNetCore.SignalR.Client;
 using PaLX.Client.Services;
 
 namespace PaLX.Client
 {
     /// <summary>
     /// Fenêtre simple pour afficher la vidéo d'un autre participant du chatroom
+    /// Reçoit les frames décodées via UpdateVideoFrame() appelé par RoomWindow
     /// </summary>
     public partial class PeerVideoWindow : Window
     {
@@ -20,9 +20,11 @@ namespace PaLX.Client
         private readonly int _peerId;
         private readonly string _peerUsername;
         private readonly int _roomId;
-        private readonly HubConnection? _hubConnection;
+        private readonly ApiService _apiService;
         private bool _isPinned = true;
         private bool _isReceivingVideo = false;
+        private DateTime _lastFrameTime = DateTime.MinValue;
+        private System.Windows.Threading.DispatcherTimer? _timeoutTimer;
 
         #endregion
 
@@ -35,7 +37,7 @@ namespace PaLX.Client
             _peerId = peerId;
             _peerUsername = peerUsername;
             _roomId = roomId;
-            _hubConnection = ApiService.Instance.HubConnection;
+            _apiService = ApiService.Instance;
             
             // Setup UI
             this.Title = $"Vidéo - {peerUsername}";
@@ -45,11 +47,12 @@ namespace PaLX.Client
             // Position : décalée pour éviter superposition avec autres fenêtres
             PositionWindow();
             
-            // S'abonner aux frames vidéo de ce peer
-            SubscribeToPeerVideo();
+            // S'abonner aux événements centralisés d'ApiService
+            SubscribeToEvents();
             
-            // Demander le flux vidéo
-            RequestVideoStream();
+            // Afficher le chargement et démarrer le timeout
+            ShowLoading();
+            StartTimeoutTimer();
             
             this.Closed += PeerVideoWindow_Closed;
         }
@@ -68,102 +71,69 @@ namespace PaLX.Client
             this.Top = workArea.Bottom - this.Height - 30 - random.Next(0, 150);
         }
 
-        private void SubscribeToPeerVideo()
+        private void SubscribeToEvents()
         {
-            if (_hubConnection == null) return;
+            // Écouter si le peer arrête sa caméra via l'événement centralisé
+            _apiService.OnRoomCameraStopped += HandleCameraStopped;
+        }
+
+        private void UnsubscribeFromEvents()
+        {
+            _apiService.OnRoomCameraStopped -= HandleCameraStopped;
+        }
+        
+        private void HandleCameraStopped(int roomId, int userId)
+        {
+            if (roomId != _roomId || userId != _peerId) return;
             
-            // Écouter les frames vidéo envoyées par ce peer
-            _hubConnection.On<int, int, byte[]>("RoomVideoFrame", (roomId, userId, frameData) =>
+            Dispatcher.Invoke(() =>
             {
-                if (roomId != _roomId || userId != _peerId) return;
-                
-                Dispatcher.Invoke(() =>
-                {
-                    ProcessVideoFrame(frameData);
-                });
-            });
-            
-            // Écouter si le peer arrête sa caméra
-            _hubConnection.On<int, int>("RoomCameraStopped", (roomId, userId) =>
-            {
-                if (roomId != _roomId || userId != _peerId) return;
-                
-                Dispatcher.Invoke(() =>
-                {
-                    ShowCameraStopped();
-                });
+                ShowCameraStopped();
             });
         }
 
-        private async void RequestVideoStream()
+        private void StartTimeoutTimer()
         {
-            try
+            // Timer pour vérifier si on reçoit des frames
+            _timeoutTimer = new System.Windows.Threading.DispatcherTimer
             {
-                ShowLoading();
-                
-                // Demander au serveur de nous envoyer le flux de ce peer
-                if (_hubConnection != null)
-                {
-                    await _hubConnection.SendAsync("RequestPeerVideoStream", _roomId, _peerId);
-                }
-                
-                // Timeout après 5 secondes si pas de vidéo
-                await System.Threading.Tasks.Task.Delay(5000);
-                
+                Interval = TimeSpan.FromSeconds(5)
+            };
+            _timeoutTimer.Tick += (s, e) =>
+            {
+                // Si pas de frame reçue depuis 5 secondes et pas encore de vidéo
                 if (!_isReceivingVideo)
                 {
-                    Dispatcher.Invoke(() =>
-                    {
-                        ShowNoVideo();
-                    });
+                    ShowNoVideo();
+                    _timeoutTimer?.Stop();
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[PeerVideo] Error requesting stream: {ex.Message}");
-                ShowNoVideo();
-            }
+            };
+            _timeoutTimer.Start();
         }
 
         #endregion
 
         #region Video Processing
 
-        private void ProcessVideoFrame(byte[] frameData)
-        {
-            try
-            {
-                // Pour l'instant, on utilise une approche simplifiée
-                // Dans une implémentation complète, on décoderait les frames VP8
-                
-                _isReceivingVideo = true;
-                HideLoading();
-                
-                // TODO: Décoder frameData (VP8) en BitmapSource
-                // Pour l'instant, afficher un placeholder "connecté"
-                PlaceholderPanel.Visibility = Visibility.Collapsed;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[PeerVideo] Frame processing error: {ex.Message}");
-            }
-        }
-
         /// <summary>
         /// Met à jour l'affichage avec une nouvelle frame vidéo
-        /// Appelé depuis l'extérieur par RoomWindow
+        /// Appelé depuis l'extérieur par RoomWindow via OnRemoteVideoFrameReceived
         /// </summary>
         public void UpdateVideoFrame(BitmapSource? frame)
         {
+            if (frame == null) return;
+            
             Dispatcher.Invoke(() =>
             {
-                if (frame != null)
-                {
-                    _isReceivingVideo = true;
-                    VideoImage.Source = frame;
-                    PlaceholderPanel.Visibility = Visibility.Collapsed;
-                    LoadingIndicator.Visibility = Visibility.Collapsed;
-                }
+                _isReceivingVideo = true;
+                _lastFrameTime = DateTime.Now;
+                
+                // Arrêter le timer de timeout si on reçoit une frame
+                _timeoutTimer?.Stop();
+                
+                VideoImage.Source = frame;
+                PlaceholderPanel.Visibility = Visibility.Collapsed;
+                LoadingIndicator.Visibility = Visibility.Collapsed;
             });
         }
 
@@ -171,11 +141,7 @@ namespace PaLX.Client
         {
             LoadingIndicator.Visibility = Visibility.Visible;
             PlaceholderPanel.Visibility = Visibility.Collapsed;
-        }
-
-        private void HideLoading()
-        {
-            LoadingIndicator.Visibility = Visibility.Collapsed;
+            StatusText.Text = "Connexion en cours...";
         }
 
         private void ShowNoVideo()
@@ -235,8 +201,13 @@ namespace PaLX.Client
 
         private void PeerVideoWindow_Closed(object? sender, EventArgs e)
         {
-            // Se désabonner proprement
-            // Note: Les handlers SignalR seront nettoyés automatiquement
+            // Se désabonner proprement des événements
+            UnsubscribeFromEvents();
+            
+            // Arrêter le timer
+            _timeoutTimer?.Stop();
+            _timeoutTimer = null;
+            
             _isReceivingVideo = false;
         }
 
@@ -249,6 +220,9 @@ namespace PaLX.Client
         
         /// <summary>Nom d'utilisateur du peer</summary>
         public string PeerUsername => _peerUsername;
+        
+        /// <summary>Indique si la fenêtre reçoit actuellement de la vidéo</summary>
+        public bool IsReceivingVideo => _isReceivingVideo;
 
         #endregion
     }

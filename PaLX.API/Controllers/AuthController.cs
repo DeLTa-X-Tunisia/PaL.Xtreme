@@ -24,8 +24,8 @@ namespace PaLX.API.Controllers
             if (string.IsNullOrWhiteSpace(model.Username) || model.Username.Length < 3 || model.Username.Length > 50)
                 return BadRequest(new { message = "Nom d'utilisateur invalide (3-50 caractères)" });
             
-            if (string.IsNullOrWhiteSpace(model.Password) || model.Password.Length < 6)
-                return BadRequest(new { message = "Mot de passe invalide (minimum 6 caractères)" });
+            if (string.IsNullOrWhiteSpace(model.Password) || model.Password.Length < 8)
+                return BadRequest(new { message = "Mot de passe invalide (minimum 8 caractères)" });
 
             var result = await _authService.AuthenticateAsync(model);
 

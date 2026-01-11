@@ -249,7 +249,7 @@ namespace PaLX.API.Services
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.Now.AddDays(7),
+                expires: DateTime.Now.AddHours(24), // 24 heures au lieu de 7 jours (sécurité)
                 signingCredentials: creds
             );
 

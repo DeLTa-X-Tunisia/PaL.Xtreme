@@ -16,17 +16,17 @@ namespace PaLX.Client.Services
         private HashSet<string> _pendingOutgoingCalls = new HashSet<string>(); // Track outgoing calls waiting for answer
         
         private HubConnection _hubConnection;
-        private AudioTrackSource _audioSource;
+        private AudioTrackSource? _audioSource;
         private bool _isCallActive = false;
         private bool _isMuted = false;
         private SemaphoreSlim _audioLock = new SemaphoreSlim(1, 1);
         
-        public event Action<string> OnCallEnded;
-        public event Action<string> OnStatusChanged;
-        public event Action<string> OnIncomingCall;
-        public event Action<string> OnCallAccepted;
-        public event Action<string> OnCallDeclined;
-        public event Action<string> OnCallCancelled; // When caller hangs up before we answer
+        public event Action<string>? OnCallEnded;
+        public event Action<string>? OnStatusChanged;
+        public event Action<string>? OnIncomingCall;
+        public event Action<string>? OnCallAccepted;
+        public event Action<string>? OnCallDeclined;
+        public event Action<string>? OnCallCancelled; // When caller hangs up before we answer
 
         public VoiceCallService(HubConnection hubConnection)
         {
@@ -79,7 +79,7 @@ namespace PaLX.Client.Services
             {
                 _pendingOutgoingCalls.Remove(sender); // No longer pending
                 _isCallActive = true;
-                ApiService.Instance.UpdateStatusAsync(3); // En appel
+                _ = ApiService.Instance.UpdateStatusAsync(3); // En appel
                 OnCallAccepted?.Invoke(sender);
                 // User accepted, start the WebRTC negotiation
                 await InitializePeerConnection(sender, true);
@@ -216,7 +216,7 @@ namespace PaLX.Client.Services
 
                 // Add Audio Track
                 await _audioLock.WaitAsync();
-                LocalAudioTrack localTrack = null;
+                LocalAudioTrack? localTrack = null;
                 try
                 {
                     if (_audioSource == null)
@@ -324,7 +324,7 @@ namespace PaLX.Client.Services
                 if (_peerConnections.IsEmpty && _pendingOutgoingCalls.Count == 0)
                 {
                     _isCallActive = false;
-                    ApiService.Instance.UpdateStatusAsync(0); // Back to Online
+                    _ = ApiService.Instance.UpdateStatusAsync(0); // Back to Online
                     
                     _audioLock.Wait();
                     try

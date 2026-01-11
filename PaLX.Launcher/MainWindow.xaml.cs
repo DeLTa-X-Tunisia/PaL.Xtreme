@@ -141,6 +141,10 @@ public partial class MainWindow : Window
                 CreateNoWindow = true,
                 WindowStyle = ProcessWindowStyle.Hidden
             };
+            
+            // Configuration des variables d'environnement pour l'API
+            psi.Environment["PALX_DB_PASSWORD"] = "2012704";
+            psi.Environment["PALX_JWT_SECRET"] = "PaLXtremeSecretKeyForJWT2026SecureToken64CharsMinimum!";
 
             try
             {

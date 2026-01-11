@@ -67,8 +67,10 @@ namespace PaLX.Client.Services
         /// <summary>Nouvelle frame vidéo locale disponible</summary>
         public event Action<BitmapSource?>? OnLocalVideoFrame;
         
-        /// <summary>Nouvelle frame vidéo distante disponible (userId, frame)</summary>
+        /// <summary>Nouvelle frame vidéo distante disponible (userId, frame) - Reserved for future use</summary>
+#pragma warning disable CS0067 // Event never used - reserved for future mesh video implementation
         public event Action<int, BitmapSource?>? OnRemoteVideoFrame;
+#pragma warning restore CS0067
         
         /// <summary>Un participant a activé sa caméra</summary>
         public event Action<int, string>? OnPeerCameraStarted;
