@@ -449,6 +449,26 @@ namespace PaLX.Client
             catch (Exception ex) { }
         }
 
+        /// <summary>
+        /// Construit l'URL complète de l'avatar à partir d'un chemin relatif
+        /// </summary>
+        private string? BuildAvatarUrl(string? avatarPath)
+        {
+            if (string.IsNullOrEmpty(avatarPath))
+                return null;
+            
+            // Si c'est déjà une URL complète
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+            
+            // Si c'est un chemin local qui existe
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("/") || avatarPath.StartsWith("\\")) && System.IO.File.Exists(avatarPath))
+                return avatarPath;
+            
+            // Sinon c'est un chemin relatif du serveur
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
+        }
+
         private RoomMemberViewModel MapMember(RoomMemberDto m)
         {
             return new RoomMemberViewModel
@@ -456,7 +476,7 @@ namespace PaLX.Client
                 UserId = m.UserId,
                 Username = m.Username,
                 DisplayName = m.DisplayName,
-                AvatarPath = m.AvatarPath,
+                AvatarPath = BuildAvatarUrl(m.AvatarPath),
                 RoleName = m.RoleName,
                 RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),
                 IsMicOn = m.IsMicOn,
@@ -473,7 +493,7 @@ namespace PaLX.Client
             {
                 Id = m.Id,
                 DisplayName = m.DisplayName,
-                AvatarPath = m.AvatarPath,
+                AvatarPath = BuildAvatarUrl(m.AvatarPath),
                 Content = m.Content,
                 Timestamp = m.Timestamp,
                 RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(m.RoleColor),

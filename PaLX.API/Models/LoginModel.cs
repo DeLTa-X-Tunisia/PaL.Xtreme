@@ -8,5 +8,6 @@ namespace PaLX.API.Models
         public string? DeviceName { get; set; }
         public string? DeviceNumber { get; set; }
         public bool IsAdminLogin { get; set; } = false;
+        public bool ForceConnect { get; set; } = false;
     }
 }

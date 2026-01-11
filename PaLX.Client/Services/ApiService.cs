@@ -89,6 +89,7 @@ namespace PaLX.Client.Services
 
         // System Events
         public event Action? OnConnectionClosed;
+        public event Action<string>? OnForceDisconnect; // Session kicked by another login
 
         public event Action<string>? OnChatCleared;
         public event Action<string>? OnPartnerLeft;
@@ -110,24 +111,40 @@ namespace PaLX.Client.Services
             _httpClient = new HttpClient { BaseAddress = new Uri(BaseUrl) };
         }
 
-        public async Task<(AuthResponse? Response, bool IsConnectionError)> LoginAsync(string username, string password, string ip, string deviceName, string deviceNumber)
+        public async Task<(AuthResponse? Response, bool IsConnectionError)> LoginAsync(string username, string password, string ip, string deviceName, string deviceNumber, bool forceConnect = false)
         {
             try
             {
-                var model = new { Username = username, Password = password, IpAddress = ip, DeviceName = deviceName, DeviceNumber = deviceNumber };
+                var model = new { 
+                    Username = username, 
+                    Password = password, 
+                    IpAddress = ip, 
+                    DeviceName = deviceName, 
+                    DeviceNumber = deviceNumber,
+                    ForceConnect = forceConnect
+                };
                 var response = await _httpClient.PostAsJsonAsync("api/auth/login", model);
                 
                 if (response.IsSuccessStatusCode)
                 {
                     var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
-                    if (result != null && !string.IsNullOrEmpty(result.Token))
+                    if (result != null)
                     {
-                        _authToken = result.Token;
-                        CurrentUsername = username;
-                        CurrentUserId = result.UserId;
-                        CurrentUserRoleLevel = result.RoleLevel;
-                        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
-                        return (result, false);
+                        // Check if already connected (session control)
+                        if (result.IsAlreadyConnected)
+                        {
+                            return (result, false);
+                        }
+                        
+                        if (!string.IsNullOrEmpty(result.Token))
+                        {
+                            _authToken = result.Token;
+                            CurrentUsername = username;
+                            CurrentUserId = result.UserId;
+                            CurrentUserRoleLevel = result.RoleLevel;
+                            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _authToken);
+                            return (result, false);
+                        }
                     }
                 }
                 return (null, false);
@@ -408,6 +425,9 @@ namespace PaLX.Client.Services
 
             _hubConnection.On<string>("ChatCleared", (partnerUser) => OnChatCleared?.Invoke(partnerUser));
             _hubConnection.On<string>("PartnerLeft", (partnerUser) => OnPartnerLeft?.Invoke(partnerUser));
+            
+            // Force Disconnect Handler - when another session takes over
+            _hubConnection.On<string>("ForceDisconnect", (reason) => OnForceDisconnect?.Invoke(reason));
             
             _hubConnection.On<string>("FriendRequestReceived", (username) => OnFriendRequestReceived?.Invoke(username));
             _hubConnection.On<string>("FriendRequestAccepted", (username) => OnFriendRequestAccepted?.Invoke(username));
@@ -1052,6 +1072,12 @@ namespace PaLX.Client.Services
         public bool IsProfileComplete { get; set; }
         public string Role { get; set; } = string.Empty;
         public int RoleLevel { get; set; }
+        
+        // Session control properties
+        public bool IsAlreadyConnected { get; set; } = false;
+        public string? ActiveSessionDevice { get; set; }
+        public string? ActiveSessionIP { get; set; }
+        public DateTime? ActiveSessionSince { get; set; }
     }
 
     public class RoomDto

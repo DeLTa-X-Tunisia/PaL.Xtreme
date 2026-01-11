@@ -120,9 +120,10 @@ namespace PaLX.API.Services
             {
                 var roomId = reader.GetInt32(0);
                 
-                // 5. Add Owner as RoomOwner (Level 1)
+                // 5. Ne PAS ajouter le Owner à RoomMembers ici
+                // Il sera ajouté automatiquement quand il rejoindra le salon via JoinRoom
                 await reader.CloseAsync();
-                await AddMemberToRoomInternal(conn, roomId, userId, (int)RoomRoleLevel.Owner);
+                // await AddMemberToRoomInternal(conn, roomId, userId, (int)RoomRoleLevel.Owner);
                 
                 // 6. Create Basic subscription entry for this room
                 await CreateRoomSubscriptionInternal(conn, roomId, userId, BASIC_SUBSCRIPTION_LEVEL);
@@ -138,7 +139,7 @@ namespace PaLX.API.Services
                     IsPrivate = dto.IsPrivate,
                     Is18Plus = false, // Basic rooms cannot be 18+
                     SubscriptionLevel = BASIC_SUBSCRIPTION_LEVEL,
-                    UserCount = 1
+                    UserCount = 0 // Personne n'est encore dans le salon
                 };
             }
             throw new Exception("Failed to create room");
@@ -281,16 +282,26 @@ namespace PaLX.API.Services
                         Console.WriteLine($"[RoomService] Synchronized RoleId for user {userId} in room {roomId}: {currentRole.Value} → {targetRoleId}");
                     }
                 }
-                // Update invisible status if changed
-                var updateInvisibleSql = "UPDATE \"RoomMembers\" SET \"IsInvisible\" = @inv WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
-                using (var cmd = new NpgsqlCommand(updateInvisibleSql, conn))
+                // Update invisible status AND IsConnected = TRUE
+                var updateStatusSql = "UPDATE \"RoomMembers\" SET \"IsInvisible\" = @inv, \"IsConnected\" = TRUE WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+                using (var cmd = new NpgsqlCommand(updateStatusSql, conn))
                 {
                     cmd.Parameters.AddWithValue("inv", isInvisible);
                     cmd.Parameters.AddWithValue("rid", roomId);
                     cmd.Parameters.AddWithValue("uid", userId);
                     await cmd.ExecuteNonQueryAsync();
+                    Console.WriteLine($"[RoomService] User {userId} reconnected to room {roomId}, IsConnected=TRUE");
                     if (isInvisible) Console.WriteLine($"[RoomService] User {userId} joined room {roomId} in INVISIBLE mode");
                 }
+                
+                // Notify SignalR for reconnection
+                var reconnectMemberDto = await GetRoomMemberDetailsAsync(conn, roomId, userId);
+                reconnectMemberDto.IsInvisible = isInvisible;
+                if (!isInvisible)
+                {
+                    await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("UserJoined", reconnectMemberDto);
+                }
+                
                 return true; 
             }
 
@@ -374,9 +385,15 @@ namespace PaLX.API.Services
 
         private async Task AddMemberToRoomInternal(NpgsqlConnection conn, int roomId, int userId, int roleId, bool isInvisible = false)
         {
+            // Utiliser ON CONFLICT pour éviter l'erreur de clé dupliquée
+            // Mettre IsConnected = TRUE quand l'utilisateur rejoint
             var sql = @"
-                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"", ""IsCamOn"", ""IsMicOn"", ""HasHandRaised"", ""IsMuted"")
-                VALUES (@rid, @uid, @role, @inv, false, false, false, false)";
+                INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"", ""IsCamOn"", ""IsMicOn"", ""HasHandRaised"", ""IsMuted"", ""IsConnected"")
+                VALUES (@rid, @uid, @role, @inv, false, false, false, false, true)
+                ON CONFLICT (""RoomId"", ""UserId"") DO UPDATE SET 
+                    ""RoleId"" = EXCLUDED.""RoleId"",
+                    ""IsInvisible"" = EXCLUDED.""IsInvisible"",
+                    ""IsConnected"" = TRUE";
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("rid", roomId);
             cmd.Parameters.AddWithValue("uid", userId);
@@ -434,7 +451,8 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            var sql = "DELETE FROM \"RoomMembers\" WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+            // Ne pas supprimer, juste marquer comme déconnecté
+            var sql = "UPDATE \"RoomMembers\" SET \"IsConnected\" = FALSE WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
             using (var cmd = new NpgsqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("rid", roomId);
@@ -551,7 +569,7 @@ namespace PaLX.API.Services
                 }
             }
 
-            // Récupère les membres avec leur rôle de salon ET leur rôle système
+            // Récupère les membres CONNECTÉS avec leur rôle de salon ET leur rôle système
             var sql = @"
                 SELECT u.""Id"", u.""Username"", 
                        COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
@@ -566,7 +584,7 @@ namespace PaLX.API.Services
                 JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
                 LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
                 LEFT JOIN ""Roles"" sr ON ur.""RoleId"" = sr.""Id""
-                WHERE rm.""RoomId"" = @rid";
+                WHERE rm.""RoomId"" = @rid AND rm.""IsConnected"" = TRUE";
 
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("rid", roomId);

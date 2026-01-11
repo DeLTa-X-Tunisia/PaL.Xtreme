@@ -182,6 +182,7 @@ namespace PaLX.Client
 
             // System Events
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
+            ApiService.Instance.OnForceDisconnect += OnForceDisconnect;
 
             this.Closing += MainView_Closing;
             
@@ -415,6 +416,19 @@ namespace PaLX.Client
                 // Force Logout logic immediately
                 Logout_Click(null!, null!);
                 new DisconnectionWindow().Show();
+            });
+        }
+
+        private void OnForceDisconnect(string reason)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                // Show kicked dialog then close app
+                var kickedWindow = new SessionKickedWindow(reason);
+                kickedWindow.ShowDialog();
+                
+                // Logout and close
+                Logout_Click(null!, null!);
             });
         }
 
@@ -833,6 +847,7 @@ namespace PaLX.Client
             ApiService.Instance.OnFriendRequestAccepted -= OnFriendUpdate;
             ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
             ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
+            ApiService.Instance.OnForceDisconnect -= OnForceDisconnect;
 
             try
             {
@@ -1090,6 +1105,7 @@ namespace PaLX.Client
             {
                 // Unsubscribe from connection closed event to prevent loop
                 ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
+                ApiService.Instance.OnForceDisconnect -= OnForceDisconnect;
 
                 // Only attempt network calls if this is a manual logout (sender is Button)
                 if (sender is Button) 

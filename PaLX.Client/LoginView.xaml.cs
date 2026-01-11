@@ -27,6 +27,11 @@ namespace PaLX.Client
 
         private async void LoginButton_Click(object sender, RoutedEventArgs e)
         {
+            await AttemptLogin(forceConnect: false);
+        }
+
+        private async Task AttemptLogin(bool forceConnect)
+        {
             if (string.IsNullOrEmpty(UsernameBox.Text) || string.IsNullOrEmpty(PasswordBox.Password))
             {
                 MessageBox.Show("Veuillez remplir tous les champs.", "Erreur", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -46,10 +51,33 @@ namespace PaLX.Client
                 string deviceName = System.Environment.MachineName;
                 string deviceNumber = "PC-" + new Random().Next(1000, 9999);
 
-                var (authResult, isConnectionError) = await ApiService.Instance.LoginAsync(UsernameBox.Text, PasswordBox.Password, ip, deviceName, deviceNumber);
+                var (authResult, isConnectionError) = await ApiService.Instance.LoginAsync(
+                    UsernameBox.Text, PasswordBox.Password, ip, deviceName, deviceNumber, forceConnect);
                 
                 if (authResult != null)
                 {
+                    // Check if already connected on another device
+                    if (authResult.IsAlreadyConnected && !forceConnect)
+                    {
+                        // Hide loading and show session control dialog
+                        LoadingPanel.Visibility = Visibility.Collapsed;
+                        LoginButton.IsEnabled = true;
+                        LoginButton.Content = "Se connecter";
+                        
+                        var sessionWindow = new AlreadyConnectedWindow(
+                            UsernameBox.Text,
+                            authResult.ActiveSessionDevice,
+                            authResult.ActiveSessionIP,
+                            authResult.ActiveSessionSince);
+                        
+                        if (sessionWindow.ShowDialog() == true && sessionWindow.ForceConnect)
+                        {
+                            // User wants to force connect - retry with force flag
+                            await AttemptLogin(forceConnect: true);
+                        }
+                        return;
+                    }
+                    
                     LoadingText.Text = "Initialisation...";
                     
                     // Connect SignalR
@@ -58,13 +86,13 @@ namespace PaLX.Client
                     if (authResult.IsProfileComplete)
                     {
                         var mainView = new MainView(UsernameBox.Text, authResult.Role);
-                        Application.Current.MainWindow = mainView; // Définir comme fenêtre principale
+                        Application.Current.MainWindow = mainView;
                         mainView.Show();
                     }
                     else
                     {
                         var userProfiles = new UserProfiles(UsernameBox.Text, authResult.Role);
-                        Application.Current.MainWindow = userProfiles; // Définir comme fenêtre principale
+                        Application.Current.MainWindow = userProfiles;
                         userProfiles.Show();
                     }
                     Window.GetWindow(this)?.Close();

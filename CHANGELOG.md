@@ -7,6 +7,46 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.3] - 2026-01-11
+
+### 🔐 Contrôle de Session Unique
+
+#### Détection de Session Active
+- **Vérification à la connexion** : Détecte si l'utilisateur est déjà connecté sur un autre appareil
+- **Informations détaillées** : Affiche le nom de l'appareil, l'IP et l'heure de connexion de la session existante
+- **Fenêtre élégante** : `AlreadyConnectedWindow` avec design moderne (coins arrondis, ombre portée)
+
+#### Force Connect
+- **Prise de contrôle** : Option "Se connecter ici" pour déconnecter l'ancienne session
+- **Signal ForceDisconnect** : Notification SignalR envoyée à l'ancien client
+- **Fermeture propre** : L'ancien client affiche un message explicatif avant de se fermer
+
+#### Transaction Atomique Anti-Race Condition
+- **Approche robuste** : Création de la nouvelle session AVANT fermeture des anciennes
+- **PostgreSQL Transaction** : Opérations groupées dans une seule transaction
+- **Pas de fenêtre de vulnérabilité** : Impossible de contourner le contrôle même en se reconnectant très rapidement
+
+### 🪟 Nouvelles Fenêtres
+- `AlreadyConnectedWindow.xaml/.cs` : Dialogue de confirmation pour forcer la connexion
+- `SessionKickedWindow.xaml/.cs` : Notification élégante quand on est déconnecté par une autre session
+
+### 🛠️ Améliorations Techniques
+- **Coins arrondis VideoCallWindow** : Correction du clipping avec `ClipToBounds="True"`
+- **Avatars Chatroom** : Méthode `BuildAvatarUrl()` pour construire les URLs complètes
+- **IsConnected RoomMembers** : Colonne pour tracker la présence réelle en temps réel
+
+### 🔧 Fichiers Modifiés
+- `PaLX.API/Services/AuthService.cs` : Logique de session unique avec transaction atomique
+- `PaLX.API/Models/AuthResult.cs` : Propriétés `IsAlreadyConnected`, `ActiveSession*`
+- `PaLX.API/Models/LoginModel.cs` : Propriété `ForceConnect`
+- `PaLX.Client/Services/ApiService.cs` : Handler `ForceDisconnect`, événement `OnForceDisconnect`
+- `PaLX.Client/LoginView.xaml.cs` : Gestion du flux de session avec `AlreadyConnectedWindow`
+- `PaLX.Client/MainView.xaml.cs` : Handler `OnForceDisconnect` pour fermeture propre
+- `PaLX.Client/RoomWindow.xaml.cs` : Méthode `BuildAvatarUrl()` pour avatars
+- `PaLX.Client/VideoCallWindow.xaml` : Fix coins arrondis
+
+---
+
 ## [1.7.2] - 2026-01-10
 
 ### 📐 Optimisation Dimensions Fenêtre Vidéo

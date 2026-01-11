@@ -475,33 +475,18 @@
                                     <!-- Avatar with Role Color -->
                                     <Grid Grid.Column="0" Margin="0,0,10,0">
                                         <Border Width="40" Height="40" CornerRadius="20" BorderThickness="2.5" BorderBrush="{Binding RoleColor}">
-                                            <Border CornerRadius="18">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="#F0F0F0"/>
-                                                    </Style>
-                                                </Border.Style>
+                                            <Border CornerRadius="18" Background="#F0F0F0">
                                                 <Grid>
-                                                    <Image Source="{Binding AvatarPath, Converter={StaticResource UrlToImageSourceConverter}}" Stretch="UniformToFill">
-                                                        <Image.Clip>
-                                                            <EllipseGeometry Center="18,18" RadiusX="18" RadiusY="18"/>
-                                                        </Image.Clip>
-                                                    </Image>
-                                                    <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="16">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Visibility" Value="Collapsed"/>
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding AvatarPath}" Value="">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding AvatarPath}" Value="{x:Null}">
-                                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
+                                                    <!-- Default Avatar (toujours visible en arrière-plan) -->
+                                                    <Border Background="#E8E8E8" CornerRadius="18">
+                                                        <TextBlock Text="👤" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="18"/>
+                                                    </Border>
+                                                    <!-- User Avatar (par-dessus si disponible) -->
+                                                    <Ellipse Width="36" Height="36">
+                                                        <Ellipse.Fill>
+                                                            <ImageBrush ImageSource="{Binding AvatarPath}" Stretch="UniformToFill"/>
+                                                        </Ellipse.Fill>
+                                                    </Ellipse>
                                                 </Grid>
                                             </Border>
                                         </Border>

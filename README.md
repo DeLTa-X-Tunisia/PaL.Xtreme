@@ -18,7 +18,25 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 📐 v1.7.2 - Dimensions Fenêtre Vidéo Optimisées *(Dernière Version)*
+### � v1.7.3 - Contrôle de Session Unique *(Dernière Version)*
+*   **Détection de Session Active** :
+    *   **Vérification Automatique** : Détecte si l'utilisateur est déjà connecté sur un autre appareil.
+    *   **Infos Détaillées** : Affiche le nom de l'appareil, l'IP et l'heure de connexion.
+    *   **Fenêtre Élégante** : Design moderne avec coins arrondis et ombre portée.
+
+*   **Force Connect** :
+    *   **Prise de Contrôle** : Option "Se connecter ici" pour déconnecter l'ancienne session.
+    *   **Signal SignalR** : L'ancien client reçoit une notification `ForceDisconnect`.
+    *   **Fermeture Propre** : Message explicatif avant déconnexion automatique.
+
+*   **Sécurité Renforcée** :
+    *   **Transaction Atomique** : Création de session + fermeture des autres en une seule opération.
+    *   **Anti-Race Condition** : Impossible de contourner le contrôle même en se reconnectant très vite.
+    *   **Une Seule Session** : Garantie d'unicité de session par utilisateur.
+
+---
+
+### 📐 v1.7.2 - Dimensions Fenêtre Vidéo Optimisées
 *   **Taille Réduite** : Fenêtre 900x600 (au lieu de 1080x720) - moins intrusive.
 *   **Minimum Ajusté** : 650x450 pour les petits écrans.
 *   **Meilleure Ergonomie** : Plus d'espace libre sur le bureau.

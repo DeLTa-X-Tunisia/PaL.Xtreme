@@ -208,7 +208,7 @@
         </Border.Effect>
         
         <!-- Subtle Border Glow -->
-        <Border CornerRadius="20" BorderThickness="1">
+        <Border CornerRadius="20" BorderThickness="1" ClipToBounds="True">
             <Border.BorderBrush>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                     <GradientStop Color="#30FFFFFF" Offset="0"/>
@@ -217,17 +217,19 @@
                 </LinearGradientBrush>
             </Border.BorderBrush>
         
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>      <!-- Video Area (full height) -->
-                </Grid.RowDefinitions>
+            <!-- Inner clipping border for rounded corners -->
+            <Border CornerRadius="19" ClipToBounds="True">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>      <!-- Video Area (full height) -->
+                    </Grid.RowDefinitions>
             
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <!-- VIDEO AREA                                                       -->
-                <!-- ═══════════════════════════════════════════════════════════════ -->
-                <Grid Grid.Row="0">
-                    <!-- Background Gradient -->
-                    <Grid.Background>
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- VIDEO AREA                                                       -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <Grid Grid.Row="0">
+                        <!-- Background Gradient -->
+                        <Grid.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                             <GradientStop Color="#0A0A0A" Offset="0"/>
                             <GradientStop Color="#151515" Offset="1"/>
@@ -564,6 +566,7 @@
             </Border>
             </Grid>
             </Grid>
+            </Border>
         </Border>
     </Border>
 </Window>
