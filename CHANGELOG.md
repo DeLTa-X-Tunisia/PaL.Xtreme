@@ -7,6 +7,36 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.5] - 2026-01-11
+
+### 💬 RichText & Smileys dans Chatroom
+
+#### Zone de Saisie Enrichie
+- **RichTextBox** : Remplace le simple TextBox par un RichTextBox complet
+- **Barre de formatage** : Boutons Gras (B), Italique (I), Souligné (U)
+- **Sélecteur de couleur** : 14 couleurs modernes (popup au-dessus)
+- **Bouton Emoji** : Ouvre le panneau de smileys (popup)
+- **Préservation du formatage** : Le style est conservé après envoi
+
+#### Smileys/Émoticônes
+- **Même collection** : Utilise les 41 smileys du dossier `Smiley/pxt_01`
+- **Popup intégré** : Panneau scrollable de 280px de large
+- **Insertion inline** : Les smileys s'insèrent à la position du curseur
+- **Format [smiley:xxx]** : Compatible avec le système existant
+
+#### Affichage des Messages
+- **RichMessageTextBlock** : Les messages utilisent le contrôle personnalisé
+- **Rendu HTML** : Support `<b>`, `<i>`, `<u>`, `<span style='color:...'>`
+- **Rendu Smileys** : Les tags `[smiley:pxt_01/N.png]` affichent les images
+- **Cohérence** : Même rendu que dans le chat privé
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml` : Zone de saisie RichText, formatage, popup smileys
+- `PaLX.Client/RoomWindow.xaml.cs` : Handlers formatage, smileys, conversion HTML
+- Template messages : Utilise `controls:RichMessageTextBlock` au lieu de `TextBlock`
+
+---
+
 ## [1.7.4] - 2026-01-11
 
 ### 🎥 Correction Vidéo Chatroom - Peer Video

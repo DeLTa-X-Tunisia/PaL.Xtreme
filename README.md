@@ -18,7 +18,26 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🎥 v1.7.4 - Correction Vidéo Chatroom *(Dernière Version)*
+### 💬 v1.7.5 - RichText & Smileys Chatroom *(Dernière Version)*
+*   **Zone de Saisie Enrichie** :
+    *   **RichTextBox** : Remplace le simple TextBox pour le formatage complet.
+    *   **Barre de Formatage** : Boutons Gras, Italique, Souligné.
+    *   **Sélecteur de Couleur** : 14 couleurs modernes en popup.
+    *   **Préservation du Style** : Le formatage est conservé après envoi.
+
+*   **Smileys/Émoticônes** :
+    *   **41 Smileys** : Même collection que le chat privé (dossier pxt_01).
+    *   **Popup Intégré** : Panneau scrollable avec aperçu.
+    *   **Insertion Inline** : S'insèrent à la position du curseur.
+
+*   **Affichage des Messages** :
+    *   **RichMessageTextBlock** : Support HTML et smileys.
+    *   **Rendu Fidèle** : Gras, italique, souligné, couleurs.
+    *   **Cohérence** : Même rendu que dans le chat privé.
+
+---
+
+### 🎥 v1.7.4 - Correction Vidéo Chatroom
 *   **Correction Connexion SignalR** :
     *   **RoomHubConnection Explicite** : Nouvelle propriété dédiée aux opérations chatroom.
     *   **Correction Critique** : Les frames vidéo étaient envoyées sur le mauvais Hub - corrigé.

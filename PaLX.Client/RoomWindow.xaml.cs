@@ -2,8 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -26,6 +29,7 @@ namespace PaLX.Client
         private DispatcherTimer _uptimeTimer;   // Room uptime timer
         private DateTime _speakingStartTime;
         private bool _isInvisibleMode = false;
+        private bool _smileysLoaded = false;
 
         public ObservableCollection<RoomMemberViewModel> Members { get; set; } = new ObservableCollection<RoomMemberViewModel>();
         public ObservableCollection<RoomMessageViewModel> Messages { get; set; } = new ObservableCollection<RoomMessageViewModel>();
@@ -410,8 +414,9 @@ namespace PaLX.Client
 
         private void MessageInput_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(MessageInput.Text))
+            if (e.Key == Key.Enter && !Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
             {
+                e.Handled = true;
                 Send_Click(sender, e);
             }
         }
@@ -696,17 +701,109 @@ namespace PaLX.Client
 
         private async void Send_Click(object sender, RoutedEventArgs e)
         {
-            if (string.IsNullOrWhiteSpace(MessageInput.Text)) return;
+            string content = ConvertRichTextBoxToHtml(MessageInput);
+            string plainText = GetTextFromRichTextBox(MessageInput).Trim();
+            
+            if (string.IsNullOrWhiteSpace(plainText) && !content.Contains("[smiley:")) return;
             
             try
             {
-                await _apiService.SendRoomMessageAsync(_roomId, MessageInput.Text);
-                MessageInput.Clear();
+                // Capture current formatting to persist it
+                object fontWeight = MessageInput.Selection.GetPropertyValue(TextElement.FontWeightProperty);
+                object fontStyle = MessageInput.Selection.GetPropertyValue(TextElement.FontStyleProperty);
+                object textDecorations = MessageInput.Selection.GetPropertyValue(Inline.TextDecorationsProperty);
+                object foreground = MessageInput.Selection.GetPropertyValue(TextElement.ForegroundProperty);
+
+                await _apiService.SendRoomMessageAsync(_roomId, content);
+                
+                // Clear input but preserve formatting
+                MessageInput.Document.Blocks.Clear();
+                var para = new Paragraph();
+                var run = new Run();
+                
+                // Apply preserved formatting
+                if (fontWeight is FontWeight fw) run.FontWeight = fw;
+                if (fontStyle is FontStyle fs) run.FontStyle = fs;
+                if (textDecorations is TextDecorationCollection td) run.TextDecorations = td;
+                if (foreground is Brush br) run.Foreground = br;
+                
+                para.Inlines.Add(run);
+                MessageInput.Document.Blocks.Add(para);
+                MessageInput.CaretPosition = MessageInput.Document.ContentEnd;
             }
             catch (Exception ex)
             {
                 MessageBox.Show($"Erreur envoi: {ex.Message}");
             }
+        }
+        
+        private string ConvertRichTextBoxToHtml(RichTextBox rtb)
+        {
+            StringBuilder sb = new StringBuilder();
+            
+            foreach (Block block in rtb.Document.Blocks)
+            {
+                if (block is Paragraph paragraph)
+                {
+                    foreach (Inline inline in paragraph.Inlines)
+                    {
+                        ProcessInline(inline, sb);
+                    }
+                }
+            }
+            
+            return sb.ToString().TrimEnd('\n');
+        }
+        
+        private void ProcessInline(Inline inline, StringBuilder sb)
+        {
+            if (inline is InlineUIContainer uiContainer && uiContainer.Child is Image img && img.Tag is string filename)
+            {
+                sb.Append($"[smiley:{filename}]");
+            }
+            else if (inline is Run run)
+            {
+                if (string.IsNullOrEmpty(run.Text)) return;
+                
+                string text = run.Text;
+                bool hasBold = run.FontWeight == FontWeights.Bold;
+                bool hasItalic = run.FontStyle == FontStyles.Italic;
+                bool hasUnderline = run.TextDecorations?.Contains(TextDecorations.Underline[0]) ?? false;
+                bool hasColor = run.Foreground is SolidColorBrush brush && brush.Color != Colors.Black && brush.Color != ((SolidColorBrush)SystemColors.ControlTextBrush).Color;
+                
+                // Build HTML tags
+                if (hasColor && run.Foreground is SolidColorBrush colorBrush)
+                {
+                    sb.Append($"<span style='color:{colorBrush.Color.ToString()}'>");
+                }
+                if (hasBold) sb.Append("<b>");
+                if (hasItalic) sb.Append("<i>");
+                if (hasUnderline) sb.Append("<u>");
+                
+                sb.Append(text);
+                
+                if (hasUnderline) sb.Append("</u>");
+                if (hasItalic) sb.Append("</i>");
+                if (hasBold) sb.Append("</b>");
+                if (hasColor) sb.Append("</span>");
+            }
+            else if (inline is LineBreak)
+            {
+                sb.Append("\n");
+            }
+            else if (inline is Span span)
+            {
+                foreach (var child in span.Inlines)
+                {
+                    ProcessInline(child, sb);
+                }
+            }
+        }
+        
+        private string GetTextFromRichTextBox(RichTextBox rtb)
+        {
+            TextRange textRange = new TextRange(rtb.Document.ContentStart, rtb.Document.ContentEnd);
+            return textRange.Text;
         }
 
         private async void Leave_Click(object sender, RoutedEventArgs e)
@@ -919,6 +1016,194 @@ namespace PaLX.Client
                 }
             }
         }
+        
+        #region Rich Text Formatting
+        
+        private void FormatBold_Click(object sender, RoutedEventArgs e)
+        {
+            var selection = MessageInput.Selection;
+            if (!selection.IsEmpty)
+            {
+                object currentWeight = selection.GetPropertyValue(TextElement.FontWeightProperty);
+                if (currentWeight is FontWeight fw && fw == FontWeights.Bold)
+                    selection.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Normal);
+                else
+                    selection.ApplyPropertyValue(TextElement.FontWeightProperty, FontWeights.Bold);
+            }
+            else
+            {
+                // Apply to caret position for future typing
+                var caretPos = MessageInput.CaretPosition;
+                if (caretPos.Parent is Run run)
+                {
+                    run.FontWeight = run.FontWeight == FontWeights.Bold ? FontWeights.Normal : FontWeights.Bold;
+                }
+            }
+            MessageInput.Focus();
+        }
+        
+        private void FormatItalic_Click(object sender, RoutedEventArgs e)
+        {
+            var selection = MessageInput.Selection;
+            if (!selection.IsEmpty)
+            {
+                object currentStyle = selection.GetPropertyValue(TextElement.FontStyleProperty);
+                if (currentStyle is FontStyle fs && fs == FontStyles.Italic)
+                    selection.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Normal);
+                else
+                    selection.ApplyPropertyValue(TextElement.FontStyleProperty, FontStyles.Italic);
+            }
+            else
+            {
+                var caretPos = MessageInput.CaretPosition;
+                if (caretPos.Parent is Run run)
+                {
+                    run.FontStyle = run.FontStyle == FontStyles.Italic ? FontStyles.Normal : FontStyles.Italic;
+                }
+            }
+            MessageInput.Focus();
+        }
+        
+        private void FormatUnderline_Click(object sender, RoutedEventArgs e)
+        {
+            var selection = MessageInput.Selection;
+            if (!selection.IsEmpty)
+            {
+                object currentDeco = selection.GetPropertyValue(Inline.TextDecorationsProperty);
+                if (currentDeco is TextDecorationCollection td && td.Count > 0)
+                    selection.ApplyPropertyValue(Inline.TextDecorationsProperty, null);
+                else
+                    selection.ApplyPropertyValue(Inline.TextDecorationsProperty, TextDecorations.Underline);
+            }
+            else
+            {
+                var caretPos = MessageInput.CaretPosition;
+                if (caretPos.Parent is Run run)
+                {
+                    run.TextDecorations = (run.TextDecorations?.Count > 0) ? null : TextDecorations.Underline;
+                }
+            }
+            MessageInput.Focus();
+        }
+        
+        private void Color_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string colorHex)
+            {
+                try
+                {
+                    var color = (Color)ColorConverter.ConvertFromString(colorHex);
+                    var brush = new SolidColorBrush(color);
+                    
+                    var selection = MessageInput.Selection;
+                    if (!selection.IsEmpty)
+                    {
+                        selection.ApplyPropertyValue(TextElement.ForegroundProperty, brush);
+                    }
+                    else
+                    {
+                        var caretPos = MessageInput.CaretPosition;
+                        if (caretPos.Parent is Run run)
+                        {
+                            run.Foreground = brush;
+                        }
+                    }
+                    
+                    BtnColor.IsChecked = false;
+                    MessageInput.Focus();
+                }
+                catch { }
+            }
+        }
+        
+        #endregion
+        
+        #region Smileys
+        
+        private void EmojiButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (!_smileysLoaded)
+            {
+                LoadSmileys();
+                _smileysLoaded = true;
+            }
+            SmileyPopup.IsOpen = !SmileyPopup.IsOpen;
+        }
+        
+        private void LoadSmileys()
+        {
+            SmileyPanel.Children.Clear();
+            string smileyPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Smiley", "pxt_01");
+            
+            if (!System.IO.Directory.Exists(smileyPath)) return;
+            
+            var files = System.IO.Directory.GetFiles(smileyPath, "*.png")
+                .OrderBy(f => {
+                    string name = System.IO.Path.GetFileNameWithoutExtension(f);
+                    if (int.TryParse(name, out int n)) return n;
+                    return 999;
+                });
+            
+            foreach (var file in files)
+            {
+                var btn = new Button
+                {
+                    Width = 34,
+                    Height = 34,
+                    Margin = new Thickness(1),
+                    Background = Brushes.Transparent,
+                    BorderThickness = new Thickness(0),
+                    Cursor = Cursors.Hand,
+                    Tag = $"pxt_01/{System.IO.Path.GetFileName(file)}",
+                    ToolTip = System.IO.Path.GetFileNameWithoutExtension(file)
+                };
+                
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(file, UriKind.Absolute);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.DecodePixelWidth = 30;
+                bitmap.EndInit();
+                bitmap.Freeze();
+                
+                var img = new Image
+                {
+                    Source = bitmap,
+                    Stretch = Stretch.Uniform,
+                    Width = 30,
+                    Height = 30
+                };
+                
+                btn.Content = img;
+                btn.Click += Smiley_Click;
+                SmileyPanel.Children.Add(btn);
+            }
+        }
+        
+        private void Smiley_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string filename)
+            {
+                string fullPath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Smiley", filename);
+                
+                var bitmap = new BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
+                bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+                
+                var image = new Image { Source = bitmap, Width = 30, Height = 30, Stretch = Stretch.Uniform, Tag = filename };
+                
+                // Insert into RichTextBox
+                var container = new InlineUIContainer(image, MessageInput.CaretPosition);
+                
+                // Move caret after the image
+                MessageInput.CaretPosition = container.ElementEnd;
+                MessageInput.Focus();
+            }
+        }
+        
+        #endregion
         
         private void ShowAlert(string message, string title = "Information")
         {

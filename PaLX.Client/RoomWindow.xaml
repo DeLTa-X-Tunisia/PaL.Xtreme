@@ -351,7 +351,7 @@
                                                     <TextBlock Text="{Binding Timestamp, StringFormat=HH:mm}" FontSize="11" Foreground="#9CA3AF" 
                                                                Margin="10,0,0,0" VerticalAlignment="Center"/>
                                                 </StackPanel>
-                                                <TextBlock Text="{Binding Content}" TextWrapping="Wrap" FontSize="14" Foreground="#374151" LineHeight="20"/>
+                                                <controls:RichMessageTextBlock RichContent="{Binding Content}" TextWrapping="Wrap" FontSize="14" Foreground="#374151" LineHeight="20"/>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -372,43 +372,123 @@
                 </Border>
 
                 <!-- INPUT AREA -->
-                <Border Grid.Row="3" Background="White" Padding="16,12" CornerRadius="0,0,0,20">
+                <Border Grid.Row="3" Background="White" Padding="16,8,16,12" CornerRadius="0,0,0,20">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="10" ShadowDepth="-2" Opacity="0.05" Color="Black" Direction="90"/>
                     </Border.Effect>
                     <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>  <!-- Attachment -->
-                            <ColumnDefinition Width="*"/>     <!-- Input -->
-                            <ColumnDefinition Width="Auto"/>  <!-- Emoji -->
-                            <ColumnDefinition Width="Auto"/>  <!-- Send -->
-                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/> <!-- Formatting Toolbar -->
+                            <RowDefinition Height="Auto"/> <!-- Input -->
+                        </Grid.RowDefinitions>
+                        
+                        <!-- Formatting Toolbar -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="50,0,0,6">
+                            <Button x:Name="BtnBold" Click="FormatBold_Click" Width="26" Height="26" Margin="0,0,4,0" 
+                                    Background="Transparent" BorderThickness="0" ToolTip="Gras" Cursor="Hand">
+                                <TextBlock Text="B" FontWeight="Bold" FontSize="13" Foreground="#666"/>
+                            </Button>
+                            <Button x:Name="BtnItalic" Click="FormatItalic_Click" Width="26" Height="26" Margin="0,0,4,0" 
+                                    Background="Transparent" BorderThickness="0" ToolTip="Italique" Cursor="Hand">
+                                <TextBlock Text="I" FontStyle="Italic" FontSize="13" Foreground="#666"/>
+                            </Button>
+                            <Button x:Name="BtnUnderline" Click="FormatUnderline_Click" Width="26" Height="26" Margin="0,0,8,0" 
+                                    Background="Transparent" BorderThickness="0" ToolTip="Souligné" Cursor="Hand">
+                                <TextBlock Text="U" TextDecorations="Underline" FontSize="13" Foreground="#666"/>
+                            </Button>
+                            
+                            <!-- Color Picker -->
+                            <ToggleButton x:Name="BtnColor" Width="26" Height="26" Margin="0,0,4,0" 
+                                          Background="Transparent" BorderThickness="0" ToolTip="Couleur du texte" Cursor="Hand">
+                                <TextBlock Text="A" FontWeight="Bold" FontSize="13" Foreground="#E03E2F"/>
+                            </ToggleButton>
+                            
+                            <Popup IsOpen="{Binding IsChecked, ElementName=BtnColor}" PlacementTarget="{Binding ElementName=BtnColor}" 
+                                   Placement="Top" StaysOpen="False" AllowsTransparency="True">
+                                <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="8" Padding="5">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.1"/>
+                                    </Border.Effect>
+                                    <WrapPanel Width="140">
+                                        <Button Click="Color_Click" Tag="#000000" Width="20" Height="20" Margin="2" Background="Black" BorderThickness="0" Cursor="Hand" ToolTip="Noir"/>
+                                        <Button Click="Color_Click" Tag="#FF5252" Width="20" Height="20" Margin="2" Background="#FF5252" BorderThickness="0" Cursor="Hand" ToolTip="Rouge"/>
+                                        <Button Click="Color_Click" Tag="#FF4081" Width="20" Height="20" Margin="2" Background="#FF4081" BorderThickness="0" Cursor="Hand" ToolTip="Rose"/>
+                                        <Button Click="Color_Click" Tag="#E040FB" Width="20" Height="20" Margin="2" Background="#E040FB" BorderThickness="0" Cursor="Hand" ToolTip="Violet"/>
+                                        <Button Click="Color_Click" Tag="#7C4DFF" Width="20" Height="20" Margin="2" Background="#7C4DFF" BorderThickness="0" Cursor="Hand" ToolTip="Indigo"/>
+                                        <Button Click="Color_Click" Tag="#536DFE" Width="20" Height="20" Margin="2" Background="#536DFE" BorderThickness="0" Cursor="Hand" ToolTip="Bleu Royal"/>
+                                        <Button Click="Color_Click" Tag="#448AFF" Width="20" Height="20" Margin="2" Background="#448AFF" BorderThickness="0" Cursor="Hand" ToolTip="Bleu"/>
+                                        <Button Click="Color_Click" Tag="#40C4FF" Width="20" Height="20" Margin="2" Background="#40C4FF" BorderThickness="0" Cursor="Hand" ToolTip="Bleu Ciel"/>
+                                        <Button Click="Color_Click" Tag="#18FFFF" Width="20" Height="20" Margin="2" Background="#18FFFF" BorderThickness="0" Cursor="Hand" ToolTip="Cyan"/>
+                                        <Button Click="Color_Click" Tag="#69F0AE" Width="20" Height="20" Margin="2" Background="#69F0AE" BorderThickness="0" Cursor="Hand" ToolTip="Menthe"/>
+                                        <Button Click="Color_Click" Tag="#B2FF59" Width="20" Height="20" Margin="2" Background="#B2FF59" BorderThickness="0" Cursor="Hand" ToolTip="Vert Lime"/>
+                                        <Button Click="Color_Click" Tag="#FFD740" Width="20" Height="20" Margin="2" Background="#FFD740" BorderThickness="0" Cursor="Hand" ToolTip="Jaune"/>
+                                        <Button Click="Color_Click" Tag="#FFAB40" Width="20" Height="20" Margin="2" Background="#FFAB40" BorderThickness="0" Cursor="Hand" ToolTip="Orange"/>
+                                        <Button Click="Color_Click" Tag="#FF6E40" Width="20" Height="20" Margin="2" Background="#FF6E40" BorderThickness="0" Cursor="Hand" ToolTip="Orange Foncé"/>
+                                    </WrapPanel>
+                                </Border>
+                            </Popup>
+                        </StackPanel>
+                        
+                        <!-- Input Controls -->
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>  <!-- Attachment -->
+                                <ColumnDefinition Width="*"/>     <!-- Input -->
+                                <ColumnDefinition Width="Auto"/>  <!-- Emoji -->
+                                <ColumnDefinition Width="Auto"/>  <!-- Send -->
+                            </Grid.ColumnDefinitions>
 
-                        <!-- Attachment Button -->
-                        <Button Grid.Column="0" Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0" ToolTip="Joindre un fichier">
-                            <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="#6B7280"/>
-                        </Button>
+                            <!-- Attachment Button -->
+                            <Button Grid.Column="0" Style="{StaticResource IconButtonStyle}" Margin="0,0,8,0" ToolTip="Joindre un fichier">
+                                <TextBlock Text="&#xE723;" FontFamily="Segoe MDL2 Assets" FontSize="18" Foreground="#6B7280"/>
+                            </Button>
 
-                        <!-- Text Input -->
-                        <Border Grid.Column="1" Background="#F3F4F6" CornerRadius="16" Padding="4,0">
-                            <TextBox x:Name="MessageInput" BorderThickness="0" Background="Transparent" 
-                                     FontSize="14" Padding="12,10" VerticalContentAlignment="Center"
-                                     KeyDown="MessageInput_KeyDown">
-                                <TextBox.Style>
-                                    <Style TargetType="TextBox">
-                                        <Setter Property="Foreground" Value="#1F2937"/>
-                                    </Style>
-                                </TextBox.Style>
-                            </TextBox>
-                        </Border>
+                            <!-- RichText Input -->
+                            <Border Grid.Column="1" Background="#F3F4F6" CornerRadius="16" Padding="4,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <RichTextBox x:Name="MessageInput" Grid.Column="0"
+                                                 Background="Transparent" BorderThickness="0" 
+                                                 Padding="12,8,5,8" FontSize="14" 
+                                                 Foreground="#1F2937" VerticalScrollBarVisibility="Auto"
+                                                 MaxHeight="100" AcceptsReturn="False"
+                                                 PreviewKeyDown="MessageInput_KeyDown">
+                                        <FlowDocument>
+                                            <Paragraph Margin="0">
+                                                <Run Text=""/>
+                                            </Paragraph>
+                                        </FlowDocument>
+                                    </RichTextBox>
+                                    
+                                    <!-- Emoji Button inside input -->
+                                    <Button x:Name="EmojiButton" Grid.Column="1" Click="EmojiButton_Click"
+                                            Style="{StaticResource IconButtonStyle}" Width="36" Height="36" 
+                                            Margin="0,0,4,0" ToolTip="Emojis">
+                                        <TextBlock Text="😊" FontSize="20"/>
+                                    </Button>
+                                    
+                                    <!-- Smiley Popup -->
+                                    <Popup x:Name="SmileyPopup" PlacementTarget="{Binding ElementName=EmojiButton}" 
+                                           Placement="Top" StaysOpen="False" AllowsTransparency="True">
+                                        <Border Background="White" BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="12" Padding="8">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="15" ShadowDepth="3" Opacity="0.12"/>
+                                            </Border.Effect>
+                                            <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto">
+                                                <WrapPanel x:Name="SmileyPanel" Width="280"/>
+                                            </ScrollViewer>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </Border>
 
-                        <!-- Emoji Button -->
-                        <Button Grid.Column="2" Style="{StaticResource IconButtonStyle}" Margin="8,0" ToolTip="Emoji">
-                            <TextBlock Text="😊" FontSize="20"/>
-                        </Button>
-
-                        <!-- Send Button -->
-                        <Button Grid.Column="3" x:Name="SendButton" Click="Send_Click" Style="{StaticResource SendButtonStyle}"/>
+                            <!-- Send Button -->
+                            <Button Grid.Column="3" x:Name="SendButton" Click="Send_Click" Style="{StaticResource SendButtonStyle}" Margin="8,0,0,0"/>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>
