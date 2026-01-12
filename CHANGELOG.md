@@ -7,6 +7,20 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.0] - 2026-01-12
+
+### 🧹 Suppression Message "A levé la main"
+
+#### Nettoyage du Chat
+- **Message supprimé** : "User A a levé la main ✋" n'apparaît plus dans le chat
+- **Raison** : Redondant car l'indicateur visuel 🤚 est déjà présent dans la liste des membres
+- **Avantage** : Chat plus propre, moins encombré par les actions répétitives
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml.cs` : Suppression de AddSystemMessage pour hand raised
+
+---
+
 ## [1.7.9] - 2026-01-12
 
 ### 🎨 Header Chatroom Réorganisé

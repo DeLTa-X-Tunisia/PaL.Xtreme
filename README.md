@@ -18,7 +18,15 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🎨 v1.7.9 - Header Chatroom Réorganisé & Fix Déconnexion *(Dernière Version)*
+### 🧹 v1.8.0 - Nettoyage Chat Chatroom *(Dernière Version)*
+
+*   **Message "A levé la main" supprimé** : N'encombre plus le chat.
+*   **Indicateur visuel conservé** : 🤚 visible dans la liste des membres.
+*   **Chat plus propre** : Moins de spam pour les actions répétitives.
+
+---
+
+### 🎨 v1.7.9 - Header Chatroom Réorganisé & Fix Déconnexion
 
 *   **Header 2 Lignes** :
     *   **Ligne 1** : Nom, catégorie, badges, owner, durée, contrôles fenêtre.

@@ -752,10 +752,8 @@ namespace PaLX.Client
                     if (mic.HasValue) member.IsMicOn = mic.Value;
                     if (hand.HasValue) 
                     {
-                        if (hand.Value && !member.HasHandRaised)
-                        {
-                            AddSystemMessage($"{member.DisplayName} a levé la main ✋");
-                        }
+                        // Note: Le message "a levé la main" a été supprimé car redondant
+                        // L'indicateur visuel dans la liste des membres suffit
                         member.HasHandRaised = hand.Value;
                     }
                 }
