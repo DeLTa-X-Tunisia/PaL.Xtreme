@@ -18,7 +18,16 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🧹 v1.8.0 - Nettoyage Chat Chatroom *(Dernière Version)*
+### 🎨 v1.8.1 - Menu Contextuel Modernisé *(Dernière Version)*
+
+*   **Design moderne** : Coins arrondis, ombre portée, effets hover fluides.
+*   **Icônes SVG vectorielles** : Profil, chuchotement, micro, caméra, kick, ban.
+*   **Palette cohérente** : Violet pour actions, orange pour mute, rouge pour danger.
+*   **UX améliorée** : Menu plus intuitif et professionnel.
+
+---
+
+### 🧹 v1.8.0 - Nettoyage Chat Chatroom
 
 *   **Message "A levé la main" supprimé** : N'encombre plus le chat.
 *   **Indicateur visuel conservé** : 🤚 visible dans la liste des membres.

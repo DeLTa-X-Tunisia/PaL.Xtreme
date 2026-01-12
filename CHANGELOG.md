@@ -7,6 +7,30 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.1] - 2026-01-12
+
+### 🎨 Menu Contextuel Utilisateurs Modernisé
+
+#### Nouveau Design
+- **Style moderne** : Menu contextuel avec coins arrondis (12px) et ombre portée
+- **Icônes SVG vectorielles** : Remplacent les emojis pour un rendu plus professionnel
+- **Effet hover** : Fond gris clair (#F3F4F6) au survol des items
+- **Espacement optimisé** : Padding et marges cohérents pour une meilleure ergonomie
+
+#### Icônes par Action
+- 👤 **Voir le profil** : Silhouette personne (violet indigo #6366F1)
+- 💬 **Chuchotement** : Bulle de chat (violet #8B5CF6)
+- 🎤 **Autoriser parole** : Microphone (vert émeraude #10B981)
+- 🔇 **Couper micro** : Micro barré (orange #F59E0B)
+- 📹 **Couper caméra** : Caméra barrée (orange #F59E0B)
+- ⚠️ **Expulser** : Porte avec flèche (rouge #DC2626)
+- 🚫 **Bannir** : Cercle interdit (rouge #DC2626)
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml` : Styles ContextMenu et MenuItem, icônes SVG
+
+---
+
 ## [1.8.0] - 2026-01-12
 
 ### 🧹 Suppression Message "A levé la main"
