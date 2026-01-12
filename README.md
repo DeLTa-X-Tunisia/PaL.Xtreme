@@ -18,7 +18,15 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🛡️ v1.7.7 - Bouton Gestion du Salon *(Dernière Version)*
+### � v1.7.8 - Amélioration Bouton Gestion du Salon *(Dernière Version)*
+
+*   **Fenêtre Correcte** : L'icône Shield ouvre maintenant "Modifier le Salon".
+*   **Non-Bloquante** : Fenêtre flottante, interaction libre avec le salon.
+*   **Multitâche** : Chatter et modifier le salon simultanément.
+
+---
+
+### 🛡️ v1.7.7 - Bouton Gestion du Salon
 
 *   **Nouvelle Icône Shield** :
     *   **Position** : Coin supérieur droit du header de la chatroom.

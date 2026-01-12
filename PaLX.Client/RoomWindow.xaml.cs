@@ -468,19 +468,22 @@ namespace PaLX.Client
         }
 
         /// <summary>
-        /// Ouvre la fenêtre de modification du salon (RoomStudioWindow)
+        /// Ouvre la fenêtre de modification du salon (CreateRoomWindow en mode édition)
+        /// Fenêtre non-modale pour permettre l'interaction avec le salon
         /// </summary>
         private void RoomSettings_Click(object sender, RoutedEventArgs e)
         {
             try
             {
-                var studioWindow = new RoomStudioWindow();
-                studioWindow.Owner = this;
-                studioWindow.ShowDialog();
+                // Ouvrir CreateRoomWindow en mode édition avec les données du salon actuel
+                // Utiliser Show() au lieu de ShowDialog() pour une fenêtre non-bloquante
+                var editWindow = new CreateRoomWindow(_room);
+                editWindow.Owner = this;
+                editWindow.Show();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[RoomSettings] Error opening studio: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[RoomSettings] Error opening edit window: {ex.Message}");
             }
         }
 

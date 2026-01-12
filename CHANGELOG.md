@@ -7,6 +7,25 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.8] - 2026-01-12
+
+### 🔧 Améliorations Bouton Gestion du Salon
+
+#### Correction de la Fenêtre Cible
+- **Fenêtre correcte** : L'icône Shield ouvre maintenant "Modifier le Salon" (CreateRoomWindow)
+- **Avant** : Ouvrait incorrectement RoomStudioWindow (création de salon)
+- **Après** : Ouvre CreateRoomWindow en mode édition avec les données du salon actuel
+
+#### Fenêtre Non-Bloquante
+- **Mode non-modal** : `Show()` au lieu de `ShowDialog()`
+- **Interaction libre** : L'utilisateur peut continuer à chatter pendant la modification
+- **Fenêtre flottante** : Peut être déplacée, réduite, superposée au salon
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml.cs` : Correction du handler RoomSettings_Click
+
+---
+
 ## [1.7.7] - 2026-01-12
 
 ### 🛡️ Bouton Gestion du Salon (Room Settings)
