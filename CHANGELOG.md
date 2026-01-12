@@ -7,6 +7,59 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.6] - 2026-01-12
+
+### 🤫 Chuchotement (Whisper) - Messages Privés en Chatroom
+
+#### Fonctionnalité de Chuchotement
+- **Bouton Chuchoter** : Nouveau bouton dans le menu contextuel des membres (icône 🤫)
+- **WhisperWindow** : Fenêtre modale élégante avec thème sombre (#252525)
+- **Envoi Direct** : Chuchotement envoyé directement au destinataire via SignalR
+- **Format Distinctif** : Bordure violette (#9C27B0) pour identifier les chuchotements
+
+#### Affichage des Chuchotements
+- **Chuchotement Envoyé** : Style rouge avec encadrement `═══ Chuchotement envoyé à [Nom] ═══`
+- **Chuchotement Reçu** : Style bleu avec encadrement `═══ Chuchotement reçu de [Nom] ═══`
+- **RichMessageTextBlock** : Rendu spécial pour les whispers avec formatage italique
+
+#### Vue Modérateur des Chuchotements
+- **Rôles Autorisés** : ServerMaster, ServerEditor, ServerSuperAdmin, ServerAdmin, ServerModerator, ServerHelp (RoleLevel 1-6)
+- **Visibilité Complète** : Les modérateurs voient TOUS les chuchotements du salon
+- **Format Modération** : `═══ [MOD] Chuchotement de Sender → Recipient ═══`
+- **Style Distinctif** : Violet pour cadre, orange pour expéditeur, cyan pour destinataire
+
+#### Backend SignalR
+- **SendWhisper** : Nouvelle méthode Hub pour envoyer des chuchotements
+- **WhisperReceived** : Event pour notifier le destinataire
+- **WhisperModView** : Event séparé pour la vue modérateur
+- **Tracking RoleLevel** : Le niveau de rôle est maintenant suivi dans les connexions
+
+### 🎨 Modernisation des Icônes Header Chatroom
+
+#### Icônes SVG Colorées
+- **Participants** : Icône groupe avec couleur verte pastel (#81C784)
+- **Hommes** : Icône homme avec couleur bleue pastel (#64B5F6)
+- **Femmes** : Icône femme avec couleur rose pastel (#F48FB1)
+- **Autres** : Icône neutre avec couleur orange pastel (#FFB74D)
+- **Couronne Owner** : Icône dorée (#FFD700)
+- **Horloge Durée** : Icône cyan (#00BCD4)
+
+#### Améliorations Visuelles
+- **Owner en Gras** : Le nom du propriétaire du salon est maintenant en gras
+- **Tooltip Enrichis** : Infobulles descriptives sur chaque compteur
+- **Consistance** : Toutes les icônes utilisent maintenant des Path SVG modernes
+
+### 🔧 Fichiers Modifiés
+- `PaLX.API/Hubs/RoomHub.cs` : SendWhisper, WhisperModView, tracking RoleLevel
+- `PaLX.Client/Services/ApiService.cs` : Events OnWhisperReceived, OnWhisperModView
+- `PaLX.Client/RoomWindow.xaml` : Bouton chuchoter, header icons modernisés
+- `PaLX.Client/RoomWindow.xaml.cs` : Handlers whisper, DisplayModeratorWhisper
+- `PaLX.Client/WhisperWindow.xaml` : Nouvelle fenêtre de chuchotement
+- `PaLX.Client/WhisperWindow.xaml.cs` : Code-behind WhisperWindow
+- `PaLX.Client/Controls/RichMessageTextBlock.cs` : RenderWhisperMod
+
+---
+
 ## [1.7.5] - 2026-01-11
 
 ### 💬 RichText & Smileys dans Chatroom

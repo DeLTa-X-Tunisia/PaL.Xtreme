@@ -10,16 +10,24 @@ namespace PaLX.API.Hubs
         // Track active cameras per room: RoomId -> { UserId -> Username }
         private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, string>> _roomCameras = new();
         
-        // Track user connections: ConnectionId -> (UserId, RoomId)
-        private static readonly ConcurrentDictionary<string, (int UserId, int RoomId)> _userConnections = new();
+        // Track user connections: ConnectionId -> (UserId, RoomId, RoleLevel)
+        private static readonly ConcurrentDictionary<string, (int UserId, int RoomId, int RoleLevel)> _userConnections = new();
+        
+        // Rôles système qui peuvent voir tous les chuchotements (RoleLevel 1-6)
+        // 1=ServerMaster, 2=ServerEditor, 3=ServerSuperAdmin, 4=ServerAdmin, 5=ServerModerator, 6=ServerHelp
+        private const int MaxModeratorRoleLevel = 6;
 
         public async Task JoinRoomGroup(int roomId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomId}");
             
-            // Stocker la connexion
+            // Stocker la connexion avec le RoleLevel
             var userId = GetUserId();
-            _userConnections[Context.ConnectionId] = (userId, roomId);
+            var roleLevel = GetRoleLevel();
+            _userConnections[Context.ConnectionId] = (userId, roomId, roleLevel);
+            
+            Console.WriteLine($"[RoomHub.JoinRoomGroup] User {userId} (RoleLevel={roleLevel}) joined room {roomId}, ConnectionId: {Context.ConnectionId.Substring(0, Math.Min(8, Context.ConnectionId.Length))}...");
+            Console.WriteLine($"[RoomHub.JoinRoomGroup] Total connections now: {_userConnections.Count}");
             
             // Envoyer la liste des caméras actives au nouveau membre
             if (_roomCameras.TryGetValue(roomId, out var cameras))
@@ -175,12 +183,92 @@ namespace PaLX.API.Hubs
 
         #endregion
 
-        #region Helpers
+        #region Whisper (Private Messages in Room)
 
+        /// <summary>
+        /// Envoyer un chuchotement privé à un utilisateur dans le room
+        /// </summary>
+        public async Task SendWhisper(int roomId, int targetUserId, string message, string senderDisplayName)
+        {
+            var fromUserId = GetUserId();
+            var fromUsername = GetUsername();
+            var targetDisplayName = ""; // Pour informer les modérateurs
+            
+            Console.WriteLine($"[RoomHub.SendWhisper] From: {fromUserId} ({senderDisplayName}), To: {targetUserId}, Room: {roomId}");
+            Console.WriteLine($"[RoomHub.SendWhisper] Total connections tracked: {_userConnections.Count}");
+            
+            // Trouver la connexion du destinataire dans ce room
+            var targetConnection = _userConnections
+                .FirstOrDefault(c => c.Value.UserId == targetUserId && c.Value.RoomId == roomId);
+            
+            Console.WriteLine($"[RoomHub.SendWhisper] Target connection found: {!string.IsNullOrEmpty(targetConnection.Key)}");
+            
+            if (!string.IsNullOrEmpty(targetConnection.Key))
+            {
+                Console.WriteLine($"[RoomHub.SendWhisper] Sending WhisperReceived to target user {targetUserId}");
+                // Envoyer au destinataire
+                await Clients.Client(targetConnection.Key).SendAsync("WhisperReceived", roomId, fromUserId, senderDisplayName, message);
+            }
+            else
+            {
+                Console.WriteLine($"[RoomHub.SendWhisper] WARNING: No connection found for target user {targetUserId} in room {roomId}");
+            }
+            
+            // Envoyer aux modérateurs/admins système (RoleLevel 1-6) qui sont dans ce room
+            // Ils voient tous les chuchotements pour la modération
+            var moderatorConnections = _userConnections
+                .Where(c => c.Value.RoomId == roomId 
+                         && c.Value.RoleLevel >= 1 
+                         && c.Value.RoleLevel <= MaxModeratorRoleLevel
+                         && c.Value.UserId != fromUserId      // Pas l'expéditeur (il voit déjà via WhisperSent)
+                         && c.Value.UserId != targetUserId)   // Pas le destinataire (il voit déjà via WhisperReceived)
+                .ToList();
+            
+            Console.WriteLine($"[RoomHub.SendWhisper] Found {moderatorConnections.Count} moderator(s) to notify");
+            
+            foreach (var modConn in moderatorConnections)
+            {
+                Console.WriteLine($"[RoomHub.SendWhisper] Sending WhisperModView to moderator UserId={modConn.Value.UserId} (RoleLevel={modConn.Value.RoleLevel})");
+                // Envoyer une version spéciale pour les modérateurs qui montre expéditeur ET destinataire
+                await Clients.Client(modConn.Key).SendAsync("WhisperModView", roomId, fromUserId, senderDisplayName, targetUserId, message);
+            }
+            
+            // Confirmer à l'expéditeur que le message a été envoyé
+            await Clients.Caller.SendAsync("WhisperSent", roomId, targetUserId, message);
+            Console.WriteLine($"[RoomHub.SendWhisper] WhisperSent confirmation sent to caller");
+        }
+
+        #endregion
+
+        #region Helpers
         private int GetUserId()
         {
-            var claim = Context.User?.FindFirst("userId") ?? Context.User?.FindFirst("sub");
-            return claim != null ? int.Parse(claim.Value) : 0;
+            // Le claim est "UserId" avec U majuscule (défini dans AuthService.cs)
+            var claim = Context.User?.FindFirst("UserId");
+            if (claim != null && int.TryParse(claim.Value, out int userId))
+            {
+                return userId;
+            }
+            
+            // Fallback: essayer d'autres claims
+            claim = Context.User?.FindFirst("userId") ?? Context.User?.FindFirst("sub");
+            if (claim != null && int.TryParse(claim.Value, out userId))
+            {
+                return userId;
+            }
+            
+            Console.WriteLine($"[RoomHub.GetUserId] WARNING: Could not extract UserId from token. Claims: {string.Join(", ", Context.User?.Claims.Select(c => $"{c.Type}={c.Value}") ?? Array.Empty<string>())}");
+            return 0;
+        }
+
+        private int GetRoleLevel()
+        {
+            var claim = Context.User?.FindFirst("RoleLevel");
+            if (claim != null && int.TryParse(claim.Value, out int roleLevel))
+            {
+                return roleLevel;
+            }
+            return 7; // Default: User standard
         }
 
         private string GetUsername()
@@ -193,7 +281,7 @@ namespace PaLX.API.Hubs
             // Nettoyer quand un utilisateur se déconnecte
             if (_userConnections.TryRemove(Context.ConnectionId, out var info))
             {
-                var (userId, roomId) = info;
+                var (userId, roomId, _) = info;
                 
                 // Retirer la caméra si active
                 if (_roomCameras.TryGetValue(roomId, out var cameras))

@@ -563,6 +563,24 @@ namespace PaLX.Client.Services
                 System.Diagnostics.Debug.WriteLine($"[ApiService] RoomVideoFrame received: roomId={roomId}, userId={userId}, size={frameData?.Length ?? 0}");
                 OnRoomVideoFrame?.Invoke(roomId, userId, frameData);
             });
+            
+            // Whisper handlers
+            _roomHubConnection.On<int, int, string, string>("WhisperReceived", (roomId, fromUserId, fromDisplayName, message) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] WhisperReceived: roomId={roomId}, from={fromDisplayName}, message={message}");
+                OnWhisperReceived?.Invoke(roomId, fromUserId, fromDisplayName, message);
+            });
+            _roomHubConnection.On<int, int, string>("WhisperSent", (roomId, toUserId, message) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] WhisperSent: roomId={roomId}, to={toUserId}, message={message}");
+                OnWhisperSent?.Invoke(roomId, toUserId, message);
+            });
+            // Whisper pour les modérateurs (ils voient tous les chuchotements)
+            _roomHubConnection.On<int, int, string, int, string>("WhisperModView", (roomId, fromUserId, fromDisplayName, toUserId, message) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] WhisperModView: roomId={roomId}, from={fromDisplayName}, to={toUserId}, message={message}");
+                OnWhisperModView?.Invoke(roomId, fromUserId, fromDisplayName, toUserId, message);
+            });
 
             // ... (Existing Transfer Handlers) ...
             
@@ -666,6 +684,22 @@ namespace PaLX.Client.Services
             var dto = new SendMessageDto { Content = content, Type = type, AttachmentUrl = attachmentUrl };
             await _httpClient.PostAsJsonAsync($"api/room/{roomId}/messages", dto);
         }
+
+        /// <summary>
+        /// Envoyer un chuchotement privé à un utilisateur dans le room
+        /// </summary>
+        public async Task SendWhisperAsync(int roomId, int targetUserId, string message, string senderDisplayName)
+        {
+            if (_roomHubConnection != null && _roomHubConnection.State == HubConnectionState.Connected)
+            {
+                await _roomHubConnection.InvokeAsync("SendWhisper", roomId, targetUserId, message, senderDisplayName);
+            }
+        }
+
+        // Events for Whisper
+        public event Action<int, int, string, string>? OnWhisperReceived; // roomId, fromUserId, fromDisplayName, message
+        public event Action<int, int, string>? OnWhisperSent; // roomId, toUserId, message
+        public event Action<int, int, string, int, string>? OnWhisperModView; // roomId, fromUserId, fromDisplayName, toUserId, message (pour modérateurs)
 
         public async Task UpdateRoomStatusAsync(int roomId, bool? isCamOn, bool? isMicOn, bool? hasHandRaised)
         {

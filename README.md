@@ -18,7 +18,23 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 💬 v1.7.5 - RichText & Smileys Chatroom *(Dernière Version)*
+### 🤫 v1.7.6 - Chuchotement (Whisper) & Icônes Modernisées *(Dernière Version)*
+
+*   **Chuchotement (Messages Privés en Chatroom)** :
+    *   **Bouton Chuchoter** : Nouveau bouton dans le menu contextuel des membres.
+    *   **WhisperWindow** : Fenêtre modale élégante avec thème sombre.
+    *   **Affichage Distinctif** : Rouge pour envoyé, bleu pour reçu.
+    *   **Vue Modérateur** : Les rôles système (1-6) voient TOUS les chuchotements.
+
+*   **Icônes Header Modernisées** :
+    *   **Participants** : Icône groupe verte pastel (#81C784).
+    *   **Hommes/Femmes/Autres** : Couleurs bleue, rose, orange pastels.
+    *   **Couronne Owner** : Dorée (#FFD700), nom en gras.
+    *   **Horloge Durée** : Cyan (#00BCD4).
+
+---
+
+### 💬 v1.7.5 - RichText & Smileys Chatroom
 *   **Zone de Saisie Enrichie** :
     *   **RichTextBox** : Remplace le simple TextBox pour le formatage complet.
     *   **Barre de Formatage** : Boutons Gras, Italique, Souligné.

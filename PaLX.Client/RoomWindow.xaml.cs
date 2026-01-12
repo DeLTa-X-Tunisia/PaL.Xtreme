@@ -99,6 +99,10 @@ namespace PaLX.Client
             _apiService.OnRoomMemberStatusUpdated += OnStatusUpdated;
             _apiService.OnMemberRoleUpdated += OnMemberRoleUpdated;
             
+            // Subscribe to Whisper events
+            _apiService.OnWhisperReceived += OnWhisperReceived;
+            _apiService.OnWhisperModView += OnWhisperModView;
+            
             // Initialize Room Video Service
             InitializeRoomVideoService();
             
@@ -364,10 +368,12 @@ namespace PaLX.Client
             int total = Members.Count;
             int men = Members.Count(m => m.Gender == "Male" || m.Gender == "Homme");
             int women = Members.Count(m => m.Gender == "Female" || m.Gender == "Femme");
-
+            int other = total - men - women;
+            
             TotalCountText.Text = total.ToString();
             MenCountText.Text = men.ToString();
             WomenCountText.Text = women.ToString();
+            OtherCountText.Text = other.ToString();
             
             // Update sidebar badge
             if (MemberCountBadge != null) 
@@ -453,6 +459,8 @@ namespace PaLX.Client
             _apiService.OnRoomUserLeft -= OnUserLeft;
             _apiService.OnRoomMemberStatusUpdated -= OnStatusUpdated;
             _apiService.OnMemberRoleUpdated -= OnMemberRoleUpdated;
+            _apiService.OnWhisperReceived -= OnWhisperReceived;
+            _apiService.OnWhisperModView -= OnWhisperModView;
             
             // Fermer toutes les fenêtres de visionnage peer
             foreach (var peerWindow in _peerVideoWindows.Values.ToList())
@@ -535,6 +543,7 @@ namespace PaLX.Client
                 });
 
                 if (Messages.Count > 0) MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
             }
             catch { }
         }
@@ -605,6 +614,7 @@ namespace PaLX.Client
                     RoleColor = Brushes.Gray
                 });
                 MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
             });
         }
 
@@ -622,6 +632,7 @@ namespace PaLX.Client
                 System.Diagnostics.Debug.WriteLine($"[RoomWindow] Adding message to UI: {dto.Content?.Substring(0, Math.Min(20, dto.Content?.Length ?? 0))}...");
                 Messages.Add(MapMessage(dto));
                 MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
             });
         }
 
@@ -697,6 +708,23 @@ namespace PaLX.Client
                     AddSystemMessage($"{member.DisplayName} est maintenant {roleName}");
                 }
             });
+        }
+
+        /// <summary>
+        /// Handler pour la réception d'un chuchotement privé
+        /// </summary>
+        private void OnWhisperReceived(int roomId, int fromUserId, string fromDisplayName, string message)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RoomWindow] OnWhisperReceived called: roomId={roomId}, _roomId={_roomId}, from={fromDisplayName}");
+            
+            if (roomId != _roomId) 
+            {
+                System.Diagnostics.Debug.WriteLine($"[RoomWindow] Whisper ignored - wrong room");
+                return;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[RoomWindow] Displaying received whisper from {fromDisplayName}");
+            DisplayReceivedWhisper(fromDisplayName, message);
         }
 
         private async void Send_Click(object sender, RoutedEventArgs e)
@@ -942,6 +970,123 @@ namespace PaLX.Client
         private void MuteCam_Click(object sender, RoutedEventArgs e) 
         { 
             // Placeholder: Logic to disable user camera remotely
+        }
+
+        /// <summary>
+        /// Ouvre la fenêtre de chuchotement pour envoyer un message privé à un membre
+        /// </summary>
+        private async void SendWhisper_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
+            {
+                // Ne pas chuchoter à soi-même
+                if (member.UserId == _apiService.CurrentUserId)
+                {
+                    return;
+                }
+
+                var whisperWindow = new WhisperWindow(member.UserId, member.DisplayName)
+                {
+                    Owner = this
+                };
+                whisperWindow.ShowDialog();
+
+                if (whisperWindow.IsSent && !string.IsNullOrEmpty(whisperWindow.WhisperMessage))
+                {
+                    try
+                    {
+                        // Obtenir le displayName de l'utilisateur courant depuis les membres
+                        var currentMember = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                        string senderDisplayName = currentMember?.DisplayName ?? _apiService.CurrentUsername;
+                        
+                        await _apiService.SendWhisperAsync(_roomId, member.UserId, whisperWindow.WhisperMessage, senderDisplayName);
+                        
+                        // Afficher le chuchotement envoyé dans le chat
+                        DisplaySentWhisper(member.DisplayName, whisperWindow.WhisperMessage);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[RoomWindow] Error sending whisper: {ex.Message}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement envoyé dans le chat (visible uniquement par l'expéditeur)
+        /// </summary>
+        private void DisplaySentWhisper(string recipientName, string message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Messages.Add(new RoomMessageViewModel
+                {
+                    DisplayName = "Chuchotement",
+                    Content = $"[WHISPER_SENT:{recipientName}]{message}",
+                    Timestamp = DateTime.Now,
+                    MessageType = "WhisperSent",
+                    RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E53935")) // Rouge
+                });
+                MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
+            });
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement reçu dans le chat (visible uniquement par le destinataire)
+        /// </summary>
+        private void DisplayReceivedWhisper(string senderName, string message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Messages.Add(new RoomMessageViewModel
+                {
+                    DisplayName = "Chuchotement",
+                    Content = $"[WHISPER_RECEIVED:{senderName}]{message}",
+                    Timestamp = DateTime.Now,
+                    MessageType = "WhisperReceived",
+                    RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E88E5")) // Bleu
+                });
+                MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
+            });
+        }
+
+        /// <summary>
+        /// Handler pour la vue modérateur des chuchotements (rôles 1-6 peuvent voir tous les chuchotements)
+        /// </summary>
+        private void OnWhisperModView(int roomId, int fromUserId, string fromDisplayName, int toUserId, string message)
+        {
+            System.Diagnostics.Debug.WriteLine($"[RoomWindow] OnWhisperModView called: roomId={roomId}, from={fromDisplayName} to userId={toUserId}");
+            
+            if (roomId != _roomId) return;
+            
+            // Trouver le nom du destinataire
+            var recipient = Members.FirstOrDefault(m => m.UserId == toUserId);
+            string recipientName = recipient?.DisplayName ?? $"User#{toUserId}";
+            
+            DisplayModeratorWhisper(fromDisplayName, recipientName, message);
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement en mode modérateur (visible par les rôles système 1-6)
+        /// Montre qui chuchote à qui
+        /// </summary>
+        private void DisplayModeratorWhisper(string senderName, string recipientName, string message)
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                Messages.Add(new RoomMessageViewModel
+                {
+                    DisplayName = "Modération",
+                    Content = $"[WHISPER_MOD:{senderName}:{recipientName}]{message}",
+                    Timestamp = DateTime.Now,
+                    MessageType = "WhisperMod",
+                    RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9C27B0")) // Violet
+                });
+                MessagesList.ScrollIntoView(Messages.Last());
+                UpdateCounts();
+            });
         }
 
         /// <summary>

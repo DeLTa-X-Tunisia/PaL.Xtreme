@@ -46,6 +46,23 @@ namespace PaLX.Client.Controls
 
             try
             {
+                // Vérifier si c'est un chuchotement
+                if (content.StartsWith("[WHISPER_SENT:"))
+                {
+                    RenderWhisperSent(content);
+                    return;
+                }
+                else if (content.StartsWith("[WHISPER_RECEIVED:"))
+                {
+                    RenderWhisperReceived(content);
+                    return;
+                }
+                else if (content.StartsWith("[WHISPER_MOD:"))
+                {
+                    RenderWhisperMod(content);
+                    return;
+                }
+
                 var inlines = ParseHtmlContent(content, new TextStyle());
                 foreach (var inline in inlines)
                 {
@@ -57,6 +74,109 @@ namespace PaLX.Client.Controls
                 // Fallback: afficher le texte brut en cas d'erreur
                 Inlines.Add(new Run(content));
             }
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement envoyé avec style rouge
+        /// </summary>
+        private void RenderWhisperSent(string content)
+        {
+            // Format: [WHISPER_SENT:RecipientName]message
+            var match = Regex.Match(content, @"\[WHISPER_SENT:([^\]]+)\](.*)");
+            if (!match.Success) return;
+
+            string recipientName = match.Groups[1].Value;
+            string message = match.Groups[2].Value;
+
+            var whisperColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#E53935"));
+            var headerColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#B71C1C"));
+            
+            // === Chuchotement envoyé à RecipientName ===
+            Inlines.Add(new Run("═══ ") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("Chuchotement envoyé à ") { Foreground = whisperColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(recipientName) { Foreground = Brushes.Black, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // Message
+            Inlines.Add(new Run(message) { Foreground = headerColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // === Fin du chuchotement ===
+            Inlines.Add(new Run("═══ ") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("Fin du chuchotement") { Foreground = whisperColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement reçu avec style bleu
+        /// </summary>
+        private void RenderWhisperReceived(string content)
+        {
+            // Format: [WHISPER_RECEIVED:SenderName]message
+            var match = Regex.Match(content, @"\[WHISPER_RECEIVED:([^\]]+)\](.*)");
+            if (!match.Success) return;
+
+            string senderName = match.Groups[1].Value;
+            string message = match.Groups[2].Value;
+
+            var whisperColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E88E5"));
+            var headerColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#0D47A1"));
+            
+            // === Chuchotement reçu de SenderName ===
+            Inlines.Add(new Run("═══ ") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("Chuchotement reçu de ") { Foreground = whisperColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(senderName) { Foreground = Brushes.Black, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // Message
+            Inlines.Add(new Run(message) { Foreground = headerColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // === Fin du chuchotement ===
+            Inlines.Add(new Run("═══ ") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("Fin du chuchotement") { Foreground = whisperColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = whisperColor, FontStyle = FontStyles.Italic });
+        }
+
+        /// <summary>
+        /// Affiche un chuchotement en mode modérateur (visible par les rôles système 1-6)
+        /// Montre qui chuchote à qui avec un style violet/orange distinctif
+        /// </summary>
+        private void RenderWhisperMod(string content)
+        {
+            // Format: [WHISPER_MOD:SenderName:RecipientName]message
+            var match = Regex.Match(content, @"\[WHISPER_MOD:([^:]+):([^\]]+)\](.*)");
+            if (!match.Success) return;
+
+            string senderName = match.Groups[1].Value;
+            string recipientName = match.Groups[2].Value;
+            string message = match.Groups[3].Value;
+
+            var modColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#9C27B0")); // Violet
+            var senderColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF9800")); // Orange
+            var recipientColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#00BCD4")); // Cyan
+            var messageColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#7B1FA2")); // Violet foncé
+            
+            // ═══ [MOD] Chuchotement de SenderName → RecipientName ═══
+            Inlines.Add(new Run("═══ ") { Foreground = modColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("[MOD] ") { Foreground = modColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("Chuchotement de ") { Foreground = modColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(senderName) { Foreground = senderColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" → ") { Foreground = modColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(recipientName) { Foreground = recipientColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = modColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // Message
+            Inlines.Add(new Run(message) { Foreground = messageColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new LineBreak());
+            
+            // === Fin ===
+            Inlines.Add(new Run("═══ ") { Foreground = modColor, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run("[MOD] Fin") { Foreground = modColor, FontWeight = FontWeights.Bold, FontStyle = FontStyles.Italic });
+            Inlines.Add(new Run(" ═══") { Foreground = modColor, FontStyle = FontStyles.Italic });
         }
 
         // Structure pour stocker le style courant
