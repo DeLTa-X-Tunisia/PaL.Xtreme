@@ -59,6 +59,9 @@ namespace PaLX.Client
                 AdultBadge.Visibility = Visibility.Visible;
             }
             
+            // Show Room Settings button for authorized users
+            UpdateRoomSettingsButtonVisibility();
+            
             // Setup Uptime Timer
             _uptimeTimer = new DispatcherTimer();
             _uptimeTimer.Interval = TimeSpan.FromSeconds(1);
@@ -415,6 +418,69 @@ namespace PaLX.Client
                 this.WindowState = WindowState.Maximized;
                 MaximizeIcon.Text = "\uE923"; // Restore icon
                 MaximizeButton.ToolTip = "Restaurer";
+            }
+        }
+
+        /// <summary>
+        /// Met à jour la visibilité du bouton de paramètres du salon
+        /// Visible uniquement pour les admins système (niveaux 1-6) et les admins du salon
+        /// </summary>
+        private void UpdateRoomSettingsButtonVisibility()
+        {
+            if (RoomSettingsButton == null) return;
+            
+            bool canManageRoom = CanUserManageRoom();
+            RoomSettingsButton.Visibility = canManageRoom ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Détermine si l'utilisateur actuel peut gérer le salon
+        /// Autorisé pour:
+        /// - Admins système: ServerMaster(1), ServerEditor(2), ServerSuperAdmin(3), ServerAdmin(4), ServerModerator(5), ServerHelp(6)
+        /// - Admins du salon: RoomOwner, RoomSuperAdmin, RoomAdmin, RoomModerator
+        /// </summary>
+        private bool CanUserManageRoom()
+        {
+            // Vérifier si l'utilisateur est un admin système (RoleLevel 1-6)
+            int systemRoleLevel = _apiService.CurrentUserRoleLevel;
+            if (systemRoleLevel >= 1 && systemRoleLevel <= 6)
+            {
+                return true;
+            }
+            
+            // Vérifier si l'utilisateur est le propriétaire du salon
+            if (_room.OwnerId == _apiService.CurrentUserId)
+            {
+                return true;
+            }
+            
+            // Vérifier si l'utilisateur a un rôle d'admin dans le salon (SuperAdmin, Admin, Moderator)
+            if (!string.IsNullOrEmpty(_room.UserRole))
+            {
+                string role = _room.UserRole.ToLowerInvariant();
+                if (role == "superadmin" || role == "admin" || role == "moderator")
+                {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Ouvre la fenêtre de modification du salon (RoomStudioWindow)
+        /// </summary>
+        private void RoomSettings_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var studioWindow = new RoomStudioWindow();
+                studioWindow.Owner = this;
+                studioWindow.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RoomSettings] Error opening studio: {ex.Message}");
             }
         }
 

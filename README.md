@@ -18,7 +18,21 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🤫 v1.7.6 - Chuchotement (Whisper) & Icônes Modernisées *(Dernière Version)*
+### 🛡️ v1.7.7 - Bouton Gestion du Salon *(Dernière Version)*
+
+*   **Nouvelle Icône Shield** :
+    *   **Position** : Coin supérieur droit du header de la chatroom.
+    *   **Design** : Shield moderne avec engrenage intégré (cyan).
+    *   **Action** : Ouvre la fenêtre de modification du salon.
+
+*   **Visibilité Contrôlée** :
+    *   **Admins Système** : ServerMaster à ServerHelp (niveaux 1-6).
+    *   **Admins Salon** : RoomOwner, RoomSuperAdmin, RoomAdmin, RoomModerator.
+    *   **Sécurité** : Invisible pour les utilisateurs non autorisés.
+
+---
+
+### 🤫 v1.7.6 - Chuchotement (Whisper) & Icônes Modernisées
 
 *   **Chuchotement (Messages Privés en Chatroom)** :
     *   **Bouton Chuchoter** : Nouveau bouton dans le menu contextuel des membres.

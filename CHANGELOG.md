@@ -7,6 +7,42 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.7] - 2026-01-12
+
+### 🛡️ Bouton Gestion du Salon (Room Settings)
+
+#### Nouvelle Icône Shield
+- **Position** : Coin supérieur droit du header de la chatroom
+- **Design** : Icône Shield moderne avec engrenage intégré (SVG cyan #4FC3F7)
+- **Action** : Ouvre la fenêtre RoomStudioWindow pour modifier le salon
+- **Tooltip** : "Modifier le salon"
+
+#### Visibilité Contrôlée
+- **Admins Système** :
+  - ServerMaster (RoleLevel 1)
+  - ServerEditor (RoleLevel 2)
+  - ServerSuperAdmin (RoleLevel 3)
+  - ServerAdmin (RoleLevel 4)
+  - ServerModerator (RoleLevel 5)
+  - ServerHelp (RoleLevel 6)
+
+- **Admins du Salon** :
+  - RoomOwner (propriétaire)
+  - RoomSuperAdmin
+  - RoomAdmin
+  - RoomModerator
+
+#### Méthodes Ajoutées
+- `CanUserManageRoom()` : Vérifie si l'utilisateur peut gérer le salon
+- `UpdateRoomSettingsButtonVisibility()` : Met à jour la visibilité du bouton
+- `RoomSettings_Click()` : Handler pour ouvrir RoomStudioWindow
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml` : Bouton Shield SVG dans le header
+- `PaLX.Client/RoomWindow.xaml.cs` : Logique de visibilité et handlers
+
+---
+
 ## [1.7.6] - 2026-01-12
 
 ### 🤫 Chuchotement (Whisper) - Messages Privés en Chatroom
