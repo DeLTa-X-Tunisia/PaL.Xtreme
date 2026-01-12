@@ -7,6 +7,34 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.2] - 2026-01-12
+
+### 👤 Voir le Profil avec Tracking
+
+#### Fonctionnalité Complète
+- **Action "Voir le profil"** : Clic droit sur un utilisateur → consulter son profil public
+- **Enregistrement des visites** : Chaque consultation est sauvegardée en base de données
+- **Préparation future** : Infrastructure pour "Qui a vu mon profil"
+
+#### Architecture Base de Données
+- **Nouvelle table `ProfileViews`** : ViewerId, ViewedUserId, ViewedAt, Context
+- **Index optimisés** : Recherches rapides par utilisateur consulté ou visiteur
+- **Contexte tracké** : room, friends_list, search (évolutif)
+
+#### API Endpoints
+- `GET /api/user/public-profile/{userId}` : Récupère profil + enregistre visite
+- `GET /api/user/profile-viewers` : Liste "Qui a vu mon profil" (prêt pour UI future)
+
+### 🔧 Fichiers Modifiés/Créés
+- `PaLX.API/Scripts/create_profile_views.sql` : Script création table
+- `PaLX.API/Models/ProfileView.cs` : Modèles ProfileView, ProfileViewerDto, PublicProfileDto
+- `PaLX.API/Services/UserService.cs` : Méthodes GetPublicProfileAsync, GetProfileViewersAsync
+- `PaLX.API/Controllers/UserController.cs` : Nouveaux endpoints
+- `PaLX.Client/Services/ApiService.cs` : Méthodes client + DTOs
+- `PaLX.Client/RoomWindow.xaml.cs` : Handler ViewProfile_Click
+
+---
+
 ## [1.8.1] - 2026-01-12
 
 ### 🎨 Menu Contextuel Utilisateurs Modernisé

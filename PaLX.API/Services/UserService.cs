@@ -645,5 +645,109 @@ namespace PaLX.API.Services
             }
             return senders;
         }
+
+        /// <summary>
+        /// Récupère le profil public d'un utilisateur et enregistre la visite
+        /// </summary>
+        public async Task<PublicProfileDto?> GetPublicProfileAsync(int viewerId, int viewedUserId, string context)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Ne pas enregistrer si on consulte son propre profil
+            if (viewerId != viewedUserId)
+            {
+                try
+                {
+                    var insertViewSql = @"
+                        INSERT INTO ""ProfileViews"" (""ViewerId"", ""ViewedUserId"", ""ViewedAt"", ""Context"")
+                        VALUES (@viewerId, @viewedUserId, @viewedAt, @context)";
+
+                    using var insertCmd = new NpgsqlCommand(insertViewSql, conn);
+                    insertCmd.Parameters.AddWithValue("viewerId", viewerId);
+                    insertCmd.Parameters.AddWithValue("viewedUserId", viewedUserId);
+                    insertCmd.Parameters.AddWithValue("viewedAt", DateTime.UtcNow);
+                    insertCmd.Parameters.AddWithValue("context", context);
+                    await insertCmd.ExecuteNonQueryAsync();
+                }
+                catch
+                {
+                    // Ignorer les erreurs d'insertion (contrainte unique, etc.)
+                }
+            }
+
+            // Récupérer le profil public
+            var sql = @"
+                SELECT u.""Id"", u.""Username"", u.""CreatedAt"",
+                       COALESCE(p.""FirstName"", '') as ""FirstName"", 
+                       COALESCE(p.""LastName"", '') as ""LastName"",
+                       COALESCE(p.""Gender"", '') as ""Gender"", 
+                       COALESCE(p.""Country"", '') as ""Country"",
+                       p.""AvatarPath"", p.""DateOfBirth""
+                FROM ""Users"" u
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE u.""Id"" = @userId";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("userId", viewedUserId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new PublicProfileDto
+                {
+                    UserId = reader.GetInt32(0),
+                    Username = reader.GetString(1),
+                    MemberSince = reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+                    FirstName = reader.GetString(3),
+                    LastName = reader.GetString(4),
+                    Gender = reader.GetString(5),
+                    Country = reader.GetString(6),
+                    AvatarPath = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    DateOfBirth = reader.IsDBNull(8) ? null : reader.GetDateTime(8)
+                };
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs qui ont consulté mon profil
+        /// </summary>
+        public async Task<List<ProfileViewerDto>> GetProfileViewersAsync(int userId, int limit = 50)
+        {
+            var viewers = new List<ProfileViewerDto>();
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT pv.""ViewerId"", u.""Username"", 
+                       COALESCE(p.""FirstName"", '') || ' ' || COALESCE(p.""LastName"", '') as ""DisplayName"",
+                       p.""AvatarPath"", pv.""ViewedAt"", pv.""Context""
+                FROM ""ProfileViews"" pv
+                JOIN ""Users"" u ON pv.""ViewerId"" = u.""Id""
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE pv.""ViewedUserId"" = @userId
+                ORDER BY pv.""ViewedAt"" DESC
+                LIMIT @limit";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("userId", userId);
+            cmd.Parameters.AddWithValue("limit", limit);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                viewers.Add(new ProfileViewerDto
+                {
+                    ViewerId = reader.GetInt32(0),
+                    Username = reader.GetString(1),
+                    DisplayName = reader.GetString(2).Trim(),
+                    AvatarPath = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    ViewedAt = reader.GetDateTime(4),
+                    Context = reader.GetString(5)
+                });
+            }
+            return viewers;
+        }
     }
 }

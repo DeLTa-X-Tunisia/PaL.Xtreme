@@ -268,5 +268,37 @@ namespace PaLX.API.Controllers
 
             return success ? Ok() : BadRequest();
         }
+
+        /// <summary>
+        /// Récupère le profil public d'un utilisateur et enregistre la visite
+        /// </summary>
+        [Authorize]
+        [HttpGet("public-profile/{userId}")]
+        public async Task<IActionResult> GetPublicProfile(int userId, [FromQuery] string context = "room")
+        {
+            var viewerIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(viewerIdClaim) || !int.TryParse(viewerIdClaim, out var viewerId))
+                return Unauthorized();
+
+            var profile = await _userService.GetPublicProfileAsync(viewerId, userId, context);
+            if (profile == null) return NotFound(new { message = "Utilisateur introuvable" });
+
+            return Ok(profile);
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs qui ont consulté mon profil
+        /// </summary>
+        [Authorize]
+        [HttpGet("profile-viewers")]
+        public async Task<IActionResult> GetProfileViewers([FromQuery] int limit = 50)
+        {
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var viewers = await _userService.GetProfileViewersAsync(userId, limit);
+            return Ok(viewers);
+        }
     }
 }

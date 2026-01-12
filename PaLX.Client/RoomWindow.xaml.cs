@@ -1040,6 +1040,40 @@ namespace PaLX.Client
         }
 
         /// <summary>
+        /// Ouvre le profil public d'un membre de la chatroom
+        /// </summary>
+        private async void ViewProfile_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
+            {
+                try
+                {
+                    // Récupérer le profil public (enregistre automatiquement la visite côté serveur)
+                    var profile = await _apiService.GetPublicProfileByIdAsync(member.UserId, "room");
+                    
+                    if (profile != null)
+                    {
+                        // Ouvrir la fenêtre de profil public avec le username
+                        var profileWindow = new PublicProfileWindow(profile.Username)
+                        {
+                            Owner = this
+                        };
+                        profileWindow.Show();
+                    }
+                    else
+                    {
+                        ShowAlert("Impossible de charger le profil de cet utilisateur.", "Erreur");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomWindow] Error loading profile: {ex.Message}");
+                    ShowAlert("Une erreur s'est produite lors du chargement du profil.", "Erreur");
+                }
+            }
+        }
+
+        /// <summary>
         /// Ouvre la fenêtre de chuchotement pour envoyer un message privé à un membre
         /// </summary>
         private async void SendWhisper_Click(object sender, RoutedEventArgs e)

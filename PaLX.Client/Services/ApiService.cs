@@ -206,6 +206,38 @@ namespace PaLX.Client.Services
                 return null;
             }
         }
+
+        /// <summary>
+        /// Récupère le profil public d'un utilisateur par son ID (enregistre la visite côté serveur)
+        /// </summary>
+        public async Task<PublicProfileDto?> GetPublicProfileByIdAsync(int userId, string context = "room")
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<PublicProfileDto>($"api/user/public-profile/{userId}?context={context}");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs qui ont consulté mon profil
+        /// </summary>
+        public async Task<List<ProfileViewerDto>> GetProfileViewersAsync(int limit = 50)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<List<ProfileViewerDto>>($"api/user/profile-viewers?limit={limit}") 
+                       ?? new List<ProfileViewerDto>();
+            }
+            catch
+            {
+                return new List<ProfileViewerDto>();
+            }
+        }
+
         public async Task<string?> UploadImageAsync(string filePath)
         {
             try
@@ -1394,5 +1426,34 @@ namespace PaLX.Client.Services
         public string RoomName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public int RequesterId { get; set; }
+    }
+
+    /// <summary>
+    /// Profil public d'un utilisateur (utilisé pour "Voir le profil")
+    /// </summary>
+    public class PublicProfileDto
+    {
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Gender { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string? AvatarPath { get; set; }
+        public DateTime? DateOfBirth { get; set; }
+        public DateTime? MemberSince { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour les utilisateurs qui ont consulté mon profil
+    /// </summary>
+    public class ProfileViewerDto
+    {
+        public int ViewerId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? AvatarPath { get; set; }
+        public DateTime ViewedAt { get; set; }
+        public string Context { get; set; } = "room";
     }
 }

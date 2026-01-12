@@ -804,7 +804,7 @@
                                     <Grid.ContextMenu>
                                         <ContextMenu Style="{StaticResource ModernContextMenuStyle}">
                                             <!-- Voir le profil -->
-                                            <MenuItem Style="{StaticResource ModernMenuItemStyle}" Header="Voir le profil">
+                                            <MenuItem Style="{StaticResource ModernMenuItemStyle}" Header="Voir le profil" Click="ViewProfile_Click">
                                                 <MenuItem.Icon>
                                                     <Viewbox Width="18" Height="18">
                                                         <Canvas Width="24" Height="24">

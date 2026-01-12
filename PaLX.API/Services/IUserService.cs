@@ -7,6 +7,8 @@ namespace PaLX.API.Services
     {
         Task<bool> RegisterUserAsync(string username, string password);
         Task<UserProfileDto?> GetUserProfileAsync(string username);
+        Task<PublicProfileDto?> GetPublicProfileAsync(int viewerId, int viewedUserId, string context);
+        Task<List<ProfileViewerDto>> GetProfileViewersAsync(int userId, int limit = 50);
         Task<bool> UpdateUserProfileAsync(string username, UserProfileDto profile);
         Task<List<FriendDto>> GetFriendsAsync(string username);
         Task<bool> BlockUserAsync(string blocker, BlockRequestModel model);

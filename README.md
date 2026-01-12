@@ -18,7 +18,16 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🎨 v1.8.1 - Menu Contextuel Modernisé *(Dernière Version)*
+### 👤 v1.8.2 - Voir le Profil avec Tracking *(Dernière Version)*
+
+*   **Voir le profil** : Clic droit → consulter le profil public d'un membre.
+*   **Tracking des visites** : Chaque consultation enregistrée en base de données.
+*   **Infrastructure "Qui a vu mon profil"** : Prêt pour future fonctionnalité.
+*   **API complète** : Endpoints profil public + liste des visiteurs.
+
+---
+
+### 🎨 v1.8.1 - Menu Contextuel Modernisé
 
 *   **Design moderne** : Coins arrondis, ombre portée, effets hover fluides.
 *   **Icônes SVG vectorielles** : Profil, chuchotement, micro, caméra, kick, ban.
