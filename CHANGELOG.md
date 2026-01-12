@@ -7,6 +7,30 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.7.9] - 2026-01-12
+
+### 🎨 Header Chatroom Réorganisé
+
+#### Nouvelle Structure à 2 Lignes
+- **Ligne 1** : Nom du salon, catégorie, badges (18+, invisible), owner + durée, contrôles fenêtre
+- **Ligne 2** : Compteurs participants (total, hommes, femmes, autres) + icône modération
+- **Meilleure lisibilité** : Plus d'espace, éléments bien séparés
+- **Design compact** : Tailles de police et icônes optimisées
+
+### 🔐 Correction Déconnexion
+
+#### Retour à l'Écran de Connexion
+- **Avant** : Le bouton "Se déconnecter" fermait complètement l'application
+- **Après** : Retour propre à la fenêtre de connexion (LoginForm)
+- **Solution** : Définir `Application.Current.MainWindow` avant fermeture de MainView
+- **Prévention shutdown** : L'app ne se ferme plus grâce au changement de MainWindow
+
+### 🔧 Fichiers Modifiés
+- `PaLX.Client/RoomWindow.xaml` : Header 2 lignes, layout restructuré
+- `PaLX.Client/MainView.xaml.cs` : Logout_Click corrigé pour retour au login
+
+---
+
 ## [1.7.8] - 2026-01-12
 
 ### 🔧 Améliorations Bouton Gestion du Salon

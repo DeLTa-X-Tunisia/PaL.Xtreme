@@ -1122,7 +1122,7 @@ namespace PaLX.Client
             }
             catch { }
 
-            // Close all other windows
+            // Close all other windows (except this one for now)
             var windows = new List<Window>(Application.Current.Windows.Cast<Window>());
             foreach (var window in windows)
             {
@@ -1132,8 +1132,13 @@ namespace PaLX.Client
                 }
             }
 
+            // Create and show login window BEFORE closing this one
+            // Set it as the main window to prevent app shutdown
             var mainWindow = new MainWindow();
+            Application.Current.MainWindow = mainWindow;
             mainWindow.Show();
+            
+            // Now close this view
             this.Close();
         }
 

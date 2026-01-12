@@ -18,7 +18,21 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### � v1.7.8 - Amélioration Bouton Gestion du Salon *(Dernière Version)*
+### 🎨 v1.7.9 - Header Chatroom Réorganisé & Fix Déconnexion *(Dernière Version)*
+
+*   **Header 2 Lignes** :
+    *   **Ligne 1** : Nom, catégorie, badges, owner, durée, contrôles fenêtre.
+    *   **Ligne 2** : Compteurs (participants, H/F/autres) + icône modération.
+    *   **Design compact** : Meilleure lisibilité et organisation.
+
+*   **Fix Déconnexion** :
+    *   **Retour au Login** : Se déconnecter revient à l'écran de connexion.
+    *   **Avant** : L'application se fermait complètement.
+    *   **Solution** : Gestion correcte du MainWindow.
+
+---
+
+### 🔧 v1.7.8 - Amélioration Bouton Gestion du Salon
 
 *   **Fenêtre Correcte** : L'icône Shield ouvre maintenant "Modifier le Salon".
 *   **Non-Bloquante** : Fenêtre flottante, interaction libre avec le salon.
