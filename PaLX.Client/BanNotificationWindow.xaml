@@ -1,7 +1,7 @@
 <Window x:Class="PaLX.Client.BanNotificationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Bannissement" Height="440" Width="480"
+        Title="Bannissement" Height="500" Width="480"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen" Topmost="True">
     

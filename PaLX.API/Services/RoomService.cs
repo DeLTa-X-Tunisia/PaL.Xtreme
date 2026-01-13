@@ -1962,18 +1962,19 @@ namespace PaLX.API.Services
             // 2. Récupérer les bans actifs (hors kicks)
             var sql = @"
                 SELECT rb.""Id"", rb.""RoomId"", rb.""UserId"", u.""Username"", 
-                       COALESCE(p.""DisplayName"", u.""Username"") as ""DisplayName"",
-                       p.""AvatarUrl"",
+                       COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as ""DisplayName"",
+                       p.""AvatarPath"",
                        rb.""BannedBy"", bannedBy.""Username"" as ""BannedByUsername"",
                        rb.""Reason"", rb.""BanType"", rb.""DurationMinutes"", 
                        rb.""CreatedAt"", rb.""ExpiresAt"", rb.""IsActive""
                 FROM ""RoomBans"" rb
                 JOIN ""Users"" u ON rb.""UserId"" = u.""Id""
                 JOIN ""Users"" bannedBy ON rb.""BannedBy"" = bannedBy.""Id""
-                LEFT JOIN ""Profiles"" p ON u.""Id"" = p.""UserId""
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
                 WHERE rb.""RoomId"" = @roomId 
                   AND rb.""IsActive"" = TRUE 
                   AND rb.""BanType"" != 'Kick'
+                  AND (rb.""ExpiresAt"" IS NULL OR rb.""ExpiresAt"" > NOW())
                 ORDER BY rb.""CreatedAt"" DESC";
 
             using var cmd = new NpgsqlCommand(sql, conn);
@@ -1983,6 +1984,7 @@ namespace PaLX.API.Services
             while (await reader.ReadAsync())
             {
                 var expiresAt = reader.IsDBNull(12) ? (DateTime?)null : reader.GetDateTime(12);
+                var avatarPath = reader.IsDBNull(5) ? null : reader.GetString(5);
                 
                 bans.Add(new RoomBanDto
                 {
@@ -1991,7 +1993,7 @@ namespace PaLX.API.Services
                     UserId = reader.GetInt32(2),
                     Username = reader.GetString(3),
                     DisplayName = reader.GetString(4),
-                    AvatarUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    AvatarUrl = avatarPath,
                     BannedById = reader.GetInt32(6),
                     BannedByUsername = reader.GetString(7),
                     Reason = reader.IsDBNull(8) ? null : reader.GetString(8),

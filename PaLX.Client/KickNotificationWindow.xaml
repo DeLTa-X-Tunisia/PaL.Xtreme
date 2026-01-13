@@ -1,7 +1,7 @@
 <Window x:Class="PaLX.Client.KickNotificationWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Expulsion" Height="400" Width="480"
+        Title="Expulsion" Height="500" Width="480"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen" Topmost="True">
     
