@@ -291,4 +291,13 @@ namespace PaLX.API.DTOs
         public string TargetUsername { get; set; } = string.Empty;
         public DateTime? ExpiresAt { get; set; }
     }
+
+    /// <summary>
+    /// DTO pour mettre à jour un bannissement
+    /// </summary>
+    public class UpdateBanDto
+    {
+        public string BanType { get; set; } = "Temporary"; // "Temporary" or "Permanent"
+        public int? DurationMinutes { get; set; }
+    }
 }

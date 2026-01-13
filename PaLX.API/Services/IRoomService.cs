@@ -58,6 +58,12 @@ namespace PaLX.API.Services
         Task<bool> UnbanUserAsync(int actorId, int roomId, int targetUserId);
         
         /// <summary>
+        /// Met à jour la durée d'un bannissement existant
+        /// Permissions: Admin+
+        /// </summary>
+        Task<bool> UpdateBanAsync(int actorId, int roomId, int targetUserId, string banType, int? durationMinutes);
+        
+        /// <summary>
         /// Récupère la liste des utilisateurs bannis d'un salon
         /// Permissions: Moderator+ (voir), Admin+ (gérer)
         /// </summary>

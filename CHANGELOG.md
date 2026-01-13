@@ -7,6 +7,58 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.5] - 2026-01-13
+
+### 🛡️ Améliorations Système Kick & Ban
+
+#### Blocage Effectif des Utilisateurs Bannis
+- **Vérification à l'entrée** : Les utilisateurs bannis sont maintenant bloqués lors de la tentative de rejoindre un salon
+- **Double vérification** : Côté client (message d'alerte) ET côté serveur (protection définitive)
+- **Message explicite** : "Vous êtes banni du salon... Vous ne pouvez pas rejoindre tant que votre bannissement est actif"
+
+#### Affichage des Avatars
+- **Avatars dans BannedUsersWindow** : Les images de profil s'affichent maintenant correctement
+- **Construction URL complète** : Méthode `BuildAvatarUrl()` pour convertir les chemins relatifs en URLs
+
+#### Modification des Bannissements
+- **Nouvelle fenêtre EditBanWindow** : Permet de modifier la durée d'un ban existant
+- **Design moderne orange** : Header gradient, carte utilisateur, sélecteur de durée
+- **Choix temporaire/permanent** : RadioButtons avec style personnalisé
+- **10 durées prédéfinies** : De 15 minutes à 30 jours
+- **Warning visuel** : Alerte pour le passage en permanent
+- **Fenêtre non-modale** : Navigation libre entre les fenêtres
+
+#### Notifications Modernes
+- **KickNotificationWindow** : Design orange 500×480 avec icône et ScrollViewer pour raisons longues
+- **BanNotificationWindow** : Design rouge avec badge de durée (jaune temporaire, rouge permanent)
+- **Sans animations problématiques** : XAML simplifié pour éviter les crashs StaticResourceHolder
+
+#### Corrections de Bugs
+- **BannedUsersWindow crash** : Déplacement de `Window.Resources` en début de fichier
+- **CustomAlertWindow** : Correction de l'ordre des paramètres (message, title)
+- **SQL GetRoomBansAsync** : Correction table "UserProfiles" et colonne "AvatarPath"
+
+### 🔧 Fichiers Modifiés/Créés
+
+#### API (Backend)
+- `PaLX.API/Services/RoomService.cs` : 
+  - `JoinRoomAsync` : Ajout vérification ban en priorité
+  - `UpdateBanAsync` : Nouvelle méthode pour modifier les bans
+- `PaLX.API/Services/IRoomService.cs` : Interface UpdateBanAsync
+- `PaLX.API/Controllers/RoomController.cs` : Endpoint PUT /api/room/{roomId}/ban/{userId}
+- `PaLX.API/DTOs/RoomDtos.cs` : UpdateBanDto
+
+#### Client (Frontend)
+- `PaLX.Client/EditBanWindow.xaml/.cs` : Nouvelle fenêtre de modification de ban
+- `PaLX.Client/BannedUsersWindow.xaml` : Bouton "Modifier" + Resources déplacées
+- `PaLX.Client/BannedUsersWindow.xaml.cs` : Handler EditBan_Click + BuildAvatarUrl
+- `PaLX.Client/KickNotificationWindow.xaml` : Redesign sans animations
+- `PaLX.Client/BanNotificationWindow.xaml` : Redesign sans animations
+- `PaLX.Client/Services/ApiService.cs` : UpdateBanAsync + IsUserBannedAsync
+- `PaLX.Client/Controls/RoomListControl.xaml.cs` : Vérification ban avant JoinRoom
+
+---
+
 ## [1.8.4] - 2026-01-13
 
 ### 🔨 Système de Kick & Bannissement

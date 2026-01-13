@@ -18,7 +18,27 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### � v1.8.3 - Conditions d'Entrée par Défaut *(Dernière Version)*
+### 🛡️ v1.8.5 - Améliorations Kick & Ban *(Dernière Version)*
+
+*   **Blocage effectif** : Les utilisateurs bannis ne peuvent plus rejoindre le salon.
+*   **Modification des bans** : Nouvelle fenêtre pour changer la durée d'un bannissement.
+*   **Avatars visibles** : Les photos de profil s'affichent dans la liste des bannis.
+*   **Fenêtres non-modales** : Navigation libre entre les fenêtres de gestion.
+*   **Notifications modernes** : Design épuré sans crashs XAML.
+
+---
+
+### 🔨 v1.8.4 - Système Kick & Bannissement
+
+*   **Kick utilisateurs** : Expulsion immédiate avec raison optionnelle.
+*   **Ban temporaire/permanent** : 3 durées prédéfinies + permanent.
+*   **Gestion des bans** : Interface dédiée avec débannissement.
+*   **Permissions hiérarchiques** : Protection des rangs supérieurs.
+*   **Notifications temps réel** : SignalR events avec alertes personnalisées.
+
+---
+
+### 🚪 v1.8.3 - Conditions d'Entrée par Défaut
 
 *   **Nouvelle section UI** : "Conditions d'entrée" dans la gestion du salon.
 *   **4 Toggles modernes** : Chat, Micro, Caméra, Tout activer.

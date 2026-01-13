@@ -227,6 +227,26 @@ namespace PaLX.Client.Controls
             string? password = null;
             bool isInvisible = false;
             
+            // *** VÉRIFICATION DU BANNISSEMENT AVANT DE REJOINDRE ***
+            try
+            {
+                var isBanned = await _apiService.IsUserBannedAsync(room.Id, _apiService.CurrentUserId);
+                if (isBanned)
+                {
+                    var alert = new CustomAlertWindow(
+                        $"Vous êtes banni du salon \"{room.Name}\".\n\nVous ne pouvez pas rejoindre ce salon tant que votre bannissement est actif.",
+                        "Accès refusé"
+                    );
+                    alert.Owner = Window.GetWindow(this);
+                    alert.ShowDialog();
+                    return;
+                }
+            }
+            catch (Exception)
+            {
+                // En cas d'erreur de vérification, on continue (le serveur bloquera si nécessaire)
+            }
+            
             // Si l'utilisateur est admin système, afficher le modal de choix de mode
             if (ApiService.Instance.IsSystemAdmin)
             {

@@ -61,7 +61,7 @@ namespace PaLX.Client
                         UserId = ban.UserId,
                         Username = ban.Username,
                         DisplayName = ban.DisplayName,
-                        AvatarUrl = ban.AvatarUrl,
+                        AvatarUrl = BuildAvatarUrl(ban.AvatarUrl),
                         BannedByUsername = ban.BannedByUsername,
                         Reason = ban.Reason,
                         BanType = ban.BanType,
@@ -92,6 +92,45 @@ namespace PaLX.Client
                 var alert = new CustomAlertWindow("Erreur", $"Impossible de charger les bans: {ex.Message}");
                 alert.Owner = this;
                 alert.ShowDialog();
+            }
+        }
+
+        private void EditBan_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element && element.Tag is BannedUserViewModel ban)
+            {
+                var editWindow = new EditBanWindow(ban);
+                
+                // S'abonner à l'événement de confirmation
+                editWindow.OnBanUpdated += async (updatedBan, newBanType, newDurationMinutes) =>
+                {
+                    try
+                    {
+                        var success = await _apiService.UpdateBanAsync(_roomId, updatedBan.UserId, newBanType, newDurationMinutes);
+                        if (success)
+                        {
+                            // Refresh the list to show updated ban
+                            await LoadBansAsync();
+                            
+                            var typeText = newBanType == "Permanent" ? "permanent" : "temporaire";
+                            var alert = new CustomAlertWindow($"Le bannissement de {updatedBan.DisplayName} a été modifié en {typeText}.", "Bannissement modifié");
+                            alert.Show();
+                        }
+                        else
+                        {
+                            var alert = new CustomAlertWindow("Impossible de modifier le bannissement.", "Erreur");
+                            alert.Show();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        var alert = new CustomAlertWindow($"Erreur: {ex.Message}", "Erreur");
+                        alert.Show();
+                    }
+                };
+                
+                // Ouvrir en mode non-modal
+                editWindow.Show();
             }
         }
 
@@ -142,6 +181,27 @@ namespace PaLX.Client
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Construit l'URL complète de l'avatar à partir du chemin relatif
+        /// </summary>
+        private string BuildAvatarUrl(string? avatarPath)
+        {
+            // URL par défaut si pas d'avatar
+            if (string.IsNullOrEmpty(avatarPath))
+                return $"{ApiService.BaseUrl}/avatars/default_avatar.png";
+
+            // Si c'est déjà une URL complète, la retourner telle quelle
+            if (avatarPath.StartsWith("http://") || avatarPath.StartsWith("https://"))
+                return avatarPath;
+
+            // Si c'est un chemin local, le retourner tel quel
+            if ((avatarPath.Contains(":\\") || avatarPath.StartsWith("\\\\")) && System.IO.File.Exists(avatarPath))
+                return avatarPath;
+
+            // Construire l'URL complète avec le BaseUrl
+            return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
     }
 

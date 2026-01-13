@@ -5,57 +5,8 @@
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen" Topmost="True">
     
-    <Window.Resources>
-        <!-- Animation de pulsation pour l'icône -->
-        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
-            <DoubleAnimation Storyboard.TargetName="IconGlow" 
-                             Storyboard.TargetProperty="Opacity"
-                             From="0.3" To="0.8" Duration="0:0:1.2"
-                             AutoReverse="True">
-                <DoubleAnimation.EasingFunction>
-                    <SineEase EasingMode="EaseInOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
-        <!-- Animation d'entrée de la fenêtre -->
-        <Storyboard x:Key="WindowEnterAnimation">
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.3">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                             From="0.8" To="1" Duration="0:0:0.35">
-                <DoubleAnimation.EasingFunction>
-                    <BackEase EasingMode="EaseOut" Amplitude="0.3"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                             From="0.8" To="1" Duration="0:0:0.35">
-                <DoubleAnimation.EasingFunction>
-                    <BackEase EasingMode="EaseOut" Amplitude="0.3"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-    </Window.Resources>
-    
-    <Window.Triggers>
-        <EventTrigger RoutedEvent="Window.Loaded">
-            <BeginStoryboard Storyboard="{StaticResource WindowEnterAnimation}"/>
-            <BeginStoryboard Storyboard="{StaticResource PulseAnimation}"/>
-        </EventTrigger>
-    </Window.Triggers>
-    
     <!-- Main Container -->
-    <Border x:Name="MainBorder" CornerRadius="24" Margin="15" RenderTransformOrigin="0.5,0.5">
-        <Border.RenderTransform>
-            <ScaleTransform ScaleX="1" ScaleY="1"/>
-        </Border.RenderTransform>
+    <Border x:Name="MainBorder" CornerRadius="24" Margin="15">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                 <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -73,7 +24,7 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Header avec dégradé orange/rouge doux -->
+            <!-- Header avec dégradé orange -->
             <Border Grid.Row="0" CornerRadius="24,24,0,0" Padding="0,28,0,24">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
@@ -84,23 +35,11 @@
                 </Border.Background>
                 
                 <StackPanel HorizontalAlignment="Center">
-                    <!-- Icône animée avec glow -->
+                    <!-- Icône -->
                     <Grid Width="70" Height="70" Margin="0,0,0,16">
-                        <!-- Glow effect -->
-                        <Ellipse x:Name="IconGlow" Width="70" Height="70" Opacity="0.5">
-                            <Ellipse.Fill>
-                                <RadialGradientBrush>
-                                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Ellipse.Fill>
-                        </Ellipse>
-                        <!-- Cercle de fond -->
                         <Ellipse Width="56" Height="56" Fill="White" Opacity="0.2"/>
-                        <!-- Icône de sortie -->
                         <Viewbox Width="32" Height="32">
                             <Canvas Width="24" Height="24">
-                                <!-- Door with arrow (exit icon) -->
                                 <Path Fill="White" Data="M10,2 L10,4 L5,4 L5,20 L10,20 L10,22 L3,22 L3,2 L10,2 Z"/>
                                 <Path Fill="White" Data="M21,12 L15,6 L15,10 L9,10 L9,14 L15,14 L15,18 L21,12 Z"/>
                             </Canvas>
@@ -121,7 +60,7 @@
                         HorizontalAlignment="Center" MinWidth="280">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock Text="🚪" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock x:Name="RoomNameText" Text="Salon de Test" FontSize="15" FontWeight="Medium" 
+                        <TextBlock x:Name="RoomNameText" Text="Salon" FontSize="15" FontWeight="Medium" 
                                    Foreground="#E65100" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"/>
                     </StackPanel>
                 </Border>
@@ -131,7 +70,7 @@
                     <TextBlock Text="Raison" FontSize="12" Foreground="#9CA3AF" FontWeight="Medium"
                                HorizontalAlignment="Center" Margin="0,0,0,8"/>
                     <Border Background="#F3F4F6" CornerRadius="12" Padding="20,14" MinWidth="320" MaxWidth="400">
-                        <ScrollViewer MaxHeight="80" VerticalScrollBarVisibility="Auto" 
+                        <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto" 
                                       HorizontalScrollBarVisibility="Disabled">
                             <TextBlock x:Name="ReasonText" Text="Aucune raison spécifiée" 
                                        FontSize="14" Foreground="#4B5563" TextWrapping="Wrap"

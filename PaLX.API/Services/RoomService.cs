@@ -155,6 +155,29 @@ namespace PaLX.API.Services
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
+            // *** VÉRIFICATION DU BANNISSEMENT ***
+            // Cette vérification est PRIORITAIRE et s'applique à TOUS les utilisateurs, 
+            // quelle que soit leur position hiérarchique
+            var banCheckSql = @"
+                SELECT COUNT(*) FROM ""RoomBans"" 
+                WHERE ""RoomId"" = @roomId 
+                  AND ""UserId"" = @userId 
+                  AND ""IsActive"" = TRUE 
+                  AND ""BanType"" != 'Kick'
+                  AND (""ExpiresAt"" IS NULL OR ""ExpiresAt"" > NOW())";
+            
+            using (var banCmd = new NpgsqlCommand(banCheckSql, conn))
+            {
+                banCmd.Parameters.AddWithValue("roomId", roomId);
+                banCmd.Parameters.AddWithValue("userId", userId);
+                var banCount = (long)(await banCmd.ExecuteScalarAsync() ?? 0);
+                if (banCount > 0)
+                {
+                    _logger.LogWarning("[RoomService] User {UserId} is BANNED from room {RoomId} - access denied", userId, roomId);
+                    return false;
+                }
+            }
+
             // Vérifier si l'utilisateur est admin système (pour le mode invisible)
             bool userIsSystemAdmin = await IsSystemAdminAsync(conn, userId);
             
@@ -2022,6 +2045,78 @@ namespace PaLX.API.Services
             if (remaining.TotalMinutes < 60) return $"{(int)remaining.TotalMinutes}min";
             if (remaining.TotalHours < 24) return $"{(int)remaining.TotalHours}h {remaining.Minutes}min";
             return $"{(int)remaining.TotalDays}j {remaining.Hours}h";
+        }
+
+        /// <summary>
+        /// Met à jour la durée d'un bannissement existant
+        /// Permissions: Admin+
+        /// </summary>
+        public async Task<bool> UpdateBanAsync(int actorId, int roomId, int targetUserId, string banType, int? durationMinutes)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier les permissions (Admin+ peut modifier les bans)
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            if (actorRole > (int)RoomRoleLevel.Admin && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous n'avez pas la permission de modifier les bannissements");
+            }
+
+            // 2. Vérifier qu'un ban actif existe
+            var checkSql = @"
+                SELECT ""Id"" FROM ""RoomBans"" 
+                WHERE ""RoomId"" = @roomId 
+                  AND ""UserId"" = @userId 
+                  AND ""IsActive"" = TRUE 
+                  AND ""BanType"" != 'Kick'
+                  AND (""ExpiresAt"" IS NULL OR ""ExpiresAt"" > NOW())";
+
+            int? banId = null;
+            using (var checkCmd = new NpgsqlCommand(checkSql, conn))
+            {
+                checkCmd.Parameters.AddWithValue("roomId", roomId);
+                checkCmd.Parameters.AddWithValue("userId", targetUserId);
+                var result = await checkCmd.ExecuteScalarAsync();
+                if (result != null && result != DBNull.Value)
+                {
+                    banId = (int)result;
+                }
+            }
+
+            if (!banId.HasValue)
+            {
+                return false; // No active ban found
+            }
+
+            // 3. Calculer la nouvelle date d'expiration
+            DateTime? newExpiresAt = null;
+            if (banType == "Temporary" && durationMinutes.HasValue)
+            {
+                newExpiresAt = DateTime.UtcNow.AddMinutes(durationMinutes.Value);
+            }
+            // Si Permanent, ExpiresAt reste NULL
+
+            // 4. Mettre à jour le ban
+            var updateSql = @"
+                UPDATE ""RoomBans"" 
+                SET ""BanType"" = @banType, 
+                    ""DurationMinutes"" = @duration,
+                    ""ExpiresAt"" = @expiresAt
+                WHERE ""Id"" = @banId";
+
+            using var updateCmd = new NpgsqlCommand(updateSql, conn);
+            updateCmd.Parameters.AddWithValue("banType", banType);
+            updateCmd.Parameters.AddWithValue("duration", durationMinutes.HasValue ? (object)durationMinutes.Value : DBNull.Value);
+            updateCmd.Parameters.AddWithValue("expiresAt", newExpiresAt.HasValue ? (object)newExpiresAt.Value : DBNull.Value);
+            updateCmd.Parameters.AddWithValue("banId", banId.Value);
+
+            var rowsAffected = await updateCmd.ExecuteNonQueryAsync();
+            
+            _logger.LogInformation("[RoomService] Ban updated for user {TargetUserId} in room {RoomId}: Type={BanType}, ExpiresAt={ExpiresAt}", 
+                targetUserId, roomId, banType, newExpiresAt);
+
+            return rowsAffected > 0;
         }
 
         /// <summary>

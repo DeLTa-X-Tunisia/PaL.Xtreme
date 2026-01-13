@@ -5,6 +5,10 @@
         WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterOwner" MinHeight="400" MinWidth="450">
     
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+    
     <Border CornerRadius="16" Margin="10">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -168,38 +172,61 @@
                                         </StackPanel>
                                         
                                         <!-- Unban Button -->
-                                        <Button Grid.Column="2" Click="Unban_Click" Tag="{Binding}" Cursor="Hand"
-                                                VerticalAlignment="Center">
-                                            <Button.Template>
-                                                <ControlTemplate TargetType="Button">
-                                                    <Border x:Name="border" CornerRadius="10" Padding="14,10">
-                                                        <Border.Background>
-                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                                <GradientStop Color="#10B981" Offset="0"/>
-                                                                <GradientStop Color="#059669" Offset="1"/>
-                                                            </LinearGradientBrush>
-                                                        </Border.Background>
-                                                        <StackPanel Orientation="Horizontal">
-                                                            <TextBlock Text="✓" FontSize="12" Foreground="White" VerticalAlignment="Center"/>
-                                                            <TextBlock Text="Débannir" FontSize="12" FontWeight="SemiBold" Foreground="White" 
-                                                                       VerticalAlignment="Center" Margin="6,0,0,0"/>
-                                                        </StackPanel>
-                                                    </Border>
-                                                    <ControlTemplate.Triggers>
-                                                        <Trigger Property="IsMouseOver" Value="True">
-                                                            <Setter TargetName="border" Property="Background">
-                                                                <Setter.Value>
-                                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                                        <GradientStop Color="#059669" Offset="0"/>
-                                                                        <GradientStop Color="#047857" Offset="1"/>
-                                                                    </LinearGradientBrush>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Trigger>
-                                                    </ControlTemplate.Triggers>
-                                                </ControlTemplate>
-                                            </Button.Template>
-                                        </Button>
+                                        <!-- Action Buttons -->
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <!-- Edit Button -->
+                                            <Button Click="EditBan_Click" Tag="{Binding}" Cursor="Hand" Margin="0,0,8,0">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="border" CornerRadius="10" Padding="12,10" Background="#F59E0B">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="✏️" FontSize="11" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="Modifier" FontSize="11" FontWeight="SemiBold" Foreground="White" 
+                                                                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="Background" Value="#D97706"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                            
+                                            <!-- Unban Button -->
+                                            <Button Click="Unban_Click" Tag="{Binding}" Cursor="Hand">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="border" CornerRadius="10" Padding="12,10">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                    <GradientStop Color="#10B981" Offset="0"/>
+                                                                    <GradientStop Color="#059669" Offset="1"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <TextBlock Text="✓" FontSize="11" Foreground="White" VerticalAlignment="Center"/>
+                                                                <TextBlock Text="Débannir" FontSize="11" FontWeight="SemiBold" Foreground="White" 
+                                                                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter TargetName="border" Property="Background">
+                                                                    <Setter.Value>
+                                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                            <GradientStop Color="#059669" Offset="0"/>
+                                                                            <GradientStop Color="#047857" Offset="1"/>
+                                                                        </LinearGradientBrush>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -209,8 +236,4 @@
             </Grid>
         </Grid>
     </Border>
-
-    <Window.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-    </Window.Resources>
 </Window>

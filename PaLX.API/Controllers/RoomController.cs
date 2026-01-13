@@ -376,6 +376,32 @@ namespace PaLX.API.Controllers
         }
 
         /// <summary>
+        /// Met à jour la durée d'un bannissement
+        /// Permissions: Admin+
+        /// </summary>
+        [HttpPut("{roomId}/ban/{targetUserId}")]
+        public async Task<IActionResult> UpdateBan(int roomId, int targetUserId, [FromBody] UpdateBanDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var success = await _roomService.UpdateBanAsync(userId, roomId, targetUserId, dto.BanType, dto.DurationMinutes);
+                if (success)
+                    return Ok(new { message = "Ban updated successfully" });
+                else
+                    return NotFound(new { message = "No active ban found for this user" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Récupère la liste des utilisateurs bannis d'un salon
         /// Permissions: Moderator+
         /// </summary>

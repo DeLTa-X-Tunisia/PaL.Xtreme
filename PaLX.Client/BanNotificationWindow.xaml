@@ -5,57 +5,8 @@
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen" Topmost="True">
     
-    <Window.Resources>
-        <!-- Animation de pulsation pour l'icône -->
-        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
-            <DoubleAnimation Storyboard.TargetName="IconGlow" 
-                             Storyboard.TargetProperty="Opacity"
-                             From="0.3" To="0.8" Duration="0:0:1.5"
-                             AutoReverse="True">
-                <DoubleAnimation.EasingFunction>
-                    <SineEase EasingMode="EaseInOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-        
-        <!-- Animation d'entrée de la fenêtre -->
-        <Storyboard x:Key="WindowEnterAnimation">
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="Opacity"
-                             From="0" To="1" Duration="0:0:0.3">
-                <DoubleAnimation.EasingFunction>
-                    <CubicEase EasingMode="EaseOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                             From="0.8" To="1" Duration="0:0:0.35">
-                <DoubleAnimation.EasingFunction>
-                    <BackEase EasingMode="EaseOut" Amplitude="0.3"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation Storyboard.TargetName="MainBorder" 
-                             Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                             From="0.8" To="1" Duration="0:0:0.35">
-                <DoubleAnimation.EasingFunction>
-                    <BackEase EasingMode="EaseOut" Amplitude="0.3"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-        </Storyboard>
-    </Window.Resources>
-    
-    <Window.Triggers>
-        <EventTrigger RoutedEvent="Window.Loaded">
-            <BeginStoryboard Storyboard="{StaticResource WindowEnterAnimation}"/>
-            <BeginStoryboard Storyboard="{StaticResource PulseAnimation}"/>
-        </EventTrigger>
-    </Window.Triggers>
-    
     <!-- Main Container -->
-    <Border x:Name="MainBorder" CornerRadius="24" Margin="15" RenderTransformOrigin="0.5,0.5">
-        <Border.RenderTransform>
-            <ScaleTransform ScaleX="1" ScaleY="1"/>
-        </Border.RenderTransform>
+    <Border x:Name="MainBorder" CornerRadius="24" Margin="15">
         <Border.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                 <GradientStop Color="#FFFFFF" Offset="0"/>
@@ -84,23 +35,11 @@
                 </Border.Background>
                 
                 <StackPanel HorizontalAlignment="Center">
-                    <!-- Icône animée avec glow -->
+                    <!-- Icône ban -->
                     <Grid Width="70" Height="70" Margin="0,0,0,16">
-                        <!-- Glow effect -->
-                        <Ellipse x:Name="IconGlow" Width="70" Height="70" Opacity="0.5">
-                            <Ellipse.Fill>
-                                <RadialGradientBrush>
-                                    <GradientStop Color="#FFFFFF" Offset="0"/>
-                                    <GradientStop Color="Transparent" Offset="1"/>
-                                </RadialGradientBrush>
-                            </Ellipse.Fill>
-                        </Ellipse>
-                        <!-- Cercle de fond -->
                         <Ellipse Width="56" Height="56" Fill="White" Opacity="0.2"/>
-                        <!-- Icône ban -->
                         <Viewbox Width="32" Height="32">
                             <Canvas Width="24" Height="24">
-                                <!-- Ban/Block icon -->
                                 <Path Fill="White" Data="M12,2 C6.48,2 2,6.48 2,12 C2,17.52 6.48,22 12,22 C17.52,22 22,17.52 22,12 C22,6.48 17.52,2 12,2 Z M4,12 C4,7.58 7.58,4 12,4 C13.85,4 15.55,4.63 16.9,5.69 L5.69,16.9 C4.63,15.55 4,13.85 4,12 Z M12,20 C10.15,20 8.45,19.37 7.1,18.31 L18.31,7.1 C19.37,8.45 20,10.15 20,12 C20,16.42 16.42,20 12,20 Z"/>
                             </Canvas>
                         </Viewbox>
@@ -120,7 +59,7 @@
                         HorizontalAlignment="Center" MinWidth="280">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                         <TextBlock Text="🚫" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <TextBlock x:Name="RoomNameText" Text="Salon de Test" FontSize="15" FontWeight="Medium" 
+                        <TextBlock x:Name="RoomNameText" Text="Salon" FontSize="15" FontWeight="Medium" 
                                    Foreground="#DC2626" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320"/>
                     </StackPanel>
                 </Border>

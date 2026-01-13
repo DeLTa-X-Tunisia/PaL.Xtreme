@@ -1034,6 +1034,16 @@ namespace PaLX.Client.Services
         }
 
         /// <summary>
+        /// Met à jour la durée d'un bannissement
+        /// </summary>
+        public async Task<bool> UpdateBanAsync(int roomId, int userId, string banType, int? durationMinutes)
+        {
+            var dto = new { BanType = banType, DurationMinutes = durationMinutes };
+            var response = await _httpClient.PutAsJsonAsync($"api/room/{roomId}/ban/{userId}", dto);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
         /// Récupère la liste des utilisateurs bannis d'un salon
         /// </summary>
         public async Task<List<RoomBan>> GetRoomBansAsync(int roomId)
