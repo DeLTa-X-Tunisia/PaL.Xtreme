@@ -18,7 +18,16 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 👤 v1.8.2 - Voir le Profil avec Tracking *(Dernière Version)*
+### � v1.8.3 - Conditions d'Entrée par Défaut *(Dernière Version)*
+
+*   **Nouvelle section UI** : "Conditions d'entrée" dans la gestion du salon.
+*   **4 Toggles modernes** : Chat, Micro, Caméra, Tout activer.
+*   **Design iOS-style** : Switch animé vert/gris élégant.
+*   **Configuration admin** : Définir les permissions par défaut des nouveaux utilisateurs.
+
+---
+
+### 👤 v1.8.2 - Voir le Profil avec Tracking
 
 *   **Voir le profil** : Clic droit → consulter le profil public d'un membre.
 *   **Tracking des visites** : Chaque consultation enregistrée en base de données.

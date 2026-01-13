@@ -102,8 +102,8 @@ namespace PaLX.API.Services
             // 4. Insert Room with Basic level (0) - ignore dto.SubscriptionLevel
             var sql = @"
                 INSERT INTO ""Rooms"" 
-                (""Name"", ""Description"", ""CategoryId"", ""OwnerId"", ""MaxUsers"", ""MaxMics"", ""MaxCams"", ""IsPrivate"", ""Password"", ""Is18Plus"", ""SubscriptionLevel"")
-                VALUES (@name, @desc, @cat, @owner, @max, @maxMics, @maxCams, @priv, @pass, FALSE, 0)
+                (""Name"", ""Description"", ""CategoryId"", ""OwnerId"", ""MaxUsers"", ""MaxMics"", ""MaxCams"", ""IsPrivate"", ""Password"", ""Is18Plus"", ""SubscriptionLevel"", ""DefaultTextEnabled"", ""DefaultMicEnabled"", ""DefaultCamEnabled"")
+                VALUES (@name, @desc, @cat, @owner, @max, @maxMics, @maxCams, @priv, @pass, FALSE, 0, @defaultText, @defaultMic, @defaultCam)
                 RETURNING ""Id"", ""CreatedAt""";
 
             using var cmd = new NpgsqlCommand(sql, conn);
@@ -116,6 +116,9 @@ namespace PaLX.API.Services
             cmd.Parameters.AddWithValue("maxCams", dto.MaxCams);
             cmd.Parameters.AddWithValue("priv", dto.IsPrivate);
             cmd.Parameters.AddWithValue("pass", (object?)dto.Password ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("defaultText", dto.DefaultTextEnabled);
+            cmd.Parameters.AddWithValue("defaultMic", dto.DefaultMicEnabled);
+            cmd.Parameters.AddWithValue("defaultCam", dto.DefaultCamEnabled);
 
             using var reader = await cmd.ExecuteReaderAsync();
             if (await reader.ReadAsync())
@@ -543,7 +546,11 @@ namespace PaLX.API.Services
                     IsSystemHidden = isSystemHidden,
                     UserCount = (int)reader.GetInt64(reader.GetOrdinal("UserCount")),
                     CreatedAt = reader.GetDateTime(reader.GetOrdinal("CreatedAt")),
-                    UserRole = userRole
+                    UserRole = userRole,
+                    // Conditions d'entrée par défaut
+                    DefaultTextEnabled = reader.IsDBNull(reader.GetOrdinal("DefaultTextEnabled")) ? true : reader.GetBoolean(reader.GetOrdinal("DefaultTextEnabled")),
+                    DefaultMicEnabled = reader.IsDBNull(reader.GetOrdinal("DefaultMicEnabled")) ? false : reader.GetBoolean(reader.GetOrdinal("DefaultMicEnabled")),
+                    DefaultCamEnabled = reader.IsDBNull(reader.GetOrdinal("DefaultCamEnabled")) ? false : reader.GetBoolean(reader.GetOrdinal("DefaultCamEnabled"))
                 });
             }
             
@@ -1071,7 +1078,8 @@ namespace PaLX.API.Services
                 UPDATE ""Rooms"" 
                 SET ""Name"" = @name, ""Description"" = @desc, ""CategoryId"" = @cat, 
                     ""MaxUsers"" = @max, ""IsPrivate"" = @priv, ""Password"" = @pass, 
-                    ""Is18Plus"" = @adult, ""SubscriptionLevel"" = @sub
+                    ""Is18Plus"" = @adult, ""SubscriptionLevel"" = @sub,
+                    ""DefaultTextEnabled"" = @defaultText, ""DefaultMicEnabled"" = @defaultMic, ""DefaultCamEnabled"" = @defaultCam
                 WHERE ""Id"" = @rid
                 RETURNING ""Id"", ""CreatedAt"", ""OwnerId""";
 
@@ -1084,6 +1092,9 @@ namespace PaLX.API.Services
             updateCmd.Parameters.AddWithValue("pass", (object?)dto.Password ?? DBNull.Value);
             updateCmd.Parameters.AddWithValue("adult", dto.Is18Plus);
             updateCmd.Parameters.AddWithValue("sub", dto.SubscriptionLevel);
+            updateCmd.Parameters.AddWithValue("defaultText", dto.DefaultTextEnabled);
+            updateCmd.Parameters.AddWithValue("defaultMic", dto.DefaultMicEnabled);
+            updateCmd.Parameters.AddWithValue("defaultCam", dto.DefaultCamEnabled);
             updateCmd.Parameters.AddWithValue("rid", roomId);
 
             using var reader = await updateCmd.ExecuteReaderAsync();

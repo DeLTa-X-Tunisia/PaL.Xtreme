@@ -129,6 +129,15 @@ namespace PaLX.Client
                     // Configurer les sliders
                     UsersSlider.Value = _editingRoom.MaxUsers;
                     
+                    // Charger les conditions d'entrée
+                    DefaultTextToggle.IsChecked = _editingRoom.DefaultTextEnabled;
+                    DefaultMicToggle.IsChecked = _editingRoom.DefaultMicEnabled;
+                    DefaultCamToggle.IsChecked = _editingRoom.DefaultCamEnabled;
+                    // Mettre à jour le toggle "Tout activer" si nécessaire
+                    DefaultAllToggle.IsChecked = _editingRoom.DefaultTextEnabled && 
+                                                  _editingRoom.DefaultMicEnabled && 
+                                                  _editingRoom.DefaultCamEnabled;
+                    
                     // Sélectionner la catégorie correspondante
                     if (CategoryCombo.ItemsSource is List<RoomCategoryDto> categories)
                     {
@@ -412,7 +421,11 @@ namespace PaLX.Client
                 MaxCams = (int)CamSlider.Value,
                 IsPrivate = PrivateCheck.IsChecked == true,
                 Password = PrivateCheck.IsChecked == true ? PasswordBox.Password : null,
-                Is18Plus = AdultCheck.IsChecked == true
+                Is18Plus = AdultCheck.IsChecked == true,
+                // Conditions d'entrée
+                DefaultTextEnabled = DefaultTextToggle.IsChecked == true,
+                DefaultMicEnabled = DefaultMicToggle.IsChecked == true,
+                DefaultCamEnabled = DefaultCamToggle.IsChecked == true
             };
 
             try
@@ -433,6 +446,82 @@ namespace PaLX.Client
             catch (Exception ex)
             {
                 ToastService.Error($"Erreur: {ex.Message}");
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // CONDITIONS D'ENTRÉE - TOGGLE HANDLERS
+        // ═══════════════════════════════════════════════════════════════
+
+        private bool _isUpdatingToggles = false;
+
+        /// <summary>
+        /// Appelé quand un toggle individuel (Text, Mic, Cam) change
+        /// Met à jour le toggle "Tout activer" si nécessaire
+        /// </summary>
+        private void EntryToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            // Vérifier que les contrôles sont initialisés (évite NullReferenceException au chargement)
+            if (_isUpdatingToggles || DefaultTextToggle == null || DefaultMicToggle == null || 
+                DefaultCamToggle == null || DefaultAllToggle == null) return;
+            
+            _isUpdatingToggles = true;
+            try
+            {
+                // Vérifier si tous les toggles sont activés
+                bool allEnabled = DefaultTextToggle.IsChecked == true && 
+                                  DefaultMicToggle.IsChecked == true && 
+                                  DefaultCamToggle.IsChecked == true;
+                
+                DefaultAllToggle.IsChecked = allEnabled;
+            }
+            finally
+            {
+                _isUpdatingToggles = false;
+            }
+        }
+
+        /// <summary>
+        /// Quand "Tout activer" est coché → active tous les toggles
+        /// </summary>
+        private void DefaultAllToggle_Checked(object sender, RoutedEventArgs e)
+        {
+            // Vérifier que les contrôles sont initialisés
+            if (_isUpdatingToggles || DefaultTextToggle == null || DefaultMicToggle == null || 
+                DefaultCamToggle == null) return;
+            
+            _isUpdatingToggles = true;
+            try
+            {
+                DefaultTextToggle.IsChecked = true;
+                DefaultMicToggle.IsChecked = true;
+                DefaultCamToggle.IsChecked = true;
+            }
+            finally
+            {
+                _isUpdatingToggles = false;
+            }
+        }
+
+        /// <summary>
+        /// Quand "Tout activer" est décoché → désactive tous les toggles
+        /// </summary>
+        private void DefaultAllToggle_Unchecked(object sender, RoutedEventArgs e)
+        {
+            // Vérifier que les contrôles sont initialisés
+            if (_isUpdatingToggles || DefaultTextToggle == null || DefaultMicToggle == null || 
+                DefaultCamToggle == null) return;
+            
+            _isUpdatingToggles = true;
+            try
+            {
+                DefaultTextToggle.IsChecked = false;
+                DefaultMicToggle.IsChecked = false;
+                DefaultCamToggle.IsChecked = false;
+            }
+            finally
+            {
+                _isUpdatingToggles = false;
             }
         }
     }

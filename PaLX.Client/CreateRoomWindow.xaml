@@ -278,6 +278,82 @@
                                        Foreground="{DynamicResource LightTextBrush}" Margin="70,0,0,0"/>
                         </StackPanel>
                     </Border>
+                    
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <!-- CONDITIONS D'ENTRÉE PAR DÉFAUT -->
+                    <!-- ═══════════════════════════════════════════════════════════════ -->
+                    <Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="10" Padding="12" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="🚪 Conditions d'entrée" FontSize="13" FontWeight="SemiBold" 
+                                       Foreground="{DynamicResource TextBrush}" Margin="0,0,0,8"/>
+                            <TextBlock Text="Permissions par défaut des nouveaux utilisateurs" 
+                                       FontSize="10" Foreground="{DynamicResource LightTextBrush}" Margin="0,0,0,10"/>
+                            
+                            <!-- Toggle Text -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="💬" FontSize="14" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Chat" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="DefaultTextToggle" Grid.Column="1" IsChecked="True"
+                                              Style="{StaticResource ModernToggleStyle}" Cursor="Hand"
+                                              Checked="EntryToggle_Changed" Unchecked="EntryToggle_Changed"/>
+                            </Grid>
+                            
+                            <!-- Toggle Mic -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="🎤" FontSize="14" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Micro" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="DefaultMicToggle" Grid.Column="1" IsChecked="False"
+                                              Style="{StaticResource ModernToggleStyle}" Cursor="Hand"
+                                              Checked="EntryToggle_Changed" Unchecked="EntryToggle_Changed"/>
+                            </Grid>
+                            
+                            <!-- Toggle Cam -->
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="📹" FontSize="14" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Caméra" FontSize="12" Foreground="{DynamicResource TextBrush}"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="DefaultCamToggle" Grid.Column="1" IsChecked="False"
+                                              Style="{StaticResource ModernToggleStyle}" Cursor="Hand"
+                                              Checked="EntryToggle_Changed" Unchecked="EntryToggle_Changed"/>
+                            </Grid>
+                            
+                            <!-- Séparateur -->
+                            <Border Height="1" Background="{DynamicResource DividerBrush}" Margin="0,4,0,8"/>
+                            
+                            <!-- Toggle All -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="⚡" FontSize="14" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Tout activer" FontSize="12" FontWeight="SemiBold" 
+                                               Foreground="{StaticResource AccentBrush}"/>
+                                </StackPanel>
+                                <ToggleButton x:Name="DefaultAllToggle" Grid.Column="1" IsChecked="False"
+                                              Style="{StaticResource ModernToggleStyle}" Cursor="Hand"
+                                              Checked="DefaultAllToggle_Checked" Unchecked="DefaultAllToggle_Unchecked"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Grid>
             

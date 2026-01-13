@@ -24,6 +24,25 @@ namespace PaLX.API.Models
         /// Seuls les admins système (RoleLevel 1-5) peuvent le voir.
         /// </summary>
         public bool IsSystemHidden { get; set; } = false;
+        
+        // ═══════════════════════════════════════════════════════════════
+        // CONDITIONS D'ENTRÉE PAR DÉFAUT
+        // ═══════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs peuvent écrire dans le chat par défaut
+        /// </summary>
+        public bool DefaultTextEnabled { get; set; } = true;
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs ont le micro activé par défaut
+        /// </summary>
+        public bool DefaultMicEnabled { get; set; } = false;
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs ont la caméra activée par défaut
+        /// </summary>
+        public bool DefaultCamEnabled { get; set; } = false;
     }
 
     public class RoomCategory

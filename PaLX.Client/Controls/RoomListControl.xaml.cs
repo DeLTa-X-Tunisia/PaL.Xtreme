@@ -176,7 +176,11 @@ namespace PaLX.Client.Controls
                         IsSystemHidden = r.IsSystemHidden,
                         SubscriptionLevel = r.SubscriptionLevel,
                         CreatedAt = r.CreatedAt,
-                        UserRole = r.UserRole
+                        UserRole = r.UserRole,
+                        // Conditions d'entrée
+                        DefaultTextEnabled = r.DefaultTextEnabled,
+                        DefaultMicEnabled = r.DefaultMicEnabled,
+                        DefaultCamEnabled = r.DefaultCamEnabled
                     });
                 }
             }
@@ -404,6 +408,25 @@ namespace PaLX.Client.Controls
         /// Rôle de l'utilisateur connecté dans ce salon (SuperAdmin, Admin, Moderator ou null)
         /// </summary>
         public string? UserRole { get; set; }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // CONDITIONS D'ENTRÉE PAR DÉFAUT
+        // ═══════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs peuvent écrire dans le chat par défaut
+        /// </summary>
+        public bool DefaultTextEnabled { get; set; } = true;
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs ont le micro activé par défaut
+        /// </summary>
+        public bool DefaultMicEnabled { get; set; } = false;
+        
+        /// <summary>
+        /// Si TRUE, les nouveaux utilisateurs ont la caméra activée par défaut
+        /// </summary>
+        public bool DefaultCamEnabled { get; set; } = false;
 
         public bool IsVIP => SubscriptionLevel >= 2; // Example
         public bool IsOwner => OwnerId == ApiService.Instance.CurrentUserId;

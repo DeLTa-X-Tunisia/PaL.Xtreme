@@ -1234,6 +1234,11 @@ namespace PaLX.Client.Services
         /// Rôle de l'utilisateur connecté dans ce salon (SuperAdmin, Admin, Moderator ou null)
         /// </summary>
         public string? UserRole { get; set; }
+        
+        // Conditions d'entrée par défaut
+        public bool DefaultTextEnabled { get; set; } = true;
+        public bool DefaultMicEnabled { get; set; } = false;
+        public bool DefaultCamEnabled { get; set; } = false;
     }
 
     public class RoomCategoryDto
@@ -1291,6 +1296,11 @@ namespace PaLX.Client.Services
         public string? Password { get; set; }
         public bool Is18Plus { get; set; }
         public int SubscriptionLevel { get; set; }
+        
+        // Conditions d'entrée par défaut
+        public bool DefaultTextEnabled { get; set; } = true;
+        public bool DefaultMicEnabled { get; set; } = false;
+        public bool DefaultCamEnabled { get; set; } = false;
     }
 
     public class JoinRoomDto

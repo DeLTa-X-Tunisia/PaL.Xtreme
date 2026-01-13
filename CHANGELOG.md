@@ -7,6 +7,37 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.3] - 2026-01-13
+
+### 🚪 Conditions d'Entrée par Défaut
+
+#### Nouvelle Section UI
+- **Section "Conditions d'entrée"** : Ajoutée sous Capacités dans la gestion du salon
+- **4 Toggles modernes** : Chat, Micro, Caméra, Tout activer
+- **Design iOS-style** : Switch animé vert/gris avec effet smooth
+- **Synchronisation intelligente** : "Tout activer" se met à jour automatiquement
+
+#### Base de Données
+- **Nouvelles colonnes** : `DefaultTextEnabled`, `DefaultMicEnabled`, `DefaultCamEnabled`
+- **Valeurs par défaut** : Chat activé, Micro/Caméra désactivés
+
+#### Utilité
+- L'admin peut configurer les permissions par défaut des nouveaux utilisateurs
+- Prépare le terrain pour l'application automatique à l'entrée dans la room
+
+### 🔧 Fichiers Modifiés/Créés
+- `PaLX.API/Scripts/add_room_entry_settings.sql` : Script SQL nouvelles colonnes
+- `PaLX.API/Models/ChatRoomModels.cs` : Propriétés Room
+- `PaLX.API/DTOs/RoomDtos.cs` : DTOs API
+- `PaLX.API/Services/RoomService.cs` : Insert/Update/Select
+- `PaLX.Client/App.xaml` : Style ModernToggleStyle
+- `PaLX.Client/CreateRoomWindow.xaml` : UI toggles
+- `PaLX.Client/CreateRoomWindow.xaml.cs` : Handlers
+- `PaLX.Client/Services/ApiService.cs` : DTOs Client
+- `PaLX.Client/Controls/RoomListControl.xaml.cs` : RoomViewModel
+
+---
+
 ## [1.8.2] - 2026-01-12
 
 ### 👤 Voir le Profil avec Tracking
