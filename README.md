@@ -18,7 +18,17 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### � v1.8.6 - Messages de Modération & Icônes Modernes *(Dernière Version)*
+### 👁️ v1.8.7 - Qui a vu mon Profil *(Dernière Version)*
+
+*   **Nouvelle fenêtre** : Interface complète pour voir qui a consulté votre profil.
+*   **Informations détaillées** : Avatar, nom, contexte (salon/amis/recherche), date et heure.
+*   **Bouton supprimer** : Icône corbeille pour nettoyer la liste facilement.
+*   **Accès rapide** : Bouton dans "Mon Profil" avec icône œil.
+*   **Design violet** : Cohérent avec le thème de l'application.
+
+---
+
+### 📢 v1.8.6 - Messages de Modération & Icônes Modernes
 
 *   **Messages kick/ban dans le chat** : Notification visible pour tous les membres du salon.
 *   **Icônes SVG modernes** : Remplacement des emojis par des icônes vectorielles colorées.

@@ -300,5 +300,22 @@ namespace PaLX.API.Controllers
             var viewers = await _userService.GetProfileViewersAsync(userId, limit);
             return Ok(viewers);
         }
+
+        /// <summary>
+        /// Supprime une visite de profil (un visiteur de la liste)
+        /// </summary>
+        [Authorize]
+        [HttpDelete("profile-viewers/{viewerId}")]
+        public async Task<IActionResult> DeleteProfileViewer(int viewerId)
+        {
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                return Unauthorized();
+
+            var success = await _userService.DeleteProfileViewAsync(userId, viewerId);
+            if (success)
+                return Ok(new { message = "Visite supprimée" });
+            return NotFound(new { message = "Visite non trouvée" });
+        }
     }
 }

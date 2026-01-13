@@ -194,6 +194,24 @@ namespace PaLX.Client
             }
         }
 
+        private void ViewProfileViewers_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var apiService = PaLX.Client.Services.ApiService.Instance;
+                if (apiService != null)
+                {
+                    var viewersWindow = new ProfileViewersWindow(apiService);
+                    viewersWindow.Owner = this;
+                    viewersWindow.Show();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[UserProfiles] Error opening ProfileViewersWindow: {ex.Message}");
+            }
+        }
+
         private void Done_Click(object sender, RoutedEventArgs e)
         {
             if (ValidateForm())

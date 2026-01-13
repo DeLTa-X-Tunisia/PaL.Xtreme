@@ -7,6 +7,45 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.7] - 2026-01-13
+
+### 👁️ Qui a vu mon Profil - Interface Complète
+
+#### Nouvelle Fenêtre ProfileViewersWindow
+- **Design violet moderne** : Header dégradé #6366F1 → #8B5CF6 avec icône œil SVG
+- **Liste des visiteurs** : Avatar, nom, contexte de visite, date et heure
+- **Contextes affichés** : Depuis un salon, liste d'amis, recherche
+- **Dates intelligentes** : Aujourd'hui, Hier, jour de la semaine, ou date complète
+- **Compteur de visites** : Affiché dans le footer
+- **États de chargement et vide** : UX complète
+
+#### Bouton de Suppression
+- **Icône corbeille** : 🗑️ Bouton discret à droite de chaque visiteur
+- **Effet hover** : Icône rouge sur fond rouge clair au survol
+- **Suppression instantanée** : Animation de disparition + mise à jour compteur
+- **État vide automatique** : Affiché si liste vidée
+
+#### Accès depuis Mon Profil
+- **Nouveau bouton** : "Qui a vu mon profil" avec icône œil
+- **Position** : Panneau gauche sous la photo de profil
+- **Style** : Fond semi-transparent, hover effect
+
+### 🔧 Fichiers Créés/Modifiés
+
+#### API (Backend)
+- `PaLX.API/Services/IUserService.cs` : Interface DeleteProfileViewAsync
+- `PaLX.API/Services/UserService.cs` : Implémentation suppression visite
+- `PaLX.API/Controllers/UserController.cs` : Endpoint DELETE /api/user/profile-viewers/{viewerId}
+
+#### Client (Frontend)
+- `PaLX.Client/ProfileViewersWindow.xaml` : Nouvelle fenêtre (créée)
+- `PaLX.Client/ProfileViewersWindow.xaml.cs` : Logique complète (créée)
+- `PaLX.Client/UserProfiles.xaml` : Bouton "Qui a vu mon profil" ajouté
+- `PaLX.Client/UserProfiles.xaml.cs` : Handler ViewProfileViewers_Click
+- `PaLX.Client/Services/ApiService.cs` : Méthode DeleteProfileViewerAsync
+
+---
+
 ## [1.8.6] - 2026-01-13
 
 ### 📢 Messages de Modération dans le Chat

@@ -749,5 +749,22 @@ namespace PaLX.API.Services
             }
             return viewers;
         }
+
+        /// <summary>
+        /// Supprime une visite de profil spécifique
+        /// </summary>
+        public async Task<bool> DeleteProfileViewAsync(int userId, int viewerId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"DELETE FROM ""ProfileViews"" WHERE ""ViewedUserId"" = @userId AND ""ViewerId"" = @viewerId";
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("userId", userId);
+            cmd.Parameters.AddWithValue("viewerId", viewerId);
+
+            var rowsAffected = await cmd.ExecuteNonQueryAsync();
+            return rowsAffected > 0;
+        }
     }
 }

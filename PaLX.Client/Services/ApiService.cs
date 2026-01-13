@@ -254,6 +254,22 @@ namespace PaLX.Client.Services
             }
         }
 
+        /// <summary>
+        /// Supprime une visite de profil (un visiteur de la liste)
+        /// </summary>
+        public async Task<bool> DeleteProfileViewerAsync(int viewerId)
+        {
+            try
+            {
+                var response = await _httpClient.DeleteAsync($"api/user/profile-viewers/{viewerId}");
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public async Task<string?> UploadImageAsync(string filePath)
         {
             try
