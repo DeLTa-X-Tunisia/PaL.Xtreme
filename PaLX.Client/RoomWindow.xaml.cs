@@ -869,12 +869,9 @@ namespace PaLX.Client
                 // D'abord fermer la fenêtre du salon (l'utilisateur quitte immédiatement)
                 await CleanupAndClose();
                 
-                // Puis afficher l'alerte une fois sorti
-                var kickAlert = new CustomAlertWindow(
-                    "Vous avez été expulsé",
-                    $"Vous avez été kické du salon « {roomName} ».\n\nRaison : {reason}"
-                );
-                kickAlert.ShowDialog();
+                // Puis afficher la notification élégante
+                var kickNotification = new KickNotificationWindow(roomName, reason);
+                kickNotification.ShowDialog();
             });
         }
 
@@ -891,33 +888,9 @@ namespace PaLX.Client
                 // D'abord fermer la fenêtre du salon (l'utilisateur quitte immédiatement)
                 await CleanupAndClose();
                 
-                // Construire le message de durée
-                string durationMessage;
-                if (banType == "Permanent")
-                {
-                    durationMessage = "Ce bannissement est permanent.";
-                }
-                else if (expiresAt.HasValue)
-                {
-                    var duration = expiresAt.Value - DateTime.UtcNow;
-                    if (duration.TotalDays >= 1)
-                        durationMessage = $"Durée : {(int)duration.TotalDays} jour(s)";
-                    else if (duration.TotalHours >= 1)
-                        durationMessage = $"Durée : {(int)duration.TotalHours} heure(s)";
-                    else
-                        durationMessage = $"Durée : {(int)duration.TotalMinutes} minute(s)";
-                }
-                else
-                {
-                    durationMessage = "";
-                }
-
-                // Puis afficher l'alerte une fois sorti
-                var banAlert = new CustomAlertWindow(
-                    "Vous avez été banni",
-                    $"Vous avez été banni du salon « {roomName} ».\n\nRaison : {reason}\n{durationMessage}"
-                );
-                banAlert.ShowDialog();
+                // Puis afficher la notification élégante
+                var banNotification = new BanNotificationWindow(roomName, reason, banType, expiresAt);
+                banNotification.ShowDialog();
             });
         }
 
