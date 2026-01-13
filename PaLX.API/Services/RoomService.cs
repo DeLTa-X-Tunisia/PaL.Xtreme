@@ -1592,5 +1592,449 @@ namespace PaLX.API.Services
             var result = await cmd.ExecuteScalarAsync();
             return result as string;
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN MANAGEMENT - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Récupère le niveau de rôle d'un utilisateur dans un salon
+        /// Retourne: 1=Owner, 2=SuperAdmin, 3=Admin, 5=Moderator, 6=Member, 99=SystemAdmin
+        /// </summary>
+        private async Task<int> GetUserRoleLevelAsync(NpgsqlConnection conn, int userId, int roomId)
+        {
+            // 1. Vérifier si admin système (a priorité absolue)
+            if (await IsSystemAdminAsync(conn, userId))
+                return 99; // SystemAdmin - peut tout faire
+
+            // 2. Vérifier si Owner du salon
+            var ownerSql = @"SELECT ""OwnerId"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
+            using (var cmd = new NpgsqlCommand(ownerSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                var ownerId = await cmd.ExecuteScalarAsync();
+                if (ownerId != null && (int)ownerId == userId)
+                    return (int)RoomRoleLevel.Owner; // 1
+            }
+
+            // 3. Vérifier rôle dans RoomAdmins
+            var roleSql = @"SELECT ""Role"" FROM ""RoomAdmins"" WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using (var cmd = new NpgsqlCommand(roleSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", userId);
+                var role = await cmd.ExecuteScalarAsync() as string;
+                
+                if (!string.IsNullOrEmpty(role))
+                {
+                    return role switch
+                    {
+                        "SuperAdmin" => (int)RoomRoleLevel.SuperAdmin, // 2
+                        "Admin" => (int)RoomRoleLevel.Admin,           // 3
+                        "Moderator" => (int)RoomRoleLevel.Moderator,   // 5
+                        _ => (int)RoomRoleLevel.Member                 // 6
+                    };
+                }
+            }
+
+            return (int)RoomRoleLevel.Member; // 6 - Default
+        }
+
+        /// <summary>
+        /// Kick un utilisateur d'un salon (éjection temporaire sans ban)
+        /// </summary>
+        public async Task<KickBanResultDto> KickUserAsync(int actorId, int roomId, int targetUserId, string? reason)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier les permissions de l'acteur (Moderator+ peut kick)
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            if (actorRole > (int)RoomRoleLevel.Moderator && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous n'avez pas la permission de kicker des utilisateurs");
+            }
+
+            // 2. Vérifier que la cible n'a pas un rôle égal ou supérieur
+            var targetRole = await GetUserRoleLevelAsync(conn, targetUserId, roomId);
+            if (targetRole <= actorRole && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous ne pouvez pas kicker un utilisateur de rang égal ou supérieur");
+            }
+
+            // 3. Récupérer les infos
+            var targetUsername = "";
+            var roomName = "";
+            
+            var infoSql = @"
+                SELECT u.""Username"", r.""Name"" 
+                FROM ""Users"" u, ""Rooms"" r 
+                WHERE u.""Id"" = @userId AND r.""Id"" = @roomId";
+            using (var cmd = new NpgsqlCommand(infoSql, conn))
+            {
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    targetUsername = reader.GetString(0);
+                    roomName = reader.GetString(1);
+                }
+                await reader.CloseAsync();
+            }
+
+            // 4. Enregistrer le kick dans RoomBans (pour l'historique)
+            var insertSql = @"
+                INSERT INTO ""RoomBans"" (""RoomId"", ""UserId"", ""BannedBy"", ""Reason"", ""BanType"", ""DurationMinutes"", ""ExpiresAt"", ""IsActive"")
+                VALUES (@roomId, @userId, @bannedBy, @reason, 'Kick', NULL, NULL, FALSE)";
+            using (var cmd = new NpgsqlCommand(insertSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                cmd.Parameters.AddWithValue("bannedBy", actorId);
+                cmd.Parameters.AddWithValue("reason", (object?)reason ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // 5. Retirer l'utilisateur du salon (IsConnected = FALSE)
+            var leaveSql = @"UPDATE ""RoomMembers"" SET ""IsConnected"" = FALSE WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using (var cmd = new NpgsqlCommand(leaveSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            _logger.LogInformation("[RoomService] User {ActorId} kicked user {TargetUserId} from room {RoomId}. Reason: {Reason}", 
+                actorId, targetUserId, roomId, reason ?? "None");
+
+            // 6. Notifications SignalR
+            try
+            {
+                // Notifier l'utilisateur kické
+                await _chatHubContext.Clients.User(targetUsername)
+                    .SendAsync("UserKicked", roomId, roomName, reason ?? "Aucune raison spécifiée");
+
+                // Notifier le salon qu'un membre est parti
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("MemberLeft", targetUserId);
+
+                _logger.LogDebug("[RoomService] SignalR UserKicked sent to {Username}", targetUsername);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[RoomService] Failed to send kick notification");
+            }
+
+            return new KickBanResultDto
+            {
+                Success = true,
+                Message = $"{targetUsername} a été kické du salon",
+                ActionType = "Kick",
+                TargetUserId = targetUserId,
+                TargetUsername = targetUsername
+            };
+        }
+
+        /// <summary>
+        /// Ban un utilisateur d'un salon (temporaire ou permanent)
+        /// </summary>
+        public async Task<KickBanResultDto> BanUserAsync(int actorId, int roomId, int targetUserId, BanUserDto dto)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier les permissions selon le type de ban
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            
+            if (dto.BanType == "Permanent")
+            {
+                // Permanent: Owner, SuperAdmin, ou SystemAdmin
+                if (actorRole > (int)RoomRoleLevel.SuperAdmin && actorRole != 99)
+                {
+                    throw new UnauthorizedAccessException("Seuls le propriétaire ou SuperAdmin peuvent bannir définitivement");
+                }
+            }
+            else // Temporary
+            {
+                // Temporary: Admin+ peut bannir temporairement (≤7 jours)
+                if (actorRole > (int)RoomRoleLevel.Admin && actorRole != 99)
+                {
+                    throw new UnauthorizedAccessException("Vous n'avez pas la permission de bannir des utilisateurs");
+                }
+                
+                // Admin limité à 7 jours max
+                if (actorRole == (int)RoomRoleLevel.Admin && dto.DurationMinutes > 10080) // 7 jours
+                {
+                    dto.DurationMinutes = 10080;
+                }
+            }
+
+            // 2. Vérifier que la cible n'a pas un rôle égal ou supérieur
+            var targetRole = await GetUserRoleLevelAsync(conn, targetUserId, roomId);
+            if (targetRole <= actorRole && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous ne pouvez pas bannir un utilisateur de rang égal ou supérieur");
+            }
+
+            // 3. Vérifier si déjà banni (désactiver l'ancien ban)
+            var deactivateSql = @"
+                UPDATE ""RoomBans"" 
+                SET ""IsActive"" = FALSE, ""UnbannedBy"" = @actorId, ""UnbannedAt"" = NOW()
+                WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId AND ""IsActive"" = TRUE AND ""BanType"" != 'Kick'";
+            using (var cmd = new NpgsqlCommand(deactivateSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                cmd.Parameters.AddWithValue("actorId", actorId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // 4. Récupérer les infos
+            var targetUsername = "";
+            var roomName = "";
+            
+            var infoSql = @"
+                SELECT u.""Username"", r.""Name"" 
+                FROM ""Users"" u, ""Rooms"" r 
+                WHERE u.""Id"" = @userId AND r.""Id"" = @roomId";
+            using (var cmd = new NpgsqlCommand(infoSql, conn))
+            {
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    targetUsername = reader.GetString(0);
+                    roomName = reader.GetString(1);
+                }
+                await reader.CloseAsync();
+            }
+
+            // 5. Calculer la date d'expiration
+            DateTime? expiresAt = null;
+            if (dto.BanType == "Temporary" && dto.DurationMinutes.HasValue)
+            {
+                expiresAt = DateTime.UtcNow.AddMinutes(dto.DurationMinutes.Value);
+            }
+
+            // 6. Insérer le ban
+            var insertSql = @"
+                INSERT INTO ""RoomBans"" (""RoomId"", ""UserId"", ""BannedBy"", ""Reason"", ""BanType"", ""DurationMinutes"", ""ExpiresAt"", ""IsActive"")
+                VALUES (@roomId, @userId, @bannedBy, @reason, @banType, @duration, @expiresAt, TRUE)";
+            using (var cmd = new NpgsqlCommand(insertSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                cmd.Parameters.AddWithValue("bannedBy", actorId);
+                cmd.Parameters.AddWithValue("reason", (object?)dto.Reason ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("banType", dto.BanType);
+                cmd.Parameters.AddWithValue("duration", (object?)dto.DurationMinutes ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("expiresAt", (object?)expiresAt ?? DBNull.Value);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            // 7. Retirer l'utilisateur du salon
+            var leaveSql = @"UPDATE ""RoomMembers"" SET ""IsConnected"" = FALSE WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using (var cmd = new NpgsqlCommand(leaveSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                cmd.Parameters.AddWithValue("userId", targetUserId);
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            _logger.LogInformation("[RoomService] User {ActorId} banned user {TargetUserId} from room {RoomId}. Type: {BanType}, Duration: {Duration}min, Reason: {Reason}", 
+                actorId, targetUserId, roomId, dto.BanType, dto.DurationMinutes, dto.Reason ?? "None");
+
+            // 8. Construire le message de durée
+            var durationMessage = dto.BanType == "Permanent" ? "définitivement" : FormatDuration(dto.DurationMinutes);
+
+            // 9. Notifications SignalR
+            try
+            {
+                // Notifier l'utilisateur banni
+                await _chatHubContext.Clients.User(targetUsername)
+                    .SendAsync("UserBanned", roomId, roomName, dto.Reason ?? "Aucune raison spécifiée", dto.BanType, expiresAt);
+
+                // Notifier le salon qu'un membre est parti
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("MemberLeft", targetUserId);
+
+                _logger.LogDebug("[RoomService] SignalR UserBanned sent to {Username}", targetUsername);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[RoomService] Failed to send ban notification");
+            }
+
+            return new KickBanResultDto
+            {
+                Success = true,
+                Message = $"{targetUsername} a été banni {durationMessage}",
+                ActionType = dto.BanType,
+                TargetUserId = targetUserId,
+                TargetUsername = targetUsername,
+                ExpiresAt = expiresAt
+            };
+        }
+
+        /// <summary>
+        /// Formate une durée en minutes en texte lisible
+        /// </summary>
+        private string FormatDuration(int? minutes)
+        {
+            if (!minutes.HasValue) return "définitivement";
+            
+            var m = minutes.Value;
+            if (m < 60) return $"pour {m} minute{(m > 1 ? "s" : "")}";
+            if (m < 1440) return $"pour {m / 60} heure{(m / 60 > 1 ? "s" : "")}";
+            if (m < 10080) return $"pour {m / 1440} jour{(m / 1440 > 1 ? "s" : "")}";
+            return $"pour {m / 10080} semaine{(m / 10080 > 1 ? "s" : "")}";
+        }
+
+        /// <summary>
+        /// Déban un utilisateur d'un salon
+        /// </summary>
+        public async Task<bool> UnbanUserAsync(int actorId, int roomId, int targetUserId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier les permissions (Admin+ peut débannir)
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            if (actorRole > (int)RoomRoleLevel.Admin && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous n'avez pas la permission de débannir des utilisateurs");
+            }
+
+            // 2. Désactiver le ban
+            var unbanSql = @"
+                UPDATE ""RoomBans"" 
+                SET ""IsActive"" = FALSE, ""UnbannedBy"" = @actorId, ""UnbannedAt"" = NOW()
+                WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId AND ""IsActive"" = TRUE AND ""BanType"" != 'Kick'
+                RETURNING ""Id""";
+            
+            using var cmd = new NpgsqlCommand(unbanSql, conn);
+            cmd.Parameters.AddWithValue("roomId", roomId);
+            cmd.Parameters.AddWithValue("userId", targetUserId);
+            cmd.Parameters.AddWithValue("actorId", actorId);
+            
+            var result = await cmd.ExecuteScalarAsync();
+            
+            if (result == null)
+            {
+                return false; // Pas de ban actif trouvé
+            }
+
+            _logger.LogInformation("[RoomService] User {ActorId} unbanned user {TargetUserId} from room {RoomId}", 
+                actorId, targetUserId, roomId);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs bannis d'un salon
+        /// </summary>
+        public async Task<List<RoomBanDto>> GetRoomBansAsync(int actorId, int roomId)
+        {
+            var bans = new List<RoomBanDto>();
+            
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier les permissions (Moderator+ peut voir)
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            if (actorRole > (int)RoomRoleLevel.Moderator && actorRole != 99)
+            {
+                throw new UnauthorizedAccessException("Vous n'avez pas la permission de voir les bannissements");
+            }
+
+            // 2. Récupérer les bans actifs (hors kicks)
+            var sql = @"
+                SELECT rb.""Id"", rb.""RoomId"", rb.""UserId"", u.""Username"", 
+                       COALESCE(p.""DisplayName"", u.""Username"") as ""DisplayName"",
+                       p.""AvatarUrl"",
+                       rb.""BannedBy"", bannedBy.""Username"" as ""BannedByUsername"",
+                       rb.""Reason"", rb.""BanType"", rb.""DurationMinutes"", 
+                       rb.""CreatedAt"", rb.""ExpiresAt"", rb.""IsActive""
+                FROM ""RoomBans"" rb
+                JOIN ""Users"" u ON rb.""UserId"" = u.""Id""
+                JOIN ""Users"" bannedBy ON rb.""BannedBy"" = bannedBy.""Id""
+                LEFT JOIN ""Profiles"" p ON u.""Id"" = p.""UserId""
+                WHERE rb.""RoomId"" = @roomId 
+                  AND rb.""IsActive"" = TRUE 
+                  AND rb.""BanType"" != 'Kick'
+                ORDER BY rb.""CreatedAt"" DESC";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("roomId", roomId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var expiresAt = reader.IsDBNull(12) ? (DateTime?)null : reader.GetDateTime(12);
+                
+                bans.Add(new RoomBanDto
+                {
+                    Id = reader.GetInt32(0),
+                    RoomId = reader.GetInt32(1),
+                    UserId = reader.GetInt32(2),
+                    Username = reader.GetString(3),
+                    DisplayName = reader.GetString(4),
+                    AvatarUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    BannedById = reader.GetInt32(6),
+                    BannedByUsername = reader.GetString(7),
+                    Reason = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    BanType = reader.GetString(9),
+                    DurationMinutes = reader.IsDBNull(10) ? null : reader.GetInt32(10),
+                    CreatedAt = reader.GetDateTime(11),
+                    ExpiresAt = expiresAt,
+                    IsActive = reader.GetBoolean(13),
+                    TimeRemaining = CalculateTimeRemaining(expiresAt)
+                });
+            }
+
+            return bans;
+        }
+
+        /// <summary>
+        /// Calcule le temps restant avant expiration d'un ban
+        /// </summary>
+        private string? CalculateTimeRemaining(DateTime? expiresAt)
+        {
+            if (!expiresAt.HasValue) return null;
+            
+            var remaining = expiresAt.Value - DateTime.UtcNow;
+            if (remaining.TotalMinutes <= 0) return "Expiré";
+            
+            if (remaining.TotalMinutes < 60) return $"{(int)remaining.TotalMinutes}min";
+            if (remaining.TotalHours < 24) return $"{(int)remaining.TotalHours}h {remaining.Minutes}min";
+            return $"{(int)remaining.TotalDays}j {remaining.Hours}h";
+        }
+
+        /// <summary>
+        /// Vérifie si un utilisateur est banni d'un salon
+        /// </summary>
+        public async Task<bool> IsUserBannedAsync(int userId, int roomId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Vérifier s'il y a un ban actif non expiré
+            var sql = @"
+                SELECT COUNT(*) FROM ""RoomBans"" 
+                WHERE ""RoomId"" = @roomId 
+                  AND ""UserId"" = @userId 
+                  AND ""IsActive"" = TRUE 
+                  AND ""BanType"" != 'Kick'
+                  AND (""ExpiresAt"" IS NULL OR ""ExpiresAt"" > NOW())";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("roomId", roomId);
+            cmd.Parameters.AddWithValue("userId", userId);
+
+            var count = (long)(await cmd.ExecuteScalarAsync() ?? 0);
+            return count > 0;
+        }
     }
 }

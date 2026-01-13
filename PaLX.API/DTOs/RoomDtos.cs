@@ -215,4 +215,80 @@ namespace PaLX.API.DTOs
         public string Status { get; set; } = "Pending";
         public DateTime CreatedAt { get; set; }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    // KICK & BAN DTOs - v1.8.4
+    // ═══════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// DTO pour kicker un utilisateur d'un salon
+    /// </summary>
+    public class KickUserDto
+    {
+        /// <summary>
+        /// Raison du kick (optionnel, max 500 caractères)
+        /// </summary>
+        public string? Reason { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour bannir un utilisateur d'un salon
+    /// </summary>
+    public class BanUserDto
+    {
+        /// <summary>
+        /// Raison du ban (optionnel, max 500 caractères)
+        /// </summary>
+        public string? Reason { get; set; }
+
+        /// <summary>
+        /// Type de ban: "Temporary" ou "Permanent"
+        /// </summary>
+        public string BanType { get; set; } = "Permanent";
+
+        /// <summary>
+        /// Durée du ban en minutes (requis si BanType = "Temporary")
+        /// Valeurs communes: 60 (1h), 1440 (24h), 10080 (7j)
+        /// </summary>
+        public int? DurationMinutes { get; set; }
+    }
+
+    /// <summary>
+    /// DTO représentant un ban dans un salon
+    /// </summary>
+    public class RoomBanDto
+    {
+        public int Id { get; set; }
+        public int RoomId { get; set; }
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public int BannedById { get; set; }
+        public string BannedByUsername { get; set; } = string.Empty;
+        public string? Reason { get; set; }
+        public string BanType { get; set; } = "Permanent";
+        public int? DurationMinutes { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+        public bool IsActive { get; set; }
+        
+        /// <summary>
+        /// Temps restant avant expiration (pour bans temporaires)
+        /// </summary>
+        public string? TimeRemaining { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour la réponse après kick/ban
+    /// </summary>
+    public class KickBanResultDto
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string ActionType { get; set; } = string.Empty; // "Kick", "Temporary", "Permanent"
+        public int TargetUserId { get; set; }
+        public string TargetUsername { get; set; } = string.Empty;
+        public DateTime? ExpiresAt { get; set; }
+    }
 }

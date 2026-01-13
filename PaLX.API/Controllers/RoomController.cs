@@ -298,6 +298,122 @@ namespace PaLX.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN MANAGEMENT - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Kick un utilisateur d'un salon (éjection temporaire sans ban)
+        /// Permissions: Moderator+
+        /// </summary>
+        [HttpPost("{roomId}/kick/{targetUserId}")]
+        public async Task<IActionResult> KickUser(int roomId, int targetUserId, [FromBody] KickUserDto? dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var result = await _roomService.KickUserAsync(userId, roomId, targetUserId, dto?.Reason);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Ban un utilisateur d'un salon (temporaire ou permanent)
+        /// Permissions: Admin+ pour temporaire, Owner/SuperAdmin pour permanent
+        /// </summary>
+        [HttpPost("{roomId}/ban/{targetUserId}")]
+        public async Task<IActionResult> BanUser(int roomId, int targetUserId, [FromBody] BanUserDto dto)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var result = await _roomService.BanUserAsync(userId, roomId, targetUserId, dto);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Déban un utilisateur d'un salon
+        /// Permissions: Admin+
+        /// </summary>
+        [HttpDelete("{roomId}/ban/{targetUserId}")]
+        public async Task<IActionResult> UnbanUser(int roomId, int targetUserId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var success = await _roomService.UnbanUserAsync(userId, roomId, targetUserId);
+                if (success)
+                    return Ok(new { message = "User unbanned successfully" });
+                else
+                    return NotFound(new { message = "No active ban found for this user" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs bannis d'un salon
+        /// Permissions: Moderator+
+        /// </summary>
+        [HttpGet("{roomId}/bans")]
+        public async Task<IActionResult> GetRoomBans(int roomId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var bans = await _roomService.GetRoomBansAsync(userId, roomId);
+                return Ok(bans);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Vérifie si un utilisateur est banni d'un salon
+        /// </summary>
+        [HttpGet("{roomId}/ban-check/{targetUserId}")]
+        public async Task<IActionResult> CheckUserBan(int roomId, int targetUserId)
+        {
+            try
+            {
+                var isBanned = await _roomService.IsUserBannedAsync(targetUserId, roomId);
+                return Ok(new { isBanned });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 
     public class JoinRoomDto

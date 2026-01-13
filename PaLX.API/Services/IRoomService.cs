@@ -34,5 +34,38 @@ namespace PaLX.API.Services
         Task AssignRoleAsync(int ownerId, int roomId, int targetUserId, string role);
         Task RemoveRoomRoleAsync(int ownerId, int roomId, int targetUserId);
         Task<string?> GetUserRoleInRoomAsync(int userId, int roomId);
+        
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN MANAGEMENT - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Kick un utilisateur d'un salon (éjection temporaire sans ban)
+        /// Permissions: Moderator+
+        /// </summary>
+        Task<KickBanResultDto> KickUserAsync(int actorId, int roomId, int targetUserId, string? reason);
+        
+        /// <summary>
+        /// Ban un utilisateur d'un salon (temporaire ou permanent)
+        /// Permissions: Admin+ pour temporaire, Owner/SuperAdmin pour permanent
+        /// </summary>
+        Task<KickBanResultDto> BanUserAsync(int actorId, int roomId, int targetUserId, BanUserDto dto);
+        
+        /// <summary>
+        /// Déban un utilisateur d'un salon
+        /// Permissions: Admin+
+        /// </summary>
+        Task<bool> UnbanUserAsync(int actorId, int roomId, int targetUserId);
+        
+        /// <summary>
+        /// Récupère la liste des utilisateurs bannis d'un salon
+        /// Permissions: Moderator+ (voir), Admin+ (gérer)
+        /// </summary>
+        Task<List<RoomBanDto>> GetRoomBansAsync(int actorId, int roomId);
+        
+        /// <summary>
+        /// Vérifie si un utilisateur est banni d'un salon
+        /// </summary>
+        Task<bool> IsUserBannedAsync(int userId, int roomId);
     }
 }

@@ -1,0 +1,216 @@
+<Window x:Class="PaLX.Client.BannedUsersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Utilisateurs bannis" Height="500" Width="560"
+        WindowStyle="None" ResizeMode="CanResizeWithGrip" AllowsTransparency="True" Background="Transparent"
+        WindowStartupLocation="CenterOwner" MinHeight="400" MinWidth="450">
+    
+    <Border CornerRadius="16" Margin="10">
+        <Border.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#FFFFFF" Offset="0"/>
+                <GradientStop Color="#F9FAFB" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.Background>
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.25" Color="#000000"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="60"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- HEADER -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Border Grid.Row="0" CornerRadius="16,16,0,0" Padding="24,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                        <GradientStop Color="#EF4444" Offset="0"/>
+                        <GradientStop Color="#DC2626" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                
+                <Grid>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Ban Icon -->
+                        <Viewbox Width="24" Height="24" Margin="0,0,12,0">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z" 
+                                      Fill="White"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="Utilisateurs bannis" FontSize="18" FontWeight="Bold" Foreground="White" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="CountBadge" Text="(0)" FontSize="14" Foreground="#FFFFFF" Opacity="0.8" 
+                                   VerticalAlignment="Center" Margin="10,0,0,0"/>
+                    </StackPanel>
+                    
+                    <!-- Close Button -->
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Click="CloseButton_Click" Cursor="Hand"
+                            Width="36" Height="36" ToolTip="Fermer">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="border" CornerRadius="8" Background="Transparent">
+                                    <TextBlock Text="✕" Foreground="White" FontSize="14" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.9"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="border" Property="Background" Value="#20FFFFFF"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <!-- CONTENT - Liste des bans -->
+            <!-- ═══════════════════════════════════════════════════════════════ -->
+            <Grid Grid.Row="1">
+                <!-- Loading State -->
+                <StackPanel x:Name="LoadingPanel" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="⏳" FontSize="32" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Chargement..." FontSize="14" Foreground="#6B7280" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+                </StackPanel>
+
+                <!-- Empty State -->
+                <StackPanel x:Name="EmptyPanel" VerticalAlignment="Center" HorizontalAlignment="Center" Visibility="Collapsed">
+                    <TextBlock Text="✅" FontSize="48" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Aucun utilisateur banni" FontSize="16" FontWeight="SemiBold" Foreground="#374151" 
+                               HorizontalAlignment="Center" Margin="0,16,0,0"/>
+                    <TextBlock Text="Les utilisateurs bannis apparaîtront ici" FontSize="13" Foreground="#9CA3AF" 
+                               HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <!-- Bans List -->
+                <ScrollViewer x:Name="BansScrollViewer" VerticalScrollBarVisibility="Auto" Padding="20,16" Visibility="Collapsed">
+                    <ItemsControl x:Name="BansList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="#FFFFFF" CornerRadius="12" Margin="0,0,0,12" Padding="16" 
+                                        BorderBrush="#E5E7EB" BorderThickness="1">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="8" ShadowDepth="0" Opacity="0.08" Color="#000000"/>
+                                    </Border.Effect>
+                                    
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="48"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <!-- Avatar -->
+                                        <Ellipse Grid.Column="0" Width="44" Height="44">
+                                            <Ellipse.Fill>
+                                                <ImageBrush ImageSource="{Binding AvatarUrl, TargetNullValue=/Assets/default_avatar.png}" Stretch="UniformToFill"/>
+                                            </Ellipse.Fill>
+                                        </Ellipse>
+                                        
+                                        <!-- User Info -->
+                                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="14" FontWeight="SemiBold" Foreground="#1F2937"/>
+                                                <!-- Ban Type Badge -->
+                                                <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="#DC2626"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding BanType}" Value="Temporary">
+                                                                    <Setter Property="Background" Value="#F59E0B"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock FontSize="10" FontWeight="Bold" Foreground="White">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="PERMANENT"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding BanType}" Value="Temporary">
+                                                                        <Setter Property="Text" Value="TEMPORAIRE"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Border>
+                                            </StackPanel>
+                                            
+                                            <TextBlock Text="{Binding Username, StringFormat='@{0}'}" FontSize="12" Foreground="#6B7280" Margin="0,2,0,0"/>
+                                            
+                                            <!-- Reason if available -->
+                                            <TextBlock Text="{Binding Reason, StringFormat='Raison: {0}'}" FontSize="11" Foreground="#9CA3AF" 
+                                                       TextTrimming="CharacterEllipsis" MaxWidth="250" Margin="0,4,0,0"
+                                                       Visibility="{Binding HasReason, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            
+                                            <!-- Time remaining for temporary bans -->
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                                <TextBlock Text="⏱️" FontSize="10" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding TimeRemaining, StringFormat='Expire dans: {0}'}" FontSize="11" Foreground="#F59E0B" 
+                                                           VerticalAlignment="Center" Margin="4,0,0,0"
+                                                           Visibility="{Binding HasTimeRemaining, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                <TextBlock Text="Permanent" FontSize="11" Foreground="#DC2626" 
+                                                           VerticalAlignment="Center" Margin="4,0,0,0"
+                                                           Visibility="{Binding IsPermanent, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </StackPanel>
+                                            
+                                            <!-- Banned by -->
+                                            <TextBlock FontSize="10" Foreground="#9CA3AF" Margin="0,4,0,0">
+                                                <Run Text="Banni par"/>
+                                                <Run Text="{Binding BannedByUsername}" FontWeight="SemiBold"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                        
+                                        <!-- Unban Button -->
+                                        <Button Grid.Column="2" Click="Unban_Click" Tag="{Binding}" Cursor="Hand"
+                                                VerticalAlignment="Center">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="border" CornerRadius="10" Padding="14,10">
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                <GradientStop Color="#10B981" Offset="0"/>
+                                                                <GradientStop Color="#059669" Offset="1"/>
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Text="✓" FontSize="12" Foreground="White" VerticalAlignment="Center"/>
+                                                            <TextBlock Text="Débannir" FontSize="12" FontWeight="SemiBold" Foreground="White" 
+                                                                       VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="border" Property="Background">
+                                                                <Setter.Value>
+                                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                        <GradientStop Color="#059669" Offset="0"/>
+                                                                        <GradientStop Color="#047857" Offset="1"/>
+                                                                    </LinearGradientBrush>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Border>
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Window.Resources>
+</Window>

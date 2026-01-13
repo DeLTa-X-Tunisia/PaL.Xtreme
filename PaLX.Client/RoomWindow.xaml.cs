@@ -62,6 +62,9 @@ namespace PaLX.Client
             // Show Room Settings button for authorized users
             UpdateRoomSettingsButtonVisibility();
             
+            // Show Banned Users button for moderators+
+            UpdateBannedUsersButtonVisibility();
+            
             // Setup Uptime Timer
             _uptimeTimer = new DispatcherTimer();
             _uptimeTimer.Interval = TimeSpan.FromSeconds(1);
@@ -105,6 +108,10 @@ namespace PaLX.Client
             // Subscribe to Whisper events
             _apiService.OnWhisperReceived += OnWhisperReceived;
             _apiService.OnWhisperModView += OnWhisperModView;
+            
+            // Subscribe to Kick & Ban events (v1.8.4)
+            _apiService.OnUserKicked += OnUserKicked;
+            _apiService.OnUserBanned += OnUserBanned;
             
             // Initialize Room Video Service
             InitializeRoomVideoService();
@@ -434,6 +441,66 @@ namespace PaLX.Client
         }
 
         /// <summary>
+        /// Met à jour la visibilité du bouton de gestion des bannissements
+        /// Visible pour les modérateurs+ du salon et les admins système
+        /// </summary>
+        private void UpdateBannedUsersButtonVisibility()
+        {
+            if (BannedUsersButton == null) return;
+            
+            bool canManageBans = CanUserKickBan();
+            BannedUsersButton.Visibility = canManageBans ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Détermine si l'utilisateur peut kick/ban (Modérateur+ ou admin système)
+        /// </summary>
+        private bool CanUserKickBan()
+        {
+            // Admins système (RoleLevel 1-6)
+            int systemRoleLevel = _apiService.CurrentUserRoleLevel;
+            if (systemRoleLevel >= 1 && systemRoleLevel <= 6)
+            {
+                return true;
+            }
+            
+            // Propriétaire du salon
+            if (_room.OwnerId == _apiService.CurrentUserId)
+            {
+                return true;
+            }
+            
+            // Rôles de modération du salon
+            if (!string.IsNullOrEmpty(_room.UserRole))
+            {
+                string role = _room.UserRole.ToLowerInvariant();
+                if (role == "superadmin" || role == "admin" || role == "moderator")
+                {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Ouvre la fenêtre de gestion des utilisateurs bannis
+        /// </summary>
+        private void BannedUsers_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var bannedUsersWindow = new BannedUsersWindow(_apiService, _roomId);
+                bannedUsersWindow.Owner = this;
+                bannedUsersWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error opening banned users window: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Détermine si l'utilisateur actuel peut gérer le salon
         /// Autorisé pour:
         /// - Admins système: ServerMaster(1), ServerEditor(2), ServerSuperAdmin(3), ServerAdmin(4), ServerModerator(5), ServerHelp(6)
@@ -530,6 +597,10 @@ namespace PaLX.Client
             _apiService.OnMemberRoleUpdated -= OnMemberRoleUpdated;
             _apiService.OnWhisperReceived -= OnWhisperReceived;
             _apiService.OnWhisperModView -= OnWhisperModView;
+            
+            // Unsubscribe from Kick & Ban events (v1.8.4)
+            _apiService.OnUserKicked -= OnUserKicked;
+            _apiService.OnUserBanned -= OnUserBanned;
             
             // Fermer toutes les fenêtres de visionnage peer
             foreach (var peerWindow in _peerVideoWindows.Values.ToList())
@@ -775,6 +846,93 @@ namespace PaLX.Client
                     AddSystemMessage($"{member.DisplayName} est maintenant {roleName}");
                 }
             });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN EVENT HANDLERS - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Handler appelé quand l'utilisateur courant est kické du salon
+        /// </summary>
+        private void OnUserKicked(int roomId, string roomName, string reason)
+        {
+            // Vérifier si c'est bien ce salon
+            if (roomId != _roomId) return;
+
+            Application.Current.Dispatcher.Invoke(async () =>
+            {
+                // Afficher une alerte
+                var kickAlert = new CustomAlertWindow(
+                    "Vous avez été expulsé",
+                    $"Vous avez été kické du salon « {roomName} ».\n\nRaison : {reason}"
+                );
+                kickAlert.Owner = this;
+                kickAlert.ShowDialog();
+
+                // Fermer la fenêtre du salon
+                await CleanupAndClose();
+            });
+        }
+
+        /// <summary>
+        /// Handler appelé quand l'utilisateur courant est banni du salon
+        /// </summary>
+        private void OnUserBanned(int roomId, string roomName, string reason, string banType, DateTime? expiresAt)
+        {
+            // Vérifier si c'est bien ce salon
+            if (roomId != _roomId) return;
+
+            Application.Current.Dispatcher.Invoke(async () =>
+            {
+                // Construire le message
+                string durationMessage;
+                if (banType == "Permanent")
+                {
+                    durationMessage = "Ce bannissement est permanent.";
+                }
+                else if (expiresAt.HasValue)
+                {
+                    var duration = expiresAt.Value - DateTime.UtcNow;
+                    if (duration.TotalDays >= 1)
+                        durationMessage = $"Durée : {(int)duration.TotalDays} jour(s)";
+                    else if (duration.TotalHours >= 1)
+                        durationMessage = $"Durée : {(int)duration.TotalHours} heure(s)";
+                    else
+                        durationMessage = $"Durée : {(int)duration.TotalMinutes} minute(s)";
+                }
+                else
+                {
+                    durationMessage = "";
+                }
+
+                // Afficher une alerte
+                var banAlert = new CustomAlertWindow(
+                    "🚫 Vous avez été banni",
+                    $"Vous avez été banni du salon « {roomName} ».\n\nRaison : {reason}\n{durationMessage}"
+                );
+                banAlert.Owner = this;
+                banAlert.ShowDialog();
+
+                // Fermer la fenêtre du salon
+                await CleanupAndClose();
+            });
+        }
+
+        /// <summary>
+        /// Nettoie les ressources et ferme la fenêtre proprement
+        /// </summary>
+        private async Task CleanupAndClose()
+        {
+            try
+            {
+                // Quitter le groupe SignalR
+                await _apiService.LeaveRoomAsync(_roomId);
+            }
+            catch { }
+
+            // Fermer la fenêtre
+            Close();
         }
 
         /// <summary>
@@ -1233,17 +1391,43 @@ namespace PaLX.Client
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN HANDLERS - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
         private async void Kick_Click(object sender, RoutedEventArgs e) 
         { 
             if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
             {
-                if (MessageBox.Show($"Voulez-vous vraiment expulser {member.DisplayName} ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                // Ouvrir la fenêtre de kick moderne
+                var kickWindow = new KickUserWindow(member.DisplayName, member.AvatarPath);
+                kickWindow.Owner = this;
+                
+                if (kickWindow.ShowDialog() == true && kickWindow.Confirmed)
                 {
                     try 
                     { 
-                        await _apiService.KickUserAsync(_roomId, member.UserId); 
+                        var result = await _apiService.KickUserAsync(_roomId, member.UserId, kickWindow.Reason);
+                        if (result != null && result.Success)
+                        {
+                            // Afficher confirmation
+                            var alert = new CustomAlertWindow("Succès", result.Message);
+                            alert.Owner = this;
+                            alert.ShowDialog();
+                        }
+                        else
+                        {
+                            var alert = new CustomAlertWindow("Erreur", "Impossible de kicker l'utilisateur.");
+                            alert.Owner = this;
+                            alert.ShowDialog();
+                        }
                     }
-                    catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                    catch (Exception ex) 
+                    { 
+                        var alert = new CustomAlertWindow("Erreur", $"Erreur: {ex.Message}");
+                        alert.Owner = this;
+                        alert.ShowDialog();
+                    }
                 }
             }
         }
@@ -1252,13 +1436,42 @@ namespace PaLX.Client
         { 
             if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
             {
-                if (MessageBox.Show($"Voulez-vous vraiment bannir {member.DisplayName} ?", "Confirmation", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+                // Ouvrir la fenêtre de ban moderne
+                var banWindow = new BanUserWindow(member.DisplayName, member.AvatarPath);
+                banWindow.Owner = this;
+                
+                if (banWindow.ShowDialog() == true && banWindow.Confirmed)
                 {
                     try 
                     { 
-                        await _apiService.BanUserAsync(_roomId, member.UserId); 
+                        var result = await _apiService.BanUserAsync(
+                            _roomId, 
+                            member.UserId, 
+                            banWindow.Reason,
+                            banWindow.BanType,
+                            banWindow.DurationMinutes
+                        );
+                        
+                        if (result != null && result.Success)
+                        {
+                            // Afficher confirmation
+                            var alert = new CustomAlertWindow("Succès", result.Message);
+                            alert.Owner = this;
+                            alert.ShowDialog();
+                        }
+                        else
+                        {
+                            var alert = new CustomAlertWindow("Erreur", "Impossible de bannir l'utilisateur.");
+                            alert.Owner = this;
+                            alert.ShowDialog();
+                        }
                     }
-                    catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                    catch (Exception ex) 
+                    { 
+                        var alert = new CustomAlertWindow("Erreur", $"Erreur: {ex.Message}");
+                        alert.Owner = this;
+                        alert.ShowDialog();
+                    }
                 }
             }
         }

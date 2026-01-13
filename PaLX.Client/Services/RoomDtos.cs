@@ -47,4 +47,43 @@ namespace PaLX.Client.Services
         public bool? IsMicOn { get; set; }
         public bool? HasHandRaised { get; set; }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    // KICK & BAN DTOs - v1.8.4
+    // ═══════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Résultat d'une action de kick ou ban
+    /// </summary>
+    public class KickBanResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string ActionType { get; set; } = string.Empty;
+        public int TargetUserId { get; set; }
+        public string TargetUsername { get; set; } = string.Empty;
+        public DateTime? ExpiresAt { get; set; }
+    }
+
+    /// <summary>
+    /// Représente un ban d'utilisateur dans un salon
+    /// </summary>
+    public class RoomBan
+    {
+        public int Id { get; set; }
+        public int RoomId { get; set; }
+        public int UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public int BannedById { get; set; }
+        public string BannedByUsername { get; set; } = string.Empty;
+        public string? Reason { get; set; }
+        public string BanType { get; set; } = "Permanent";
+        public int? DurationMinutes { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? ExpiresAt { get; set; }
+        public bool IsActive { get; set; }
+        public string? TimeRemaining { get; set; }
+    }
 }

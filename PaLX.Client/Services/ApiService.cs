@@ -50,6 +50,22 @@ namespace PaLX.Client.Services
         public event Action<int, int>? OnRoomCameraStopped; // roomId, userId
         public event Action<int, int, byte[]>? OnRoomVideoFrame; // roomId, userId, frameData
         
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN EVENTS - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Événement déclenché quand l'utilisateur est kické d'un salon
+        /// Params: roomId, roomName, reason
+        /// </summary>
+        public event Action<int, string, string>? OnUserKicked;
+        
+        /// <summary>
+        /// Événement déclenché quand l'utilisateur est banni d'un salon
+        /// Params: roomId, roomName, reason, banType, expiresAt
+        /// </summary>
+        public event Action<int, string, string, string, DateTime?>? OnUserBanned;
+        
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
         public event Action<int, string, string, string>? OnImageRequestSent; // id, receiver, filename, url
@@ -614,6 +630,24 @@ namespace PaLX.Client.Services
                 OnWhisperModView?.Invoke(roomId, fromUserId, fromDisplayName, toUserId, message);
             });
 
+            // ═══════════════════════════════════════════════════════════════════════════════════
+            // KICK & BAN HANDLERS - v1.8.4
+            // ═══════════════════════════════════════════════════════════════════════════════════
+            
+            // Handler pour quand l'utilisateur est kické d'un salon
+            _hubConnection.On<int, string, string>("UserKicked", (roomId, roomName, reason) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UserKicked: roomId={roomId}, roomName={roomName}, reason={reason}");
+                OnUserKicked?.Invoke(roomId, roomName, reason);
+            });
+            
+            // Handler pour quand l'utilisateur est banni d'un salon
+            _hubConnection.On<int, string, string, string, DateTime?>("UserBanned", (roomId, roomName, reason, banType, expiresAt) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UserBanned: roomId={roomId}, roomName={roomName}, banType={banType}, expiresAt={expiresAt}");
+                OnUserBanned?.Invoke(roomId, roomName, reason, banType, expiresAt);
+            });
+
             // ... (Existing Transfer Handlers) ...
             
             try
@@ -951,15 +985,85 @@ namespace PaLX.Client.Services
             }
         }
 
-        // Room Moderation Methods
-        public async Task KickUserAsync(int roomId, int userId)
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // KICK & BAN MANAGEMENT - v1.8.4
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Kick un utilisateur d'un salon (éjection temporaire sans ban)
+        /// </summary>
+        public async Task<KickBanResult?> KickUserAsync(int roomId, int userId, string? reason = null)
         {
-            await _httpClient.PostAsync($"api/room/{roomId}/kick/{userId}", null);
+            var dto = new { Reason = reason };
+            var content = new StringContent(JsonSerializer.Serialize(dto), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync($"api/room/{roomId}/kick/{userId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<KickBanResult>(json, _jsonOptions);
+            }
+            return null;
         }
 
-        public async Task BanUserAsync(int roomId, int userId)
+        /// <summary>
+        /// Ban un utilisateur d'un salon (temporaire ou permanent)
+        /// </summary>
+        public async Task<KickBanResult?> BanUserAsync(int roomId, int userId, string? reason, string banType = "Permanent", int? durationMinutes = null)
         {
-            await _httpClient.PostAsync($"api/room/{roomId}/ban/{userId}", null);
+            var dto = new 
+            { 
+                Reason = reason,
+                BanType = banType,
+                DurationMinutes = durationMinutes
+            };
+            var content = new StringContent(JsonSerializer.Serialize(dto), Encoding.UTF8, "application/json");
+            var response = await _httpClient.PostAsync($"api/room/{roomId}/ban/{userId}", content);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<KickBanResult>(json, _jsonOptions);
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Déban un utilisateur d'un salon
+        /// </summary>
+        public async Task<bool> UnbanUserAsync(int roomId, int userId)
+        {
+            var response = await _httpClient.DeleteAsync($"api/room/{roomId}/ban/{userId}");
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs bannis d'un salon
+        /// </summary>
+        public async Task<List<RoomBan>> GetRoomBansAsync(int roomId)
+        {
+            var response = await _httpClient.GetAsync($"api/room/{roomId}/bans");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<List<RoomBan>>(json, _jsonOptions) ?? new List<RoomBan>();
+            }
+            return new List<RoomBan>();
+        }
+
+        /// <summary>
+        /// Vérifie si un utilisateur est banni d'un salon
+        /// </summary>
+        public async Task<bool> IsUserBannedAsync(int roomId, int userId)
+        {
+            var response = await _httpClient.GetAsync($"api/room/{roomId}/ban-check/{userId}");
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(json);
+                return doc.RootElement.GetProperty("isBanned").GetBoolean();
+            }
+            return false;
         }
 
         public async Task MuteUserAsync(int roomId, int userId, int durationMinutes)

@@ -7,6 +7,61 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.4] - 2026-01-13
+
+### 🔨 Système de Kick & Bannissement
+
+#### Système de Kick
+- **Expulsion immédiate** : Retire un utilisateur du salon instantanément
+- **Fenêtre modale orange** : Design moderne avec raison optionnelle (max 500 caractères)
+- **Historique conservé** : Les kicks sont enregistrés en base pour traçabilité
+- **Notification SignalR** : L'utilisateur expulsé reçoit une alerte avec le motif
+
+#### Système de Bannissement
+- **3 types de ban** : Temporaire (1h, 24h, 7j) et Permanent
+- **Fenêtre modale rouge** : Sélecteur de durée avec warning pour ban permanent
+- **Expiration automatique** : Les bans temporaires s'expirent automatiquement
+- **Vérification à l'entrée** : Préparé pour bloquer les utilisateurs bannis
+
+#### Gestion des Bannissements
+- **BannedUsersWindow** : Interface de gestion des bans actifs
+- **Cartes informatives** : Avatar, pseudo, type de ban, raison, temps restant
+- **Débannissement** : Bouton vert avec confirmation
+- **États visuels** : Loading, liste vide, liste des bans
+
+#### Permissions Hiérarchiques
+- **Kick** : Modérateur+ (RoleLevel ≤ 5)
+- **Ban temporaire** : Admin+ (RoleLevel ≤ 3), max 7j pour Admin
+- **Ban permanent** : Owner, SuperAdmin ou SystemAdmin uniquement
+- **Protection** : Impossible de kick/ban un utilisateur de rang supérieur
+
+#### Notifications Temps Réel
+- **SignalR events** : UserKicked et UserBanned
+- **Alerte personnalisée** : Message avec raison et durée du ban
+- **Fermeture automatique** : La fenêtre du salon se ferme proprement
+
+### 🔧 Fichiers Modifiés/Créés
+
+#### Base de Données
+- `PaLX.API/Scripts/create_room_bans.sql` : Table RoomBans avec index optimisés
+
+#### API (Backend)
+- `PaLX.API/DTOs/RoomDtos.cs` : KickUserDto, BanUserDto, RoomBanDto, KickBanResultDto
+- `PaLX.API/Services/IRoomService.cs` : Interfaces kick/ban
+- `PaLX.API/Services/RoomService.cs` : Implémentation complète avec permissions
+- `PaLX.API/Controllers/RoomController.cs` : 5 nouveaux endpoints
+
+#### Client (Frontend)
+- `PaLX.Client/Services/ApiService.cs` : Méthodes API + SignalR events
+- `PaLX.Client/DTOs/RoomDtos.cs` : Classes KickBanResult, RoomBan
+- `PaLX.Client/KickUserWindow.xaml/.cs` : Fenêtre de kick moderne
+- `PaLX.Client/BanUserWindow.xaml/.cs` : Fenêtre de ban avec durée
+- `PaLX.Client/BannedUsersWindow.xaml/.cs` : Gestion des bans
+- `PaLX.Client/RoomWindow.xaml` : Bouton BannedUsers
+- `PaLX.Client/RoomWindow.xaml.cs` : Handlers et événements SignalR
+
+---
+
 ## [1.8.3] - 2026-01-13
 
 ### 🚪 Conditions d'Entrée par Défaut
