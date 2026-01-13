@@ -212,7 +212,7 @@ namespace PaLX.Client
                     WarningResetMinutes = warningResetMinutes
                 };
 
-                var result = await ApiService.Instance.UpdateBotConfigAsync(_roomId, dto);
+                var (result, error) = await ApiService.Instance.UpdateBotConfigAsync(_roomId, dto);
                 
                 if (result != null)
                 {
@@ -225,7 +225,12 @@ namespace PaLX.Client
                 }
                 else
                 {
-                    ShowError("Impossible de sauvegarder la configuration.");
+                    // Afficher l'erreur complète dans une MessageBox pour debug
+                    System.Windows.MessageBox.Show(
+                        $"Erreur lors de la sauvegarde:\n\n{error ?? "Erreur inconnue"}",
+                        "Erreur de configuration",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Error);
                 }
             }
             catch (Exception ex)

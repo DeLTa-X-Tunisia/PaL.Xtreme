@@ -7,6 +7,43 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.9] - 2026-01-14
+
+### 🤖 Bot IA - Améliorations & Correctifs
+
+#### Accès Rapide à la Configuration
+- **Bouton dans le header** : Icône robot violet dans la barre du salon
+- **Visibilité contrôlée** : Visible uniquement pour le propriétaire et admins système (niveaux 1-6)
+- **Accès direct** : Un clic ouvre la fenêtre de configuration du bot
+
+#### Auto-Création des Tables Bot
+- **EnsureTablesExistAsync()** : Création automatique des tables au premier usage
+- **Tables créées** : BotConfigs, BotWarnings, BannedWords, QuizQuestions, DiscussionTopics
+- **Données initiales** : 10 questions de quiz et 10 sujets de discussion par défaut
+
+#### Correctifs Importants
+- **GetUserId()** : Correction du claim JWT ("UserId" au lieu de ClaimTypes.NameIdentifier)
+- **SignalR group name** : "Room_{roomId}" avec R majuscule pour cohérence
+- **Message de bienvenue** : Déplacé dans JoinRoomGroup pour que le joiner le reçoive
+- **AddBannedWordAsync** : Correction du bug de lecture du reader fermé
+- **ComboBox dropdown** : Couleur de texte sombre (#333333) pour lisibilité
+
+#### Améliorations de Détection
+- **Double méthode** : Détection par regex word-boundary + recherche simple Contains
+- **HandleMentionAsync** : Réponse détaillée avec liste des commandes disponibles
+- **SendBotMessageAsync** : Retourne RoomMessageDto avec format complet
+
+#### Fichiers Modifiés
+- `PaLX.API/Services/BotService.cs` : Auto-création tables, données par défaut, double détection
+- `PaLX.API/Controllers/BotController.cs` : Correction GetUserId()
+- `PaLX.API/Hubs/RoomHub.cs` : Message de bienvenue après join SignalR
+- `PaLX.API/Services/RoomService.cs` : Intégration traitement bot dans SendMessageAsync
+- `PaLX.Client/RoomWindow.xaml` : Bouton BotConfigButton dans le header
+- `PaLX.Client/RoomWindow.xaml.cs` : UpdateBotConfigButtonVisibility, CanUserConfigureBot
+- `PaLX.Client/BotConfigWindow.xaml` : Correction couleur ComboBox items
+
+---
+
 ## [1.8.8] - 2026-01-13
 
 ### 🤖 Bot IA - Assistant Intelligent pour Salons

@@ -14,11 +14,12 @@ namespace PaLX.API.Services
         private readonly IHubContext<ChatHub> _chatHubContext; // Pour les notifications utilisateur
         private readonly IAccessControlService _accessControl;
         private readonly ILogger<RoomService> _logger;
+        private readonly IServiceProvider _serviceProvider; // Pour accéder au BotService sans dépendance circulaire
 
         // System admin role levels (1-5 have full room access)
         private const int MAX_SYSTEM_ADMIN_LEVEL = 5; // ServerMaster(1) to ServerModerator(5)
 
-        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl, ILogger<RoomService> logger)
+        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl, ILogger<RoomService> logger, IServiceProvider serviceProvider)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
@@ -26,7 +27,11 @@ namespace PaLX.API.Services
             _chatHubContext = chatHubContext;
             _accessControl = accessControl;
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
+        
+        // Helper pour obtenir le BotService sans dépendance circulaire
+        private IBotService GetBotService() => _serviceProvider.GetRequiredService<IBotService>();
 
         /// <summary>
         /// Vérifie si un utilisateur est un admin système (RoleLevel 1-5)
@@ -352,6 +357,8 @@ namespace PaLX.API.Services
             {
                 // Notifier tout le monde normalement
                 await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("UserJoined", memberDto);
+                // Note: Le message de bienvenue du bot est envoyé dans RoomHub.JoinRoomGroup
+                // après que l'utilisateur ait rejoint le groupe SignalR
             }
 
             return true;
@@ -763,6 +770,25 @@ namespace PaLX.API.Services
 
             // Broadcast via SignalR
             await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("ReceiveMessage", dto);
+            
+            // 🤖 Traitement par le Bot IA (modération, mentions, commandes)
+            try
+            {
+                var botService = GetBotService();
+                // ProcessUserMessageAsync gère: modération, mentions (@bot), commandes (!aide, !quiz, etc.)
+                var shouldBlock = await botService.ProcessUserMessageAsync(roomId, userId, displayName, content);
+                
+                // Si le message viole les règles, on pourrait le supprimer ici
+                // Pour l'instant, on laisse le message mais le bot envoie un avertissement
+                if (shouldBlock)
+                {
+                    _logger.LogInformation("[RoomService] Bot flagged message from {UserId} in room {RoomId}", userId, roomId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[RoomService] Failed to process message through bot for room {RoomId}", roomId);
+            }
 
             return dto;
         }
@@ -2240,6 +2266,8 @@ namespace PaLX.API.Services
         /// </summary>
         public async Task<bool> CanManageRoomAsync(int roomId, int userId)
         {
+            _logger.LogInformation("[CanManageRoomAsync] Checking permissions - RoomId: {RoomId}, UserId: {UserId}", roomId, userId);
+            
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
@@ -2249,27 +2277,43 @@ namespace PaLX.API.Services
             {
                 cmd.Parameters.AddWithValue("roomId", roomId);
                 var ownerId = await cmd.ExecuteScalarAsync();
-                if (ownerId != null && (int)ownerId == userId)
+                _logger.LogInformation("[CanManageRoomAsync] Room OwnerId: {OwnerId}, Current UserId: {UserId}", ownerId, userId);
+                
+                if (ownerId != null && Convert.ToInt32(ownerId) == userId)
+                {
+                    _logger.LogInformation("[CanManageRoomAsync] User IS the owner - GRANTED");
                     return true;
+                }
             }
 
             // 2. Vérifier si l'utilisateur est admin système (RoleLevel 1-5)
             if (await IsSystemAdminAsync(conn, userId))
-                return true;
-
-            // 3. Vérifier si l'utilisateur a un rôle admin dans le salon
-            var roleSql = @"
-                SELECT ""Role"" FROM ""RoomRoles"" 
-                WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
-            using (var roleCmd = new NpgsqlCommand(roleSql, conn))
             {
-                roleCmd.Parameters.AddWithValue("roomId", roomId);
-                roleCmd.Parameters.AddWithValue("userId", userId);
-                var role = await roleCmd.ExecuteScalarAsync() as string;
-                
-                // Les admins et super admins du salon peuvent gérer
-                if (role == "Admin" || role == "SuperAdmin")
-                    return true;
+                _logger.LogInformation("[CanManageRoomAsync] User is system admin - GRANTED");
+                return true;
+            }
+
+            // 3. Vérifier si l'utilisateur a un rôle admin dans le salon (si la table existe)
+            try
+            {
+                var roleSql = @"
+                    SELECT ""Role"" FROM ""RoomMemberRoles"" 
+                    WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId AND ""IsActive"" = TRUE";
+                using (var roleCmd = new NpgsqlCommand(roleSql, conn))
+                {
+                    roleCmd.Parameters.AddWithValue("roomId", roomId);
+                    roleCmd.Parameters.AddWithValue("userId", userId);
+                    var role = await roleCmd.ExecuteScalarAsync() as string;
+                    
+                    // Les admins et super admins du salon peuvent gérer
+                    if (role == "RoomAdmin" || role == "RoomSuperAdmin")
+                        return true;
+                }
+            }
+            catch (PostgresException ex) when (ex.SqlState == "42P01")
+            {
+                // Table RoomMemberRoles n'existe pas - ignorer cette vérification
+                _logger.LogWarning("[RoomService] Table RoomMemberRoles n'existe pas, vérification des rôles ignorée");
             }
 
             return false;

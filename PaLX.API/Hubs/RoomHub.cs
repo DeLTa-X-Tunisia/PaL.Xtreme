@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Authorization;
 using System.Collections.Concurrent;
+using PaLX.API.Services;
 
 namespace PaLX.API.Hubs
 {
     [Authorize]
     public class RoomHub : Hub
     {
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<RoomHub> _logger;
+        
         // Track active cameras per room: RoomId -> { UserId -> Username }
         private static readonly ConcurrentDictionary<int, ConcurrentDictionary<int, string>> _roomCameras = new();
         
@@ -17,6 +21,15 @@ namespace PaLX.API.Hubs
         // 1=ServerMaster, 2=ServerEditor, 3=ServerSuperAdmin, 4=ServerAdmin, 5=ServerModerator, 6=ServerHelp
         private const int MaxModeratorRoleLevel = 6;
 
+        public RoomHub(IServiceProvider serviceProvider, ILogger<RoomHub> logger)
+        {
+            _serviceProvider = serviceProvider;
+            _logger = logger;
+        }
+        
+        // Helper pour obtenir le BotService
+        private IBotService GetBotService() => _serviceProvider.GetRequiredService<IBotService>();
+
         public async Task JoinRoomGroup(int roomId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, $"Room_{roomId}");
@@ -24,16 +37,27 @@ namespace PaLX.API.Hubs
             // Stocker la connexion avec le RoleLevel
             var userId = GetUserId();
             var roleLevel = GetRoleLevel();
+            var username = GetUsername();
             _userConnections[Context.ConnectionId] = (userId, roomId, roleLevel);
             
-            Console.WriteLine($"[RoomHub.JoinRoomGroup] User {userId} (RoleLevel={roleLevel}) joined room {roomId}, ConnectionId: {Context.ConnectionId.Substring(0, Math.Min(8, Context.ConnectionId.Length))}...");
-            Console.WriteLine($"[RoomHub.JoinRoomGroup] Total connections now: {_userConnections.Count}");
+            _logger.LogInformation("[RoomHub.JoinRoomGroup] User {UserId} ({Username}, RoleLevel={RoleLevel}) joined room {RoomId}", userId, username, roleLevel, roomId);
             
             // Envoyer la liste des caméras actives au nouveau membre
             if (_roomCameras.TryGetValue(roomId, out var cameras))
             {
                 var cameraList = cameras.Select(c => new { UserId = c.Key, Username = c.Value }).ToList();
                 await Clients.Caller.SendAsync("RoomActiveCameras", roomId, cameraList);
+            }
+            
+            // 🤖 Envoyer le message de bienvenue du Bot (maintenant que l'utilisateur est dans le groupe)
+            try
+            {
+                var botService = GetBotService();
+                await botService.SendWelcomeMessageAsync(roomId, userId, username);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[RoomHub] Failed to send bot welcome message for user {UserId} in room {RoomId}", userId, roomId);
             }
         }
 

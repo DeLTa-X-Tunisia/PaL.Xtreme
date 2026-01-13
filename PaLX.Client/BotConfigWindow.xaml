@@ -258,9 +258,13 @@
                                         
                                         <ComboBox x:Name="SeverityComboBox" Grid.Column="1" Margin="10,0"
                                                   Background="#252542" Foreground="White" SelectedIndex="0">
-                                            <ComboBoxItem Content="Warning"/>
-                                            <ComboBoxItem Content="Kick"/>
-                                            <ComboBoxItem Content="Ban"/>
+                                            <ComboBox.Resources>
+                                                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#2d2d4a"/>
+                                                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#9B59B6"/>
+                                            </ComboBox.Resources>
+                                            <ComboBoxItem Content="Warning" Foreground="#333333"/>
+                                            <ComboBoxItem Content="Kick" Foreground="#333333"/>
+                                            <ComboBoxItem Content="Ban" Foreground="#333333"/>
                                         </ComboBox>
                                         
                                         <Button Content="+ Ajouter" Grid.Column="2" Style="{StaticResource ModernButton}"

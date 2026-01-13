@@ -47,6 +47,8 @@ namespace PaLX.API.Services
         private readonly IHubContext<RoomHub> _roomHubContext;
         private readonly ILogger<BotService> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private static bool _tablesInitialized = false;
+        private static readonly object _initLock = new object();
 
         // Réponses du bot quand il est mentionné
         private static readonly string[] MentionResponses = new[]
@@ -77,12 +79,189 @@ namespace PaLX.API.Services
         // Helper pour éviter la dépendance circulaire
         private IRoomService GetRoomService() => _serviceProvider.GetRequiredService<IRoomService>();
 
+        /// <summary>
+        /// Initialise les tables Bot si elles n'existent pas
+        /// </summary>
+        private async Task EnsureTablesExistAsync(NpgsqlConnection conn)
+        {
+            if (_tablesInitialized) return;
+            
+            lock (_initLock)
+            {
+                if (_tablesInitialized) return;
+                _tablesInitialized = true;
+            }
+
+            try
+            {
+                var createTablesSql = @"
+                    -- Table de configuration du Bot par salon
+                    CREATE TABLE IF NOT EXISTS ""BotConfigs"" (
+                        ""Id"" SERIAL PRIMARY KEY,
+                        ""RoomId"" INTEGER NOT NULL,
+                        ""BotName"" VARCHAR(50) NOT NULL DEFAULT 'PaLX Bot',
+                        ""BotAvatarUrl"" VARCHAR(255) DEFAULT '/images/bot-avatar.png',
+                        ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+                        ""WelcomeMessageEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+                        ""ModerationEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+                        ""QuizEnabled"" BOOLEAN NOT NULL DEFAULT FALSE,
+                        ""MentionResponseEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+                        ""TopicSuggestionEnabled"" BOOLEAN NOT NULL DEFAULT FALSE,
+                        ""WelcomeMessageTemplate"" TEXT DEFAULT 'Bienvenue {username} dans le salon ! 👋',
+                        ""WarningMessageTemplate"" TEXT DEFAULT '⚠️ {username}, merci de respecter les règles du salon.',
+                        ""KickMessageTemplate"" TEXT DEFAULT '❌ {username} a été expulsé pour comportement inapproprié.',
+                        ""WarningsBeforeKick"" INTEGER NOT NULL DEFAULT 3,
+                        ""WarningResetMinutes"" INTEGER NOT NULL DEFAULT 60,
+                        ""QuizIntervalMinutes"" INTEGER NOT NULL DEFAULT 30,
+                        ""QuizTimeoutSeconds"" INTEGER NOT NULL DEFAULT 60,
+                        ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        ""UpdatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT ""unique_room_bot"" UNIQUE (""RoomId"")
+                    );
+
+                    -- Table des avertissements donnés par le bot
+                    CREATE TABLE IF NOT EXISTS ""BotWarnings"" (
+                        ""Id"" SERIAL PRIMARY KEY,
+                        ""RoomId"" INTEGER NOT NULL,
+                        ""UserId"" INTEGER NOT NULL,
+                        ""Reason"" VARCHAR(500) NOT NULL DEFAULT '',
+                        ""TriggerWord"" VARCHAR(100) NOT NULL DEFAULT '',
+                        ""OriginalMessage"" TEXT NOT NULL DEFAULT '',
+                        ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE
+                    );
+
+                    -- Table des mots interdits par salon
+                    CREATE TABLE IF NOT EXISTS ""BannedWords"" (
+                        ""Id"" SERIAL PRIMARY KEY,
+                        ""RoomId"" INTEGER NOT NULL,
+                        ""Word"" VARCHAR(100) NOT NULL,
+                        ""Severity"" VARCHAR(20) NOT NULL DEFAULT 'Warning',
+                        ""AddedBy"" INTEGER NOT NULL,
+                        ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        CONSTRAINT ""unique_room_word"" UNIQUE (""RoomId"", ""Word"")
+                    );
+
+                    -- Table des questions de quiz
+                    CREATE TABLE IF NOT EXISTS ""QuizQuestions"" (
+                        ""Id"" SERIAL PRIMARY KEY,
+                        ""RoomId"" INTEGER DEFAULT 0,
+                        ""Question"" TEXT NOT NULL,
+                        ""Answer"" VARCHAR(500) NOT NULL,
+                        ""Options"" TEXT[],
+                        ""Category"" VARCHAR(50) NOT NULL DEFAULT 'General',
+                        ""Points"" INTEGER NOT NULL DEFAULT 10,
+                        ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+
+                    -- Table des sujets de discussion
+                    CREATE TABLE IF NOT EXISTS ""DiscussionTopics"" (
+                        ""Id"" SERIAL PRIMARY KEY,
+                        ""RoomId"" INTEGER DEFAULT 0,
+                        ""Topic"" TEXT NOT NULL,
+                        ""Category"" VARCHAR(50) NOT NULL DEFAULT 'General',
+                        ""CreatedAt"" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                ";
+
+                using var cmd = new NpgsqlCommand(createTablesSql, conn);
+                await cmd.ExecuteNonQueryAsync();
+                
+                // Ajouter des questions de quiz par défaut (si la table est vide)
+                await InsertDefaultQuizQuestionsAsync(conn);
+                
+                // Ajouter des sujets de discussion par défaut (si la table est vide)
+                await InsertDefaultTopicsAsync(conn);
+                
+                _logger.LogInformation("[BotService] Tables Bot créées/vérifiées avec succès");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[BotService] Erreur lors de la création des tables Bot");
+                _tablesInitialized = false; // Réessayer la prochaine fois
+            }
+        }
+        
+        private async Task InsertDefaultQuizQuestionsAsync(NpgsqlConnection conn)
+        {
+            // Vérifier si des questions existent déjà
+            var countCmd = new NpgsqlCommand(@"SELECT COUNT(*) FROM ""QuizQuestions"" WHERE ""RoomId"" = 0", conn);
+            var count = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
+            if (count > 0) return;
+            
+            var defaultQuestions = new[]
+            {
+                ("Quelle est la capitale de la France ?", "Paris", new[] { "Paris", "Lyon", "Marseille", "Bordeaux" }, "Géographie", 10),
+                ("Combien font 7 × 8 ?", "56", new[] { "54", "56", "58", "64" }, "Mathématiques", 10),
+                ("Qui a peint La Joconde ?", "Léonard de Vinci", new[] { "Michel-Ange", "Léonard de Vinci", "Raphaël", "Picasso" }, "Art", 15),
+                ("Quel est le plus grand océan du monde ?", "Pacifique", new[] { "Atlantique", "Indien", "Pacifique", "Arctique" }, "Géographie", 10),
+                ("En quelle année l'homme a-t-il marché sur la Lune pour la première fois ?", "1969", new[] { "1965", "1967", "1969", "1971" }, "Histoire", 15),
+                ("Quel est le symbole chimique de l'or ?", "Au", new[] { "Or", "Au", "Ag", "Fe" }, "Sciences", 10),
+                ("Combien y a-t-il de continents sur Terre ?", "7", new[] { "5", "6", "7", "8" }, "Géographie", 10),
+                ("Quel animal est le plus rapide du monde ?", "Guépard", new[] { "Lion", "Guépard", "Tigre", "Léopard" }, "Nature", 10),
+                ("Quelle est la langue la plus parlée dans le monde ?", "Mandarin", new[] { "Anglais", "Espagnol", "Mandarin", "Hindi" }, "Culture", 15),
+                ("Quel est le plus long fleuve du monde ?", "Nil", new[] { "Amazone", "Nil", "Yangtsé", "Mississippi" }, "Géographie", 15)
+            };
+            
+            foreach (var (question, answer, options, category, points) in defaultQuestions)
+            {
+                var sql = @"INSERT INTO ""QuizQuestions"" (""RoomId"", ""Question"", ""Answer"", ""Options"", ""Category"", ""Points"") 
+                            VALUES (0, @q, @a, @o, @c, @p) ON CONFLICT DO NOTHING";
+                using var insertCmd = new NpgsqlCommand(sql, conn);
+                insertCmd.Parameters.AddWithValue("q", question);
+                insertCmd.Parameters.AddWithValue("a", answer);
+                insertCmd.Parameters.AddWithValue("o", options);
+                insertCmd.Parameters.AddWithValue("c", category);
+                insertCmd.Parameters.AddWithValue("p", points);
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+            
+            _logger.LogInformation("[BotService] Questions de quiz par défaut ajoutées");
+        }
+        
+        private async Task InsertDefaultTopicsAsync(NpgsqlConnection conn)
+        {
+            // Vérifier si des sujets existent déjà
+            var countCmd = new NpgsqlCommand(@"SELECT COUNT(*) FROM ""DiscussionTopics"" WHERE ""RoomId"" = 0", conn);
+            var count = Convert.ToInt64(await countCmd.ExecuteScalarAsync());
+            if (count > 0) return;
+            
+            var defaultTopics = new[]
+            {
+                ("Si tu pouvais voyager n'importe où dans le monde, où irais-tu et pourquoi ?", "Voyage"),
+                ("Quel est ton film ou ta série préférée du moment ?", "Divertissement"),
+                ("Si tu avais un super-pouvoir, lequel choisirais-tu ?", "Fun"),
+                ("Quel est le meilleur conseil qu'on t'ait donné ?", "Vie"),
+                ("Tu préfères le matin ou le soir ? Pourquoi ?", "Style de vie"),
+                ("Quel est ton plat préféré ?", "Cuisine"),
+                ("Si tu pouvais maîtriser un instrument de musique instantanément, lequel serait-ce ?", "Musique"),
+                ("Quel est ton jeu vidéo préféré de tous les temps ?", "Gaming"),
+                ("Si tu pouvais dîner avec une personnalité historique, qui serait-ce ?", "Histoire"),
+                ("Quelle est la chose la plus folle sur ta bucket list ?", "Rêves")
+            };
+            
+            foreach (var (topic, category) in defaultTopics)
+            {
+                var sql = @"INSERT INTO ""DiscussionTopics"" (""RoomId"", ""Topic"", ""Category"") 
+                            VALUES (0, @t, @c) ON CONFLICT DO NOTHING";
+                using var insertCmd = new NpgsqlCommand(sql, conn);
+                insertCmd.Parameters.AddWithValue("t", topic);
+                insertCmd.Parameters.AddWithValue("c", category);
+                await insertCmd.ExecuteNonQueryAsync();
+            }
+            
+            _logger.LogInformation("[BotService] Sujets de discussion par défaut ajoutés");
+        }
+
         #region Configuration
 
         public async Task<BotConfigDto?> GetBotConfigAsync(int roomId)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
+            
+            // S'assurer que les tables existent
+            await EnsureTablesExistAsync(conn);
 
             var sql = @"
                 SELECT * FROM ""BotConfigs"" WHERE ""RoomId"" = @roomId";
@@ -224,6 +403,9 @@ namespace PaLX.API.Services
             
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
+            
+            // S'assurer que les tables existent
+            await EnsureTablesExistAsync(conn);
 
             var sql = @"
                 SELECT bw.*, u.""Username"" as AddedByUsername
@@ -269,28 +451,32 @@ namespace PaLX.API.Services
             cmd.Parameters.AddWithValue("severity", dto.Severity);
             cmd.Parameters.AddWithValue("addedBy", actorId);
             
-            using var reader = await cmd.ExecuteReaderAsync();
-            if (await reader.ReadAsync())
+            int wordId;
+            DateTime createdAt;
+            
+            using (var reader = await cmd.ExecuteReaderAsync())
             {
-                // Récupérer le nom d'utilisateur
-                var usernameSql = @"SELECT ""Username"" FROM ""Users"" WHERE ""Id"" = @userId";
-                await reader.CloseAsync();
-                
-                using var userCmd = new NpgsqlCommand(usernameSql, conn);
-                userCmd.Parameters.AddWithValue("userId", actorId);
-                var username = await userCmd.ExecuteScalarAsync() as string ?? "Inconnu";
-
-                return new BannedWordDto
-                {
-                    Id = reader.GetInt32(0),
-                    Word = dto.Word.ToLowerInvariant().Trim(),
-                    Severity = dto.Severity,
-                    AddedByUsername = username,
-                    CreatedAt = reader.GetDateTime(1)
-                };
+                if (!await reader.ReadAsync())
+                    throw new Exception("Failed to add banned word");
+                    
+                wordId = reader.GetInt32(0);
+                createdAt = reader.GetDateTime(1);
             }
             
-            throw new Exception("Failed to add banned word");
+            // Récupérer le nom d'utilisateur (après avoir fermé le reader)
+            var usernameSql = @"SELECT ""Username"" FROM ""Users"" WHERE ""Id"" = @userId";
+            using var userCmd = new NpgsqlCommand(usernameSql, conn);
+            userCmd.Parameters.AddWithValue("userId", actorId);
+            var username = await userCmd.ExecuteScalarAsync() as string ?? "Inconnu";
+
+            return new BannedWordDto
+            {
+                Id = wordId,
+                Word = dto.Word.ToLowerInvariant().Trim(),
+                Severity = dto.Severity,
+                AddedByUsername = username,
+                CreatedAt = createdAt
+            };
         }
 
         public async Task<bool> RemoveBannedWordAsync(int roomId, int wordId, int actorId)
@@ -315,13 +501,28 @@ namespace PaLX.API.Services
 
             var bannedWords = await GetBannedWordsAsync(roomId);
             var messageLower = message.ToLowerInvariant();
+            
+            _logger.LogDebug("[BotService] Checking message for violations: '{Message}' against {Count} banned words", 
+                messageLower, bannedWords.Count);
 
             foreach (var word in bannedWords)
             {
-                // Utiliser une regex pour détecter le mot (même avec caractères spéciaux autour)
-                var pattern = $@"\b{Regex.Escape(word.Word)}\b";
+                var wordLower = word.Word.ToLowerInvariant();
+                
+                // Méthode 1: Correspondance exacte avec limites de mots
+                var pattern = $@"\b{Regex.Escape(wordLower)}\b";
                 if (Regex.IsMatch(messageLower, pattern, RegexOptions.IgnoreCase))
                 {
+                    _logger.LogInformation("[BotService] Violation detected! Word: '{Word}' in message: '{Message}'", 
+                        word.Word, message);
+                    return (true, word.Word, word.Severity);
+                }
+                
+                // Méthode 2: Contient le mot (si le mot fait 4+ caractères)
+                if (wordLower.Length >= 4 && messageLower.Contains(wordLower))
+                {
+                    _logger.LogInformation("[BotService] Violation detected (contains)! Word: '{Word}' in message: '{Message}'", 
+                        word.Word, message);
                     return (true, word.Word, word.Severity);
                 }
             }
@@ -564,19 +765,26 @@ namespace PaLX.API.Services
             var botName = config?.BotName ?? "PaLX Bot";
             var botAvatar = config?.BotAvatarUrl ?? "/images/bot-avatar.png";
 
-            var message = new
+            // Créer un RoomMessageDto complet pour que le client puisse le traiter
+            var message = new RoomMessageDto
             {
+                Id = 0,
+                RoomId = roomId,
                 UserId = 0, // Bot n'a pas d'ID utilisateur
                 Username = botName,
-                AvatarUrl = botAvatar,
+                DisplayName = botName,
+                AvatarPath = botAvatar,
+                RoleName = "Bot IA",
+                RoleColor = "#9B59B6", // Violet pour le bot
                 Content = content,
                 MessageType = messageType,
                 Timestamp = DateTime.UtcNow
             };
 
-            await _roomHubContext.Clients.Group($"room_{roomId}").SendAsync("ReceiveMessage", message);
+            // Note: Le groupe SignalR est "Room_{roomId}" avec un R majuscule
+            await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("ReceiveMessage", message);
             
-            _logger.LogInformation("Bot message sent to room {RoomId}: {Content}", roomId, content);
+            _logger.LogInformation("[BotService] Bot message sent to room {RoomId}: {Content}", roomId, content);
         }
 
         public async Task SendWelcomeMessageAsync(int roomId, int userId, string username)
@@ -614,13 +822,17 @@ namespace PaLX.API.Services
             if (config == null || !config.IsEnabled || !config.MentionResponseEnabled)
                 return;
 
-            // Choisir une réponse aléatoire
-            var random = new Random();
-            var response = MentionResponses[random.Next(MentionResponses.Length)];
-            response = response.Replace("{username}", username);
+            // Réponse personnalisée avec explication des commandes
+            var response = $"Bonjour {username} ! 👋 Je suis **{config.BotName}**, l'assistant IA de ce salon.\n\n" +
+                          "📝 **Voici ce que je peux faire :**\n" +
+                          "• `!aide` - Voir toutes les commandes\n" +
+                          "• `!quiz` - Lancer une question quiz 🎯\n" +
+                          "• `!sujet` - Suggérer un sujet de discussion 💬\n" +
+                          "• `!regles` - Afficher les règles du salon 📋\n\n" +
+                          "Je surveille aussi le chat pour la modération. Bonne discussion ! 😊";
 
             // Petite pause pour simuler le temps de réponse
-            await Task.Delay(500);
+            await Task.Delay(300);
 
             await SendBotMessageAsync(roomId, response, "Bot");
         }
@@ -634,8 +846,13 @@ namespace PaLX.API.Services
             var config = await GetBotConfigAsync(roomId);
             if (config == null || !config.IsEnabled)
                 return false;
+            
+            _logger.LogDebug("[BotService] Processing message from user {UserId} ({Username}) in room {RoomId}: {Message}", 
+                userId, username, roomId, message);
 
             // 1. Vérifier les violations de modération
+            // Note: La modération s'applique à TOUS les utilisateurs, y compris le owner
+            // Le owner peut se modérer lui-même pour tester, ou désactiver la modération s'il le souhaite
             if (config.ModerationEnabled)
             {
                 var (isViolation, triggerWord, severity) = await CheckMessageForViolationsAsync(roomId, message);

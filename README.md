@@ -18,7 +18,20 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🤖 v1.8.8 - Bot IA pour Salons *(Dernière Version)*
+### 🤖 v1.8.9 - Bot IA Amélioré *(Dernière Version)*
+
+*   **Bouton rapide dans le header** : Accès direct à la config bot depuis l'icône robot violet.
+*   **Auto-création des tables** : Les tables bot sont créées automatiquement au démarrage.
+*   **Questions par défaut** : 10 questions de quiz pré-chargées (géographie, science, culture).
+*   **Sujets par défaut** : 10 thèmes de discussion prêts à l'emploi.
+*   **Double détection** : Mots interdits détectés par regex ET recherche simple.
+*   **Réponse détaillée** : Le bot liste toutes ses commandes quand mentionné.
+*   **Correctifs SignalR** : Messages de bienvenue reçus par tous les membres.
+*   **Dropdown lisible** : Couleur de texte corrigée dans les ComboBox.
+
+---
+
+### 🤖 v1.8.8 - Bot IA pour Salons
 
 *   **Assistant intelligent** : Bot automatique dans chaque salon configurable par le propriétaire.
 *   **Modération automatique** : Détection de mots interdits avec avertissements progressifs.

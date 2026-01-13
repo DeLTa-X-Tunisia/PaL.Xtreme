@@ -24,7 +24,9 @@ namespace PaLX.API.Controllers
 
         private int GetUserId()
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // Le claim "UserId" contient l'ID numérique (voir AuthService.GenerateJwtToken)
+            var userIdClaim = User.FindFirst("UserId")?.Value;
+            _logger.LogDebug("[BotController] GetUserId - Claim value: {ClaimValue}", userIdClaim);
             return int.TryParse(userIdClaim, out var userId) ? userId : 0;
         }
 
@@ -63,21 +65,26 @@ namespace PaLX.API.Controllers
             try
             {
                 var userId = GetUserId();
+                _logger.LogInformation("[BotController] UpdateBotConfig called - RoomId: {RoomId}, UserId: {UserId}", roomId, userId);
                 
                 // Vérifier les permissions (owner ou admin)
                 var canManage = await _roomService.CanManageRoomAsync(roomId, userId);
+                _logger.LogInformation("[BotController] CanManage result: {CanManage}", canManage);
+                
                 if (!canManage)
                 {
-                    return Forbid("You don't have permission to manage this room's bot");
+                    _logger.LogWarning("[BotController] User {UserId} denied access to manage room {RoomId} bot", userId, roomId);
+                    return Unauthorized(new { error = "Vous n'avez pas les permissions pour gérer le bot de ce salon" });
                 }
 
                 var config = await _botService.CreateOrUpdateBotConfigAsync(roomId, dto, userId);
+                _logger.LogInformation("[BotController] Bot config saved successfully for room {RoomId}", roomId);
                 return Ok(config);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating bot config for room {RoomId}", roomId);
-                return StatusCode(500, "Error updating bot configuration");
+                _logger.LogError(ex, "[BotController] Error updating bot config for room {RoomId}: {Error}", roomId, ex.Message);
+                return StatusCode(500, new { error = $"Erreur lors de la mise à jour: {ex.Message}" });
             }
         }
 

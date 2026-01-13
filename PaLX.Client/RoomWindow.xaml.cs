@@ -65,6 +65,9 @@ namespace PaLX.Client
             // Show Banned Users button for moderators+
             UpdateBannedUsersButtonVisibility();
             
+            // Show Bot Config button for owner/admins
+            UpdateBotConfigButtonVisibility();
+            
             // Setup Uptime Timer
             _uptimeTimer = new DispatcherTimer();
             _uptimeTimer.Interval = TimeSpan.FromSeconds(1);
@@ -485,6 +488,62 @@ namespace PaLX.Client
             
             System.Diagnostics.Debug.WriteLine($"[CanUserKickBan] User has no kick/ban permissions. OwnerId={_room.OwnerId}, CurrentUserId={_apiService.CurrentUserId}, UserRole={_room.UserRole}");
             return false;
+        }
+
+        /// <summary>
+        /// Met à jour la visibilité du bouton de configuration du Bot IA
+        /// Visible uniquement pour le propriétaire du salon et les admins système (niveaux 1-6)
+        /// </summary>
+        private void UpdateBotConfigButtonVisibility()
+        {
+            if (BotConfigButton == null) return;
+            
+            bool canConfigureBot = CanUserConfigureBot();
+            BotConfigButton.Visibility = canConfigureBot ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// Détermine si l'utilisateur peut configurer le Bot IA du salon
+        /// Autorisé uniquement pour:
+        /// - Le propriétaire du salon (RoomOwner)
+        /// - Les admins système (RoleLevel 1-6)
+        /// </summary>
+        private bool CanUserConfigureBot()
+        {
+            // Admins système (RoleLevel 1-6)
+            int systemRoleLevel = _apiService.CurrentUserRoleLevel;
+            if (systemRoleLevel >= 1 && systemRoleLevel <= 6)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CanUserConfigureBot] User is system admin (level {systemRoleLevel}) - CAN configure bot");
+                return true;
+            }
+            
+            // Propriétaire du salon uniquement
+            if (_room.IsOwner || _room.OwnerId == _apiService.CurrentUserId)
+            {
+                System.Diagnostics.Debug.WriteLine($"[CanUserConfigureBot] User is room owner - CAN configure bot");
+                return true;
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"[CanUserConfigureBot] User cannot configure bot. OwnerId={_room.OwnerId}, CurrentUserId={_apiService.CurrentUserId}");
+            return false;
+        }
+
+        /// <summary>
+        /// Ouvre la fenêtre de configuration du Bot IA
+        /// </summary>
+        private void BotConfig_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var botConfigWindow = new BotConfigWindow(_roomId);
+                botConfigWindow.Owner = this;
+                botConfigWindow.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error opening bot config window: {ex.Message}");
+            }
         }
 
         /// <summary>

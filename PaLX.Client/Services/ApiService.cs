@@ -292,20 +292,26 @@ namespace PaLX.Client.Services
         /// <summary>
         /// Met à jour la configuration du bot pour un salon
         /// </summary>
-        public async Task<BotConfigDto?> UpdateBotConfigAsync(int roomId, UpdateBotConfigDto dto)
+        public async Task<(BotConfigDto? Config, string? Error)> UpdateBotConfigAsync(int roomId, UpdateBotConfigDto dto)
         {
             try
             {
                 var response = await _httpClient.PutAsJsonAsync($"api/bot/config/{roomId}", dto);
                 if (response.IsSuccessStatusCode)
                 {
-                    return await response.Content.ReadFromJsonAsync<BotConfigDto>();
+                    var config = await response.Content.ReadFromJsonAsync<BotConfigDto>();
+                    return (config, null);
                 }
-                return null;
+                
+                // Lire le message d'erreur du serveur
+                var errorContent = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UpdateBotConfig error: {response.StatusCode} - {errorContent}");
+                return (null, $"Erreur {(int)response.StatusCode}: {errorContent}");
             }
-            catch
+            catch (Exception ex)
             {
-                return null;
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UpdateBotConfig exception: {ex.Message}");
+                return (null, ex.Message);
             }
         }
 
