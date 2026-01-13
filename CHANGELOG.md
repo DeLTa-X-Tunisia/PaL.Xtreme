@@ -7,6 +7,63 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.6] - 2026-01-13
+
+### 📢 Messages de Modération dans le Chat
+
+#### Notifications Kick/Ban dans le Salon
+- **Message automatique** : Lorsqu'un utilisateur est kické ou banni, un message s'affiche dans le chat pour tous les membres
+- **Format clair** : "{Utilisateur} a été kické/banni du salon par {Modérateur} ({Rôle})"
+- **Type de message "Moderation"** : Nouveau type distinct des messages système classiques
+- **Récupération des infos acteur** : DisplayName et rôle affichés correctement
+
+### 🎨 Icônes Modernes et Colorées
+
+#### Messages Système Améliorés
+- **Icônes SVG vectorielles** : Remplacement des emojis par des icônes modernes
+- **Sous-types de messages** : Join, Leave, Welcome, RoleChange, Info
+- **Couleurs distinctes par type** :
+  - 🟢 **Entrée** : Fond vert clair (#DCFCE7), texte vert (#15803D)
+  - 🔴 **Sortie** : Fond rouge clair (#FEE2E2), texte rouge (#DC2626)
+  - ⭐ **Bienvenue** : Fond bleu clair (#DBEAFE), texte bleu (#1D4ED8)
+  - ⚙️ **Changement rôle** : Fond jaune clair (#FEF3C7), texte orange (#B45309)
+  - ℹ️ **Info** : Fond gris clair (#F3F4F6), texte gris (#6B7280)
+
+#### Message de Modération (Kick/Ban)
+- **Icône bouclier** : Symbole de protection/modération
+- **Dégradé rouge** : Fond #FEE2E2 → #FECACA
+- **Ombre portée rouge** : Effet visuel distinctif
+- **Texte semi-bold** : Meilleure lisibilité
+
+### 📏 Améliorations UI
+
+#### Fenêtre de Confirmation Déban
+- **Largeur augmentée** : 460px → 520px
+- **Hauteur augmentée** : 260px → 280px
+- **MaxWidth texte** : 450px pour éviter les coupures
+- **Message complet visible** : "Il pourra à nouveau rejoindre le salon"
+
+### 🔧 Fichiers Modifiés
+
+#### API (Backend)
+- `PaLX.API/Services/RoomService.cs` :
+  - `KickUserAsync` : Récupération infos acteur + envoi message Moderation
+  - `BanUserAsync` : Récupération infos acteur + envoi message Moderation
+  - Nouveau DTO avec propriétés RoomMessageDto compatibles
+
+#### Client (Frontend)
+- `PaLX.Client/RoomWindow.xaml.cs` :
+  - `RoomMessageViewModel` : Ajout SystemSubType et propriétés de couleur/visibilité
+  - `AddSystemMessage(content, subType)` : Nouveau paramètre sous-type
+  - Appels mis à jour : Join, Leave, Welcome, RoleChange
+- `PaLX.Client/RoomWindow.xaml` :
+  - Template messages système avec icônes SVG
+  - Template message modération avec icône bouclier
+  - Couleurs dynamiques selon sous-type
+- `PaLX.Client/CustomConfirmWindow.xaml` : Dimensions augmentées
+
+---
+
 ## [1.8.5] - 2026-01-13
 
 ### 🛡️ Améliorations Système Kick & Ban

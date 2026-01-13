@@ -506,12 +506,92 @@
                                         </Grid>
                                     </Border>
 
-                                    <!-- System Message -->
+                                    <!-- System Message with modern icons -->
                                     <Border Visibility="{Binding SystemVisibility}" HorizontalAlignment="Center" Margin="0,8">
-                                        <Border Background="#E5E7EB" CornerRadius="12" Padding="16,8">
+                                        <Border Background="{Binding SystemBackgroundColor}" CornerRadius="16" Padding="14,8">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="6" ShadowDepth="0" Opacity="0.1" Color="#000"/>
+                                            </Border.Effect>
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="ℹ️ " FontSize="12"/>
-                                                <TextBlock Text="{Binding Content}" FontSize="12" Foreground="#6B7280" FontStyle="Italic"/>
+                                                <!-- Join Icon (Flèche entrante verte) -->
+                                                <Viewbox Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding JoinIconVisibility}">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#22C55E" Data="M12,4C14.21,4 16,5.79 16,8C16,10.21 14.21,12 12,12C9.79,12 8,10.21 8,8C8,5.79 9.79,4 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+                                                        <Path Fill="#15803D" Data="M19,8L15,12H18A6,6 0 0,1 12,18A6,6 0 0,1 6,12H4A8,8 0 0,0 12,20A8,8 0 0,0 20,12H23L19,8Z" RenderTransformOrigin="0.5,0.5">
+                                                            <Path.RenderTransform>
+                                                                <TransformGroup>
+                                                                    <ScaleTransform ScaleX="0.5" ScaleY="0.5"/>
+                                                                    <TranslateTransform X="16" Y="-2"/>
+                                                                </TransformGroup>
+                                                            </Path.RenderTransform>
+                                                        </Path>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                
+                                                <!-- Leave Icon (Flèche sortante rouge) -->
+                                                <Viewbox Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding LeaveIconVisibility}">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#EF4444" Data="M12,4C14.21,4 16,5.79 16,8C16,10.21 14.21,12 12,12C9.79,12 8,10.21 8,8C8,5.79 9.79,4 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"/>
+                                                        <Path Fill="#DC2626" Data="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" RenderTransformOrigin="0.5,0.5">
+                                                            <Path.RenderTransform>
+                                                                <TransformGroup>
+                                                                    <ScaleTransform ScaleX="0.45" ScaleY="0.45"/>
+                                                                    <TranslateTransform X="16" Y="-2"/>
+                                                                </TransformGroup>
+                                                            </Path.RenderTransform>
+                                                        </Path>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                
+                                                <!-- Welcome Icon (Étoile bleue) -->
+                                                <Viewbox Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding WelcomeIconVisibility}">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#3B82F6" Data="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                
+                                                <!-- RoleChange Icon (Badge doré) -->
+                                                <Viewbox Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding RoleChangeIconVisibility}">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#F59E0B" Data="M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,10A2,2 0 0,0 10,12A2,2 0 0,0 12,14A2,2 0 0,0 14,12A2,2 0 0,0 12,10M10,22C9.75,22 9.54,21.82 9.5,21.58L9.13,18.93C8.5,18.68 7.96,18.34 7.44,17.94L4.95,18.95C4.73,19.03 4.46,18.95 4.34,18.73L2.34,15.27C2.21,15.05 2.27,14.78 2.46,14.63L4.57,12.97L4.5,12L4.57,11L2.46,9.37C2.27,9.22 2.21,8.95 2.34,8.73L4.34,5.27C4.46,5.05 4.73,4.96 4.95,5.05L7.44,6.05C7.96,5.66 8.5,5.32 9.13,5.07L9.5,2.42C9.54,2.18 9.75,2 10,2H14C14.25,2 14.46,2.18 14.5,2.42L14.87,5.07C15.5,5.32 16.04,5.66 16.56,6.05L19.05,5.05C19.27,4.96 19.54,5.05 19.66,5.27L21.66,8.73C21.79,8.95 21.73,9.22 21.54,9.37L19.43,11L19.5,12L19.43,13L21.54,14.63C21.73,14.78 21.79,15.05 21.66,15.27L19.66,18.73C19.54,18.95 19.27,19.04 19.05,18.95L16.56,17.95C16.04,18.34 15.5,18.68 14.87,18.93L14.5,21.58C14.46,21.82 14.25,22 14,22H10Z"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                
+                                                <!-- Info Icon (par défaut) -->
+                                                <Viewbox Width="16" Height="16" Margin="0,0,8,0" Visibility="{Binding InfoIconVisibility}">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#6B7280" Data="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                
+                                                <TextBlock Text="{Binding Content}" FontSize="12" Foreground="{Binding SystemTextColor}" 
+                                                           FontWeight="Medium" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Border>
+
+                                    <!-- Moderation Message (Kick/Ban) - Icône bouclier -->
+                                    <Border Visibility="{Binding ModerationVisibility}" HorizontalAlignment="Center" Margin="0,10">
+                                        <Border CornerRadius="16" Padding="16,10">
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                    <GradientStop Color="#FEE2E2" Offset="0"/>
+                                                    <GradientStop Color="#FECACA" Offset="1"/>
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="10" ShadowDepth="0" Opacity="0.2" Color="#DC2626"/>
+                                            </Border.Effect>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                <!-- Shield Alert Icon -->
+                                                <Viewbox Width="18" Height="18" Margin="0,0,10,0">
+                                                    <Canvas Width="24" Height="24">
+                                                        <Path Fill="#DC2626" Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7A2,2 0 0,1 14,9A2,2 0 0,1 12,11A2,2 0 0,1 10,9A2,2 0 0,1 12,7M12,13C13.1,13 14,13.9 14,15V17H10V15C10,13.9 10.9,13 12,13Z"/>
+                                                    </Canvas>
+                                                </Viewbox>
+                                                <TextBlock Text="{Binding Content}" FontSize="12" Foreground="#DC2626" 
+                                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           TextWrapping="Wrap" MaxWidth="400"/>
                                             </StackPanel>
                                         </Border>
                                     </Border>

@@ -1689,7 +1689,10 @@ namespace PaLX.API.Services
             var targetUsername = "";
             var targetDisplayName = "";
             var roomName = "";
+            var actorDisplayName = "";
+            var actorRoleName = "";
             
+            // Récupérer infos de la cible
             var infoSql = @"
                 SELECT u.""Username"", r.""Name"",
                        COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName
@@ -1707,6 +1710,30 @@ namespace PaLX.API.Services
                     targetUsername = reader.GetString(0);
                     roomName = reader.GetString(1);
                     targetDisplayName = reader.GetString(2);
+                }
+                await reader.CloseAsync();
+            }
+
+            // Récupérer infos de l'acteur (celui qui kick)
+            var actorInfoSql = @"
+                SELECT COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName,
+                       COALESCE(rr.""Name"", 'Member') as RoleName
+                FROM ""Users"" u
+                LEFT JOIN ""UserProfiles"" p ON p.""UserId"" = u.""Id""
+                LEFT JOIN ""RoomMembers"" rm ON rm.""UserId"" = u.""Id"" AND rm.""RoomId"" = @roomId
+                LEFT JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
+                WHERE u.""Id"" = @actorId";
+            using (var cmd = new NpgsqlCommand(actorInfoSql, conn))
+            {
+                cmd.Parameters.AddWithValue("actorId", actorId);
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    actorDisplayName = reader.GetString(0);
+                    var technicalRole = reader.GetString(1);
+                    var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRole);
+                    actorRoleName = roleInfo.DisplayName;
                 }
                 await reader.CloseAsync();
             }
@@ -1746,6 +1773,24 @@ namespace PaLX.API.Services
                 // Notifier le salon qu'un membre est parti
                 await _roomHubContext.Clients.Group($"Room_{roomId}")
                     .SendAsync("MemberLeft", targetUserId);
+
+                // Envoyer un message de modération dans le chat
+                var moderationMessage = new
+                {
+                    Id = 0,
+                    RoomId = roomId,
+                    UserId = 0,
+                    Username = "Système",
+                    DisplayName = "Système",
+                    AvatarPath = "",
+                    RoleName = "Système",
+                    RoleColor = "#DC2626",
+                    Content = $"{targetDisplayName} a été kické du salon par {actorDisplayName} ({actorRoleName})",
+                    MessageType = "Moderation",
+                    Timestamp = DateTime.UtcNow
+                };
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("ReceiveMessage", moderationMessage);
 
                 _logger.LogDebug("[RoomService] SignalR UserKicked sent to {Username}", targetUsername);
             }
@@ -1822,7 +1867,10 @@ namespace PaLX.API.Services
             var targetUsername = "";
             var targetDisplayName = "";
             var roomName = "";
+            var actorDisplayName = "";
+            var actorRoleName = "";
             
+            // Récupérer infos de la cible
             var infoSql = @"
                 SELECT u.""Username"", r.""Name"",
                        COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName
@@ -1840,6 +1888,30 @@ namespace PaLX.API.Services
                     targetUsername = reader.GetString(0);
                     roomName = reader.GetString(1);
                     targetDisplayName = reader.GetString(2);
+                }
+                await reader.CloseAsync();
+            }
+
+            // Récupérer infos de l'acteur (celui qui bannit)
+            var actorInfoSql = @"
+                SELECT COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName,
+                       COALESCE(rr.""Name"", 'Member') as RoleName
+                FROM ""Users"" u
+                LEFT JOIN ""UserProfiles"" p ON p.""UserId"" = u.""Id""
+                LEFT JOIN ""RoomMembers"" rm ON rm.""UserId"" = u.""Id"" AND rm.""RoomId"" = @roomId
+                LEFT JOIN ""RoomRoles"" rr ON rm.""RoleId"" = rr.""Id""
+                WHERE u.""Id"" = @actorId";
+            using (var cmd = new NpgsqlCommand(actorInfoSql, conn))
+            {
+                cmd.Parameters.AddWithValue("actorId", actorId);
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                using var reader = await cmd.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
+                {
+                    actorDisplayName = reader.GetString(0);
+                    var technicalRole = reader.GetString(1);
+                    var roleInfo = RoleDisplayMapper.GetRoleInfo(technicalRole);
+                    actorRoleName = roleInfo.DisplayName;
                 }
                 await reader.CloseAsync();
             }
@@ -1892,6 +1964,25 @@ namespace PaLX.API.Services
                 // Notifier le salon qu'un membre est parti
                 await _roomHubContext.Clients.Group($"Room_{roomId}")
                     .SendAsync("MemberLeft", targetUserId);
+
+                // Envoyer un message de modération dans le chat
+                var banTypeLabel = dto.BanType == "Permanent" ? "banni définitivement" : $"banni {durationMessage}";
+                var moderationMessage = new
+                {
+                    Id = 0,
+                    RoomId = roomId,
+                    UserId = 0,
+                    Username = "Système",
+                    DisplayName = "Système",
+                    AvatarPath = "",
+                    RoleName = "Système",
+                    RoleColor = "#DC2626",
+                    Content = $"{targetDisplayName} a été {banTypeLabel} du salon par {actorDisplayName} ({actorRoleName})",
+                    MessageType = "Moderation",
+                    Timestamp = DateTime.UtcNow
+                };
+                await _roomHubContext.Clients.Group($"Room_{roomId}")
+                    .SendAsync("ReceiveMessage", moderationMessage);
 
                 _logger.LogDebug("[RoomService] SignalR UserBanned sent to {Username}", targetUsername);
             }

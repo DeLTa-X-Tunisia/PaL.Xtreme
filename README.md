@@ -18,7 +18,17 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🛡️ v1.8.5 - Améliorations Kick & Ban *(Dernière Version)*
+### � v1.8.6 - Messages de Modération & Icônes Modernes *(Dernière Version)*
+
+*   **Messages kick/ban dans le chat** : Notification visible pour tous les membres du salon.
+*   **Icônes SVG modernes** : Remplacement des emojis par des icônes vectorielles colorées.
+*   **Couleurs par type** : Vert (entrée), Rouge (sortie), Bleu (bienvenue), Orange (rôle).
+*   **Icône bouclier** : Design distinctif pour les messages de modération.
+*   **Fenêtre déban élargie** : Texte complet visible sans coupure.
+
+---
+
+### 🛡️ v1.8.5 - Améliorations Kick & Ban
 
 *   **Blocage effectif** : Les utilisateurs bannis ne peuvent plus rejoindre le salon.
 *   **Modification des bans** : Nouvelle fenêtre pour changer la durée d'un bannissement.

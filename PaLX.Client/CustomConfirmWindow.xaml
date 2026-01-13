@@ -1,7 +1,7 @@
 <Window x:Class="PaLX.Client.CustomConfirmWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Confirmation" Height="260" Width="460"
+        Title="Confirmation" Height="280" Width="520"
         WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="Transparent"
         WindowStartupLocation="CenterScreen">
     
@@ -42,7 +42,8 @@
                        Text="Êtes-vous sûr ?" 
                        Foreground="#1A1A2E" TextWrapping="Wrap" 
                        HorizontalAlignment="Center" VerticalAlignment="Center" 
-                       TextAlignment="Center" FontSize="15" Margin="30,20" LineHeight="24"/>
+                       TextAlignment="Center" FontSize="15" Margin="24,20" 
+                       LineHeight="24" MaxWidth="450"/>
 
             <!-- Buttons -->
             <Border Grid.Row="2" Padding="24,0,24,24">

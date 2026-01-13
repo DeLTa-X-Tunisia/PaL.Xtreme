@@ -683,6 +683,7 @@ namespace PaLX.Client
                     Content = $"Bienvenu dans votre salon {_room.Name}",
                     Timestamp = DateTime.Now,
                     MessageType = "System",
+                    SystemSubType = "Welcome",
                     RoleColor = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E90FF")) // DodgerBlue
                 });
 
@@ -745,7 +746,7 @@ namespace PaLX.Client
             };
         }
 
-        private void AddSystemMessage(string content)
+        private void AddSystemMessage(string content, string subType = "Info")
         {
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -755,6 +756,7 @@ namespace PaLX.Client
                     Content = content,
                     Timestamp = DateTime.Now,
                     MessageType = "System",
+                    SystemSubType = subType,
                     RoleColor = Brushes.Gray
                 });
                 MessagesList.ScrollIntoView(Messages.Last());
@@ -788,7 +790,7 @@ namespace PaLX.Client
                 {
                     Members.Add(MapMember(member));
                     UpdateCounts();
-                    AddSystemMessage($"{member.DisplayName} a rejoint le salon.");
+                    AddSystemMessage($"{member.DisplayName} a rejoint le salon.", "Join");
                 }
             });
         }
@@ -806,7 +808,7 @@ namespace PaLX.Client
                     }
                     Members.Remove(member);
                     UpdateCounts();
-                    AddSystemMessage($"{member.DisplayName} a quitté le salon.");
+                    AddSystemMessage($"{member.DisplayName} a quitté le salon.", "Leave");
                 }
                 else
                 {
@@ -847,7 +849,7 @@ namespace PaLX.Client
                 {
                     member.RoleName = roleName;
                     member.RoleColor = (SolidColorBrush)new BrushConverter().ConvertFrom(color)!;
-                    AddSystemMessage($"{member.DisplayName} est maintenant {roleName}");
+                    AddSystemMessage($"{member.DisplayName} est maintenant {roleName}", "RoleChange");
                 }
             });
         }
@@ -1730,8 +1732,39 @@ namespace PaLX.Client
         public string RoleName { get; set; } = "Membre";
         public string MessageType { get; set; } = "Text";
         
+        // Sous-types de messages système pour différentes icônes
+        public string SystemSubType { get; set; } = "Info"; // Info, Join, Leave, Welcome, RoleChange
+        
         public bool IsSystem => MessageType == "System";
-        public Visibility BubbleVisibility => IsSystem ? Visibility.Collapsed : Visibility.Visible;
+        public bool IsModeration => MessageType == "Moderation";
+        public Visibility BubbleVisibility => (IsSystem || IsModeration) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility SystemVisibility => IsSystem ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility ModerationVisibility => IsModeration ? Visibility.Visible : Visibility.Collapsed;
+        
+        // Visibilités pour les différents sous-types système
+        public Visibility JoinIconVisibility => IsSystem && SystemSubType == "Join" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility LeaveIconVisibility => IsSystem && SystemSubType == "Leave" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility WelcomeIconVisibility => IsSystem && SystemSubType == "Welcome" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility RoleChangeIconVisibility => IsSystem && SystemSubType == "RoleChange" ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility InfoIconVisibility => IsSystem && SystemSubType == "Info" ? Visibility.Visible : Visibility.Collapsed;
+        
+        // Couleurs de fond selon le sous-type
+        public string SystemBackgroundColor => SystemSubType switch
+        {
+            "Join" => "#DCFCE7",      // Vert clair
+            "Leave" => "#FEE2E2",     // Rouge clair
+            "Welcome" => "#DBEAFE",   // Bleu clair
+            "RoleChange" => "#FEF3C7", // Jaune clair
+            _ => "#F3F4F6"            // Gris clair
+        };
+        
+        public string SystemTextColor => SystemSubType switch
+        {
+            "Join" => "#15803D",      // Vert
+            "Leave" => "#DC2626",     // Rouge
+            "Welcome" => "#1D4ED8",   // Bleu
+            "RoleChange" => "#B45309", // Orange
+            _ => "#6B7280"            // Gris
+        };
     }
 }
