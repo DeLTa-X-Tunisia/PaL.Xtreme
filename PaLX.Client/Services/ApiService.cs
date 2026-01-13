@@ -270,6 +270,145 @@ namespace PaLX.Client.Services
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // BOT IA API - v1.8.8
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Récupère la configuration du bot pour un salon
+        /// </summary>
+        public async Task<BotConfigDto?> GetBotConfigAsync(int roomId)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<BotConfigDto>($"api/bot/config/{roomId}");
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Met à jour la configuration du bot pour un salon
+        /// </summary>
+        public async Task<BotConfigDto?> UpdateBotConfigAsync(int roomId, UpdateBotConfigDto dto)
+        {
+            try
+            {
+                var response = await _httpClient.PutAsJsonAsync($"api/bot/config/{roomId}", dto);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadFromJsonAsync<BotConfigDto>();
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Active ou désactive le bot pour un salon
+        /// </summary>
+        public async Task<bool> ToggleBotAsync(int roomId, bool enabled)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/bot/config/{roomId}/toggle?enabled={enabled}", null);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Récupère la liste des mots interdits d'un salon
+        /// </summary>
+        public async Task<List<BannedWordDto>> GetBannedWordsAsync(int roomId)
+        {
+            try
+            {
+                return await _httpClient.GetFromJsonAsync<List<BannedWordDto>>($"api/bot/words/{roomId}") 
+                       ?? new List<BannedWordDto>();
+            }
+            catch
+            {
+                return new List<BannedWordDto>();
+            }
+        }
+
+        /// <summary>
+        /// Ajoute un mot interdit dans un salon
+        /// </summary>
+        public async Task<BannedWordDto?> AddBannedWordAsync(int roomId, AddBannedWordDto dto)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync($"api/bot/words/{roomId}", dto);
+                if (response.IsSuccessStatusCode)
+                {
+                    return await response.Content.ReadFromJsonAsync<BannedWordDto>();
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Supprime un mot interdit d'un salon
+        /// </summary>
+        public async Task<bool> RemoveBannedWordAsync(int roomId, int wordId)
+        {
+            try
+            {
+                var response = await _httpClient.DeleteAsync($"api/bot/words/{roomId}/{wordId}");
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Lance un quiz dans le salon
+        /// </summary>
+        public async Task<bool> StartQuizAsync(int roomId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/bot/quiz/{roomId}/start", null);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Suggère un sujet de discussion dans le salon
+        /// </summary>
+        public async Task<bool> SuggestTopicAsync(int roomId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"api/bot/topics/{roomId}/suggest", null);
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public async Task<string?> UploadImageAsync(string filePath)
         {
             try
@@ -1590,5 +1729,82 @@ namespace PaLX.Client.Services
         public string? AvatarPath { get; set; }
         public DateTime ViewedAt { get; set; }
         public string Context { get; set; } = "room";
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    // BOT IA DTOs - v1.8.8
+    // ═══════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Configuration du Bot IA pour un salon
+    /// </summary>
+    public class BotConfigDto
+    {
+        public int Id { get; set; }
+        public int RoomId { get; set; }
+        public string BotName { get; set; } = "PaLX Bot";
+        public string BotAvatarUrl { get; set; } = "/images/bot-avatar.png";
+        
+        public bool IsEnabled { get; set; } = true;
+        public bool WelcomeMessageEnabled { get; set; } = true;
+        public bool ModerationEnabled { get; set; } = true;
+        public bool QuizEnabled { get; set; } = false;
+        public bool MentionResponseEnabled { get; set; } = true;
+        public bool TopicSuggestionEnabled { get; set; } = false;
+        
+        public string WelcomeMessageTemplate { get; set; } = "Bienvenue {username} dans le salon ! 👋";
+        public string WarningMessageTemplate { get; set; } = "⚠️ {username}, merci de respecter les règles du salon.";
+        public string KickMessageTemplate { get; set; } = "❌ {username} a été expulsé pour comportement inapproprié.";
+        
+        public int WarningsBeforeKick { get; set; } = 3;
+        public int WarningResetMinutes { get; set; } = 60;
+        
+        public int QuizIntervalMinutes { get; set; } = 30;
+        public int QuizTimeoutSeconds { get; set; } = 60;
+    }
+
+    /// <summary>
+    /// DTO pour créer/modifier la config du bot
+    /// </summary>
+    public class UpdateBotConfigDto
+    {
+        public string? BotName { get; set; }
+        public bool? IsEnabled { get; set; }
+        public bool? WelcomeMessageEnabled { get; set; }
+        public bool? ModerationEnabled { get; set; }
+        public bool? QuizEnabled { get; set; }
+        public bool? MentionResponseEnabled { get; set; }
+        public bool? TopicSuggestionEnabled { get; set; }
+        
+        public string? WelcomeMessageTemplate { get; set; }
+        public string? WarningMessageTemplate { get; set; }
+        public string? KickMessageTemplate { get; set; }
+        
+        public int? WarningsBeforeKick { get; set; }
+        public int? WarningResetMinutes { get; set; }
+        
+        public int? QuizIntervalMinutes { get; set; }
+        public int? QuizTimeoutSeconds { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour un mot interdit
+    /// </summary>
+    public class BannedWordDto
+    {
+        public int Id { get; set; }
+        public string Word { get; set; } = string.Empty;
+        public string Severity { get; set; } = "Warning";
+        public string AddedByUsername { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+    }
+
+    /// <summary>
+    /// DTO pour ajouter un mot interdit
+    /// </summary>
+    public class AddBannedWordDto
+    {
+        public string Word { get; set; } = string.Empty;
+        public string Severity { get; set; } = "Warning";
     }
 }

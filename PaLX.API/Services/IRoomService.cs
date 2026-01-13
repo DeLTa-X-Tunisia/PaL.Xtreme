@@ -73,5 +73,11 @@ namespace PaLX.API.Services
         /// Vérifie si un utilisateur est banni d'un salon
         /// </summary>
         Task<bool> IsUserBannedAsync(int userId, int roomId);
+        
+        /// <summary>
+        /// Vérifie si un utilisateur peut gérer un salon (owner, admin ou système admin)
+        /// Utilisé pour la configuration du bot et autres fonctionnalités d'administration
+        /// </summary>
+        Task<bool> CanManageRoomAsync(int roomId, int userId);
     }
 }

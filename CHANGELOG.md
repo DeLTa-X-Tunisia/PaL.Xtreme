@@ -7,6 +7,75 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.8.8] - 2026-01-13
+
+### 🤖 Bot IA - Assistant Intelligent pour Salons
+
+#### Fonctionnalités du Bot
+- **Modération automatique** : Détection des mots interdits avec système d'avertissements progressifs
+- **Messages de bienvenue** : Salue automatiquement les nouveaux utilisateurs
+- **Réponse aux mentions** : Répond quand on l'appelle par son nom (@BotName)
+- **Quiz interactif** : Lance des questions avec options (via commande !quiz)
+- **Sujets de discussion** : Propose des thèmes de conversation (via !topic ou !sujet)
+- **Commandes** : !aide, !quiz, !topic, !regles
+
+#### Système de Modération
+- **Mots interdits** : Liste configurable par salon
+- **Niveaux de sévérité** : Warning (avertissement), Kick (expulsion), Ban (bannissement)
+- **Avertissements progressifs** : X avertissements avant kick automatique
+- **Reset automatique** : Les avertissements expirent après X minutes
+- **Messages d'avertissement personnalisables**
+
+#### Configuration par Room Owner/Admin
+- **BotConfigWindow** : Interface complète avec 3 onglets
+  - **Onglet Général** : Activation, nom du bot, fonctionnalités activées
+  - **Onglet Modération** : Paramètres d'avertissements, gestion des mots interdits
+  - **Onglet Messages** : Templates personnalisables (bienvenue, warning, kick)
+- **Accès** : Bouton robot dans la fenêtre de modération
+
+#### Affichage des Messages Bot
+- **Style moderne** : Carte avec icône robot, couleurs selon le type de message
+- **Types de messages** :
+  - 💬 **Bot** : Fond vert clair, bordure verte
+  - 👋 **BotWelcome** : Fond violet clair, bordure violette
+  - ⚠️ **BotWarning** : Fond jaune clair, bordure orange
+  - 🎯 **BotQuiz** : Fond bleu clair, bordure bleue
+
+### 📊 Base de Données Bot
+
+#### Nouvelles Tables
+- **BotConfigs** : Configuration du bot par salon
+- **BotWarnings** : Historique des avertissements
+- **BannedWords** : Mots interdits par salon
+- **QuizQuestions** : Questions de quiz (globales et par salon)
+- **DiscussionTopics** : Sujets de discussion
+
+#### Données Initiales
+- 10 questions de quiz variées (géographie, histoire, science, etc.)
+- 10 sujets de discussion pour animer les conversations
+
+### 🔧 Fichiers Créés/Modifiés
+
+#### API (Backend)
+- `PaLX.API/Models/BotModels.cs` : BotConfig, BotWarning, BannedWord, QuizQuestion, DiscussionTopic
+- `PaLX.API/DTOs/BotDtos.cs` : DTOs pour l'API
+- `PaLX.API/Services/BotService.cs` : Logique complète du bot
+- `PaLX.API/Controllers/BotController.cs` : Endpoints configuration et actions
+- `PaLX.API/Services/IRoomService.cs` : Ajout CanManageRoomAsync
+- `PaLX.API/Services/RoomService.cs` : Implémentation CanManageRoomAsync
+- `PaLX.API/Scripts/BotTables.sql` : Script création tables + données
+
+#### Client (Frontend)
+- `PaLX.Client/BotConfigWindow.xaml` : Interface configuration (créée)
+- `PaLX.Client/BotConfigWindow.xaml.cs` : Logique configuration (créée)
+- `PaLX.Client/RoomModerationWindow.xaml` : Bouton accès config bot
+- `PaLX.Client/RoomModerationWindow.xaml.cs` : Handler ouverture config bot
+- `PaLX.Client/RoomWindow.xaml` : Template messages bot
+- `PaLX.Client/RoomWindow.xaml.cs` : RoomMessageViewModel avec propriétés bot
+- `PaLX.Client/Services/ApiService.cs` : Méthodes API bot + DTOs
+
+---
+
 ## [1.8.7] - 2026-01-13
 
 ### 👁️ Qui a vu mon Profil - Interface Complète

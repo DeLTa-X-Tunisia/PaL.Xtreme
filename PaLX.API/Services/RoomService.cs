@@ -2234,5 +2234,45 @@ namespace PaLX.API.Services
             var count = (long)(await cmd.ExecuteScalarAsync() ?? 0);
             return count > 0;
         }
+
+        /// <summary>
+        /// Vérifie si un utilisateur peut gérer un salon (owner, admin du salon, ou admin système)
+        /// </summary>
+        public async Task<bool> CanManageRoomAsync(int roomId, int userId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // 1. Vérifier si l'utilisateur est owner du salon
+            var ownerSql = @"SELECT ""OwnerId"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
+            using (var cmd = new NpgsqlCommand(ownerSql, conn))
+            {
+                cmd.Parameters.AddWithValue("roomId", roomId);
+                var ownerId = await cmd.ExecuteScalarAsync();
+                if (ownerId != null && (int)ownerId == userId)
+                    return true;
+            }
+
+            // 2. Vérifier si l'utilisateur est admin système (RoleLevel 1-5)
+            if (await IsSystemAdminAsync(conn, userId))
+                return true;
+
+            // 3. Vérifier si l'utilisateur a un rôle admin dans le salon
+            var roleSql = @"
+                SELECT ""Role"" FROM ""RoomRoles"" 
+                WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using (var roleCmd = new NpgsqlCommand(roleSql, conn))
+            {
+                roleCmd.Parameters.AddWithValue("roomId", roomId);
+                roleCmd.Parameters.AddWithValue("userId", userId);
+                var role = await roleCmd.ExecuteScalarAsync() as string;
+                
+                // Les admins et super admins du salon peuvent gérer
+                if (role == "Admin" || role == "SuperAdmin")
+                    return true;
+            }
+
+            return false;
+        }
     }
 }

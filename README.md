@@ -18,7 +18,20 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 👁️ v1.8.7 - Qui a vu mon Profil *(Dernière Version)*
+### 🤖 v1.8.8 - Bot IA pour Salons *(Dernière Version)*
+
+*   **Assistant intelligent** : Bot automatique dans chaque salon configurable par le propriétaire.
+*   **Modération automatique** : Détection de mots interdits avec avertissements progressifs.
+*   **Bienvenue automatique** : Message personnalisé pour chaque nouvel utilisateur.
+*   **Réponse aux mentions** : Le bot répond quand on l'appelle par son nom.
+*   **Quiz interactif** : Questions avec options via la commande !quiz.
+*   **Sujets de discussion** : Propositions de thèmes via !topic.
+*   **Interface de configuration** : Fenêtre complète avec 3 onglets (Général, Modération, Messages).
+*   **Messages stylés** : Cartes avec icône robot et couleurs selon le type.
+
+---
+
+### 👁️ v1.8.7 - Qui a vu mon Profil
 
 *   **Nouvelle fenêtre** : Interface complète pour voir qui a consulté votre profil.
 *   **Informations détaillées** : Avatar, nom, contexte (salon/amis/recherche), date et heure.
@@ -538,6 +551,12 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
     *   **Blocage Hiérarchique** : Système de sécurité basé sur les rôles (Niveau 1 à 7). Un utilisateur ne peut pas bloquer un supérieur hiérarchique.
     *   **Types de Blocage** : Permanent, 7 jours, ou durée personnalisée.
     *   **Interface de Gestion** : Fenêtre dédiée pour voir, modifier (durée/raison) ou lever les blocages.
+*   **Bot IA (Nouveau v1.8.8)** :
+    *   **Assistant intelligent** par salon configurable par le propriétaire/admin.
+    *   **Modération automatique** : Détection de mots interdits, avertissements progressifs, kick automatique.
+    *   **Interactions** : Messages de bienvenue, réponse aux mentions, quiz interactif (!quiz), sujets de discussion (!topic).
+    *   **Configuration complète** : Interface 3 onglets (Général, Modération, Messages) avec templates personnalisables.
+    *   **Affichage stylé** : Messages bot avec icône robot et couleurs distinctives.
 *   **Profil Utilisateur** :
     *   Édition complète du profil (Avatar, Nom, Prénom, Genre, Pays, Date de naissance).
     *   Indicateur de complétion du profil.

@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using PaLX.API.Hubs;
 using PaLX.API.Services;
+using PaLX.API.Services;
 using Serilog;
 using Serilog.Events;
 
@@ -80,6 +81,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<IRoomService, RoomService>();
 builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+builder.Services.AddScoped<IBotService, BotService>();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RATE LIMITING (Protection anti brute-force et DDoS)

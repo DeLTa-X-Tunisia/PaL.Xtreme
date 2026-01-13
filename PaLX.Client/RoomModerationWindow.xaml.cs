@@ -367,6 +367,16 @@ namespace PaLX.Client
         {
             Close();
         }
+
+        /// <summary>
+        /// Ouvre la fenêtre de configuration du Bot IA
+        /// </summary>
+        private void BotConfig_Click(object sender, RoutedEventArgs e)
+        {
+            var botConfigWindow = new BotConfigWindow(_roomId);
+            botConfigWindow.Owner = this;
+            botConfigWindow.ShowDialog();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════

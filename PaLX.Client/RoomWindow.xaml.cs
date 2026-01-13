@@ -1737,9 +1737,11 @@ namespace PaLX.Client
         
         public bool IsSystem => MessageType == "System";
         public bool IsModeration => MessageType == "Moderation";
-        public Visibility BubbleVisibility => (IsSystem || IsModeration) ? Visibility.Collapsed : Visibility.Visible;
+        public bool IsBot => MessageType?.StartsWith("Bot") ?? false;
+        public Visibility BubbleVisibility => (IsSystem || IsModeration || IsBot) ? Visibility.Collapsed : Visibility.Visible;
         public Visibility SystemVisibility => IsSystem ? Visibility.Visible : Visibility.Collapsed;
         public Visibility ModerationVisibility => IsModeration ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility BotVisibility => IsBot ? Visibility.Visible : Visibility.Collapsed;
         
         // Visibilités pour les différents sous-types système
         public Visibility JoinIconVisibility => IsSystem && SystemSubType == "Join" ? Visibility.Visible : Visibility.Collapsed;
@@ -1765,6 +1767,31 @@ namespace PaLX.Client
             "Welcome" => "#1D4ED8",   // Bleu
             "RoleChange" => "#B45309", // Orange
             _ => "#6B7280"            // Gris
+        };
+        
+        // Couleurs pour les messages Bot
+        public string BotBackgroundColor => MessageType switch
+        {
+            "BotWelcome" => "#EDE9FE",  // Violet clair
+            "BotWarning" => "#FEF3C7",  // Jaune clair
+            "BotQuiz" => "#DBEAFE",     // Bleu clair
+            _ => "#F0FDF4"              // Vert clair
+        };
+        
+        public string BotBorderColor => MessageType switch
+        {
+            "BotWelcome" => "#8B5CF6",  // Violet
+            "BotWarning" => "#F59E0B",  // Jaune
+            "BotQuiz" => "#3B82F6",     // Bleu
+            _ => "#10B981"              // Vert
+        };
+        
+        public string BotTextColor => MessageType switch
+        {
+            "BotWelcome" => "#6D28D9",  // Violet
+            "BotWarning" => "#B45309",  // Orange
+            "BotQuiz" => "#1D4ED8",     // Bleu
+            _ => "#047857"              // Vert
         };
     }
 }
