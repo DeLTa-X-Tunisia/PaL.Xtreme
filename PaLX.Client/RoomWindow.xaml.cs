@@ -461,12 +461,14 @@ namespace PaLX.Client
             int systemRoleLevel = _apiService.CurrentUserRoleLevel;
             if (systemRoleLevel >= 1 && systemRoleLevel <= 6)
             {
+                System.Diagnostics.Debug.WriteLine($"[CanUserKickBan] User is system admin (level {systemRoleLevel}) - CAN kick/ban");
                 return true;
             }
             
-            // Propriétaire du salon
-            if (_room.OwnerId == _apiService.CurrentUserId)
+            // Propriétaire du salon (utiliser IsOwner du ViewModel)
+            if (_room.IsOwner)
             {
+                System.Diagnostics.Debug.WriteLine($"[CanUserKickBan] User is room owner - CAN kick/ban");
                 return true;
             }
             
@@ -476,10 +478,12 @@ namespace PaLX.Client
                 string role = _room.UserRole.ToLowerInvariant();
                 if (role == "superadmin" || role == "admin" || role == "moderator")
                 {
+                    System.Diagnostics.Debug.WriteLine($"[CanUserKickBan] User has role '{role}' - CAN kick/ban");
                     return true;
                 }
             }
             
+            System.Diagnostics.Debug.WriteLine($"[CanUserKickBan] User has no kick/ban permissions. OwnerId={_room.OwnerId}, CurrentUserId={_apiService.CurrentUserId}, UserRole={_room.UserRole}");
             return false;
         }
 

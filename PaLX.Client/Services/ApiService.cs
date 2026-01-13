@@ -995,13 +995,11 @@ namespace PaLX.Client.Services
         public async Task<KickBanResult?> KickUserAsync(int roomId, int userId, string? reason = null)
         {
             var dto = new { Reason = reason };
-            var content = new StringContent(JsonSerializer.Serialize(dto), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync($"api/room/{roomId}/kick/{userId}", content);
+            var response = await _httpClient.PostAsJsonAsync($"api/room/{roomId}/kick/{userId}", dto);
             
             if (response.IsSuccessStatusCode)
             {
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<KickBanResult>(json, _jsonOptions);
+                return await response.Content.ReadFromJsonAsync<KickBanResult>();
             }
             return null;
         }
@@ -1017,13 +1015,11 @@ namespace PaLX.Client.Services
                 BanType = banType,
                 DurationMinutes = durationMinutes
             };
-            var content = new StringContent(JsonSerializer.Serialize(dto), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync($"api/room/{roomId}/ban/{userId}", content);
+            var response = await _httpClient.PostAsJsonAsync($"api/room/{roomId}/ban/{userId}", dto);
             
             if (response.IsSuccessStatusCode)
             {
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<KickBanResult>(json, _jsonOptions);
+                return await response.Content.ReadFromJsonAsync<KickBanResult>();
             }
             return null;
         }
@@ -1045,8 +1041,7 @@ namespace PaLX.Client.Services
             var response = await _httpClient.GetAsync($"api/room/{roomId}/bans");
             if (response.IsSuccessStatusCode)
             {
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<List<RoomBan>>(json, _jsonOptions) ?? new List<RoomBan>();
+                return await response.Content.ReadFromJsonAsync<List<RoomBan>>() ?? new List<RoomBan>();
             }
             return new List<RoomBan>();
         }

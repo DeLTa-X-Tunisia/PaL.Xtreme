@@ -101,12 +101,12 @@ namespace PaLX.Client
             {
                 // Confirmation
                 var confirm = new CustomConfirmWindow(
-                    "Confirmer le déban", 
-                    $"Voulez-vous vraiment débannir {ban.DisplayName} ?\n\nIl pourra à nouveau rejoindre le salon."
+                    $"Voulez-vous vraiment débannir {ban.DisplayName} ?\n\nIl pourra à nouveau rejoindre le salon.",
+                    "Confirmer le déban"
                 );
                 confirm.Owner = this;
                 
-                if (confirm.ShowDialog() == true && confirm.Result)
+                if (confirm.ShowDialog() == true)
                 {
                     try
                     {
