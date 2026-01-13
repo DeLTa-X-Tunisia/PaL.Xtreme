@@ -29,6 +29,19 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 *   **Correctifs SignalR** : Messages de bienvenue reçus par tous les membres.
 *   **Dropdown lisible** : Couleur de texte corrigée dans les ComboBox.
 
+#### 📋 Commandes du Bot IA
+
+| Commande | Description |
+|----------|-------------|
+| `!aide` | Affiche la liste des commandes disponibles |
+| `!quiz` | Lance une question de quiz avec 4 options |
+| `!sujet` | Propose un sujet de discussion aléatoire |
+| `!topic` | Alias de !sujet (même fonctionnalité) |
+| `!regles` | Affiche les règles du salon |
+| `@NomDuBot` | Mentionner le bot pour obtenir de l'aide |
+
+> **💡 Astuce** : Le nom du bot est configurable par le propriétaire du salon (par défaut : "Assistant").
+
 ---
 
 ### 🤖 v1.8.8 - Bot IA pour Salons
