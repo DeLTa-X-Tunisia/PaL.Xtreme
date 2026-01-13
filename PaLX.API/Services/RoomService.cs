@@ -1662,14 +1662,18 @@ namespace PaLX.API.Services
                 throw new UnauthorizedAccessException("Vous ne pouvez pas kicker un utilisateur de rang égal ou supérieur");
             }
 
-            // 3. Récupérer les infos
+            // 3. Récupérer les infos (Username pour SignalR, DisplayName pour les messages)
             var targetUsername = "";
+            var targetDisplayName = "";
             var roomName = "";
             
             var infoSql = @"
-                SELECT u.""Username"", r.""Name"" 
-                FROM ""Users"" u, ""Rooms"" r 
-                WHERE u.""Id"" = @userId AND r.""Id"" = @roomId";
+                SELECT u.""Username"", r.""Name"",
+                       COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName
+                FROM ""Users"" u
+                JOIN ""Rooms"" r ON r.""Id"" = @roomId
+                LEFT JOIN ""UserProfiles"" p ON p.""UserId"" = u.""Id""
+                WHERE u.""Id"" = @userId";
             using (var cmd = new NpgsqlCommand(infoSql, conn))
             {
                 cmd.Parameters.AddWithValue("userId", targetUserId);
@@ -1679,6 +1683,7 @@ namespace PaLX.API.Services
                 {
                     targetUsername = reader.GetString(0);
                     roomName = reader.GetString(1);
+                    targetDisplayName = reader.GetString(2);
                 }
                 await reader.CloseAsync();
             }
@@ -1729,10 +1734,10 @@ namespace PaLX.API.Services
             return new KickBanResultDto
             {
                 Success = true,
-                Message = $"{targetUsername} a été kické du salon",
+                Message = $"{targetDisplayName} a été kické du salon",
                 ActionType = "Kick",
                 TargetUserId = targetUserId,
-                TargetUsername = targetUsername
+                TargetUsername = targetDisplayName
             };
         }
 
@@ -1790,14 +1795,18 @@ namespace PaLX.API.Services
                 await cmd.ExecuteNonQueryAsync();
             }
 
-            // 4. Récupérer les infos
+            // 4. Récupérer les infos (Username pour SignalR, DisplayName pour les messages)
             var targetUsername = "";
+            var targetDisplayName = "";
             var roomName = "";
             
             var infoSql = @"
-                SELECT u.""Username"", r.""Name"" 
-                FROM ""Users"" u, ""Rooms"" r 
-                WHERE u.""Id"" = @userId AND r.""Id"" = @roomId";
+                SELECT u.""Username"", r.""Name"",
+                       COALESCE(NULLIF(TRIM(CONCAT(p.""LastName"", ' ', p.""FirstName"")), ''), u.""Username"") as DisplayName
+                FROM ""Users"" u
+                JOIN ""Rooms"" r ON r.""Id"" = @roomId
+                LEFT JOIN ""UserProfiles"" p ON p.""UserId"" = u.""Id""
+                WHERE u.""Id"" = @userId";
             using (var cmd = new NpgsqlCommand(infoSql, conn))
             {
                 cmd.Parameters.AddWithValue("userId", targetUserId);
@@ -1807,6 +1816,7 @@ namespace PaLX.API.Services
                 {
                     targetUsername = reader.GetString(0);
                     roomName = reader.GetString(1);
+                    targetDisplayName = reader.GetString(2);
                 }
                 await reader.CloseAsync();
             }
@@ -1870,10 +1880,10 @@ namespace PaLX.API.Services
             return new KickBanResultDto
             {
                 Success = true,
-                Message = $"{targetUsername} a été banni {durationMessage}",
+                Message = $"{targetDisplayName} a été banni {durationMessage}",
                 ActionType = dto.BanType,
                 TargetUserId = targetUserId,
-                TargetUsername = targetUsername,
+                TargetUsername = targetDisplayName,
                 ExpiresAt = expiresAt
             };
         }

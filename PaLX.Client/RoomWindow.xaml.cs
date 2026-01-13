@@ -866,16 +866,15 @@ namespace PaLX.Client
 
             Application.Current.Dispatcher.Invoke(async () =>
             {
-                // Afficher une alerte
+                // D'abord fermer la fenêtre du salon (l'utilisateur quitte immédiatement)
+                await CleanupAndClose();
+                
+                // Puis afficher l'alerte une fois sorti
                 var kickAlert = new CustomAlertWindow(
                     "Vous avez été expulsé",
                     $"Vous avez été kické du salon « {roomName} ».\n\nRaison : {reason}"
                 );
-                kickAlert.Owner = this;
                 kickAlert.ShowDialog();
-
-                // Fermer la fenêtre du salon
-                await CleanupAndClose();
             });
         }
 
@@ -889,7 +888,10 @@ namespace PaLX.Client
 
             Application.Current.Dispatcher.Invoke(async () =>
             {
-                // Construire le message
+                // D'abord fermer la fenêtre du salon (l'utilisateur quitte immédiatement)
+                await CleanupAndClose();
+                
+                // Construire le message de durée
                 string durationMessage;
                 if (banType == "Permanent")
                 {
@@ -910,16 +912,12 @@ namespace PaLX.Client
                     durationMessage = "";
                 }
 
-                // Afficher une alerte
+                // Puis afficher l'alerte une fois sorti
                 var banAlert = new CustomAlertWindow(
-                    "🚫 Vous avez été banni",
+                    "Vous avez été banni",
                     $"Vous avez été banni du salon « {roomName} ».\n\nRaison : {reason}\n{durationMessage}"
                 );
-                banAlert.Owner = this;
                 banAlert.ShowDialog();
-
-                // Fermer la fenêtre du salon
-                await CleanupAndClose();
             });
         }
 
