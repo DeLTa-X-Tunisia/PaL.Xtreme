@@ -2,7 +2,49 @@
 
 PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger.
 
-## 🏗 Structure du Projet
+## �️ Architecture du Projet
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              PaL.Xtreme                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
+│  │   Launcher   │───▶│    Client    │◀──▶│     API      │                  │
+│  │    (WPF)     │    │    (WPF)     │    │ (ASP.NET)    │                  │
+│  └──────────────┘    └──────────────┘    └──────────────┘                  │
+│        │                    │                    │                          │
+│        ▼                    ▼                    ▼                          │
+│  ┌──────────┐      ┌───────────────┐    ┌───────────────┐                  │
+│  │  Health  │      │   SignalR     │    │  PostgreSQL   │                  │
+│  │  Check   │      │   (Realtime)  │    │   Database    │                  │
+│  └──────────┘      └───────────────┘    └───────────────┘                  │
+│                            │                    │                          │
+│                            ▼                    ▼                          │
+│                    ┌───────────────────────────────────┐                   │
+│                    │         Services Layer            │                   │
+│                    ├───────────────────────────────────┤                   │
+│                    │ • AuthService    • RoomService    │                   │
+│                    │ • UserService    • BotService     │                   │
+│                    │ • FriendService  • VoiceService   │                   │
+│                    └───────────────────────────────────┘                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                         ┌─────────────────┐
+                         │   Technologies  │
+                         ├─────────────────┤
+                         │ • .NET 10.0     │
+                         │ • WPF           │
+                         │ • ASP.NET Core  │
+                         │ • SignalR       │
+                         │ • PostgreSQL    │
+                         │ • WebRTC        │
+                         │ • JWT Auth      │
+                         └─────────────────┘
+```
+
+## �🏗 Structure du Projet
 
 La solution se compose de trois projets principaux :
 
@@ -18,7 +60,19 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🤖 v1.8.9 - Bot IA Amélioré *(Dernière Version)*
+### 📚 v1.9.0 - Documentation & Qualité *(Dernière Version)*
+
+*   **Schéma d'architecture** : Diagramme ASCII dans le README montrant l'architecture complète.
+*   **Guide de contribution** : `CONTRIBUTING.md` avec conventions, setup, et processus PR.
+*   **Documentation DB** : `DATABASE.md` détaillant toutes les tables et relations.
+*   **Constants centralisées** : `Constants.cs` pour JWT claims, rôles, et commandes bot.
+*   **126 tests unitaires** : Couverture des permissions, modération, et constantes.
+*   **CI/CD GitHub Actions** : Build, tests, et releases automatisés.
+*   **Interfaces services** : Préparation du refactoring avec interfaces modulaires.
+
+---
+
+### 🤖 v1.8.9 - Bot IA Amélioré
 
 *   **Bouton rapide dans le header** : Accès direct à la config bot depuis l'icône robot violet.
 *   **Auto-création des tables** : Les tables bot sont créées automatiquement au démarrage.

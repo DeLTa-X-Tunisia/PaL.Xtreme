@@ -7,6 +7,59 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [1.9.0] - 2026-01-14
+
+### 📚 Documentation & Qualité
+
+#### Nouvelle Documentation
+- **README enrichi** : Schéma d'architecture ASCII détaillé
+- **CONTRIBUTING.md** : Guide complet pour les contributeurs
+  - Prérequis et installation
+  - Conventions de code et nommage
+  - Processus de Pull Request
+  - Format des commits avec emojis
+- **DATABASE.md** : Documentation complète du schéma de base de données
+  - Toutes les tables avec colonnes et types
+  - Relations et clés étrangères
+  - Index et contraintes
+  - Niveaux de rôles système et salon
+
+#### Centralisation du Code
+- **Constants.cs** (API) : Constantes centralisées
+  - Claims JWT (UserId, Username, RoleLevel, etc.)
+  - Niveaux de rôles système (0-6)
+  - Rôles de salon (Owner, Admin, Moderator, Member)
+  - Statuts utilisateur (Online, Away, Busy, etc.)
+  - Groupes SignalR avec méthodes helper
+  - Commandes du Bot (!aide, !quiz, !sujet, !regles)
+  - Limites de l'application
+
+#### Tests Unitaires
+- **126 tests** couvrant :
+  - ConstantsTests : Validation des constantes et méthodes helper
+  - PermissionTests : Logique de permissions et hiérarchie des rôles
+  - ModerationTests : Détection de mots interdits, avertissements, commandes bot
+
+#### CI/CD avec GitHub Actions
+- **Workflow automatisé** : `.github/workflows/ci-cd.yml`
+  - Build automatique sur push/PR
+  - Exécution des tests unitaires
+  - Analyse de qualité du code
+  - Publication des artefacts (API, Client, Launcher)
+  - Création de releases sur tag
+
+#### Préparation au Refactoring
+- **IServiceInterfaces.cs** (Client) : Interfaces pour futurs services spécialisés
+  - IAuthService : Authentification
+  - IFriendService : Gestion des amis
+  - IRoomClientService : Opérations sur les salons
+  - IProfileService : Profil utilisateur
+  - IBotClientService : Configuration du Bot
+  - IMessageService : Messagerie
+  - IFileTransferService : Transferts de fichiers
+
+---
+
 ## [1.8.9] - 2026-01-14
 
 ### 🤖 Bot IA - Améliorations & Correctifs

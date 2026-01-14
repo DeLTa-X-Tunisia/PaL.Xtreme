@@ -1,0 +1,158 @@
+name: 🚀 PaL.Xtreme CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # BUILD & TEST
+  # ═══════════════════════════════════════════════════════════════════════════
+  build:
+    name: 🔨 Build & Test
+    runs-on: windows-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore PaL.Xtreme.sln
+
+    - name: 🏗️ Build API
+      run: dotnet build PaLX.API/PaLX.API.csproj --configuration Release --no-restore
+
+    - name: 🏗️ Build Client
+      run: dotnet build PaLX.Client/PaLX.Client.csproj --configuration Release --no-restore
+
+    - name: 🏗️ Build Launcher
+      run: dotnet build PaLX.Launcher/PaLX.Launcher.csproj --configuration Release --no-restore
+
+    - name: 🧪 Run Tests
+      run: dotnet test PaLX.API.Tests/PaLX.API.Tests.csproj --configuration Release --no-build --verbosity normal --logger trx --results-directory "TestResults"
+
+    - name: 📊 Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: TestResults
+        retention-days: 5
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # CODE QUALITY
+  # ═══════════════════════════════════════════════════════════════════════════
+  code-quality:
+    name: 🔍 Code Quality
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore PaL.Xtreme.sln
+
+    - name: 🔬 Run Code Analysis
+      run: dotnet build PaLX.API/PaLX.API.csproj --configuration Release /p:TreatWarningsAsErrors=false
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # PUBLISH ARTIFACTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  publish:
+    name: 📦 Publish
+    runs-on: windows-latest
+    needs: [build, code-quality]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore PaL.Xtreme.sln
+
+    - name: 🏗️ Publish API
+      run: dotnet publish PaLX.API/PaLX.API.csproj -c Release -o ./publish/API --no-restore
+
+    - name: 🏗️ Publish Client
+      run: dotnet publish PaLX.Client/PaLX.Client.csproj -c Release -o ./publish/Client --no-restore -r win-x64 --self-contained false
+
+    - name: 🏗️ Publish Launcher
+      run: dotnet publish PaLX.Launcher/PaLX.Launcher.csproj -c Release -o ./publish/Launcher --no-restore -r win-x64 --self-contained false
+
+    - name: 📤 Upload API Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PaLX-API
+        path: ./publish/API
+        retention-days: 30
+
+    - name: 📤 Upload Client Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PaLX-Client
+        path: ./publish/Client
+        retention-days: 30
+
+    - name: 📤 Upload Launcher Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: PaLX-Launcher
+        path: ./publish/Launcher
+        retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # RELEASE (on tag)
+  # ═══════════════════════════════════════════════════════════════════════════
+  release:
+    name: 🏷️ Create Release
+    runs-on: windows-latest
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: 📥 Download Artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./artifacts
+
+    - name: 📦 Create ZIP Archives
+      run: |
+        Compress-Archive -Path ./artifacts/PaLX-API/* -DestinationPath ./PaLX-API.zip
+        Compress-Archive -Path ./artifacts/PaLX-Client/* -DestinationPath ./PaLX-Client.zip
+        Compress-Archive -Path ./artifacts/PaLX-Launcher/* -DestinationPath ./PaLX-Launcher.zip
+
+    - name: 🚀 Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          PaLX-API.zip
+          PaLX-Client.zip
+          PaLX-Launcher.zip
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
