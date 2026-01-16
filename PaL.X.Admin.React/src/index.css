@@ -1,0 +1,189 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-dark-950 text-dark-100;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-dark-900;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-600 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-500;
+  }
+}
+
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-dark-800/50 backdrop-blur-sm border border-dark-700/50 rounded-xl p-6;
+  }
+
+  .card-hover {
+    @apply card transition-all duration-300 hover:border-palx-500/50 hover:shadow-glow;
+  }
+
+  /* Buttons */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply btn bg-palx-600 hover:bg-palx-500 text-white shadow-lg shadow-palx-600/25;
+  }
+
+  .btn-secondary {
+    @apply btn bg-dark-700 hover:bg-dark-600 text-dark-100 border border-dark-600;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger/10 hover:bg-danger/20 text-danger border border-danger/30;
+  }
+
+  .btn-success {
+    @apply btn bg-success/10 hover:bg-success/20 text-success border border-success/30;
+  }
+
+  .btn-ghost {
+    @apply btn hover:bg-dark-700/50 text-dark-300 hover:text-white;
+  }
+
+  /* Inputs */
+  .input {
+    @apply w-full px-4 py-3 bg-dark-800 border border-dark-600 rounded-lg text-white placeholder-dark-400 focus:outline-none focus:border-palx-500 focus:ring-2 focus:ring-palx-500/20 transition-all duration-200;
+  }
+
+  .input-error {
+    @apply input border-danger focus:border-danger focus:ring-danger/20;
+  }
+
+  /* Labels */
+  .label {
+    @apply block text-sm font-medium text-dark-300 mb-2;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-palx-500/20 text-palx-400;
+  }
+
+  .badge-success {
+    @apply badge bg-success/20 text-success;
+  }
+
+  .badge-warning {
+    @apply badge bg-warning/20 text-warning;
+  }
+
+  .badge-danger {
+    @apply badge bg-danger/20 text-danger;
+  }
+
+  .badge-info {
+    @apply badge bg-info/20 text-info;
+  }
+
+  /* Tables */
+  .table-container {
+    @apply overflow-x-auto rounded-xl border border-dark-700/50;
+  }
+
+  .table {
+    @apply w-full text-sm text-left;
+  }
+
+  .table thead {
+    @apply bg-dark-800/80 text-dark-300 uppercase text-xs;
+  }
+
+  .table th {
+    @apply px-6 py-4 font-semibold tracking-wider;
+  }
+
+  .table td {
+    @apply px-6 py-4;
+  }
+
+  .table tbody tr {
+    @apply border-b border-dark-700/50 hover:bg-dark-800/30 transition-colors;
+  }
+
+  /* Sidebar */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-dark-400 hover:text-white hover:bg-dark-700/50 transition-all duration-200;
+  }
+
+  .sidebar-link-active {
+    @apply sidebar-link bg-palx-600/10 text-palx-400 border-l-2 border-palx-500;
+  }
+
+  /* Stats Card */
+  .stat-card {
+    @apply card-hover flex items-center gap-4;
+  }
+
+  .stat-icon {
+    @apply w-14 h-14 rounded-xl flex items-center justify-center;
+  }
+
+  /* Dropdown */
+  .dropdown {
+    @apply absolute right-0 mt-2 w-48 bg-dark-800 border border-dark-700 rounded-xl shadow-xl z-50 overflow-hidden;
+  }
+
+  .dropdown-item {
+    @apply flex items-center gap-2 px-4 py-3 text-dark-300 hover:bg-dark-700 hover:text-white transition-colors cursor-pointer;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+
+  .modal {
+    @apply bg-dark-800 border border-dark-700 rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between p-6 border-b border-dark-700;
+  }
+
+  .modal-body {
+    @apply p-6;
+  }
+
+  .modal-footer {
+    @apply flex items-center justify-end gap-3 p-6 border-t border-dark-700;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-palx-400 to-palx-600 bg-clip-text text-transparent;
+  }
+
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+}

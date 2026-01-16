@@ -18,6 +18,94 @@ namespace PaLX.API.Services
             _hubContext = hubContext;
         }
 
+        // ===================================================================
+        // USER RETRIEVAL (Admin Panel Support)
+        // ===================================================================
+
+        public async Task<User?> GetByIdAsync(int userId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT u.""Id"", u.""Username"", u.""CreatedAt"", r.""RoleLevel"", r.""RoleName"",
+                       p.""FirstName"", p.""LastName"", p.""AvatarPath"", r.""DisplayName"" as RoleDisplayName,
+                       r.""Color"" as RoleColor
+                FROM ""Users"" u
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE u.""Id"" = @id";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("id", userId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new User
+                {
+                    Id = reader.GetInt32(0),
+                    Username = reader.GetString(1),
+                    CreatedAt = reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+                    RoleLevel = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                    Role = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    FirstName = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    LastName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    Avatar = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    AvatarPath = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    RoleDisplayName = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    RoleColor = reader.IsDBNull(9) ? null : reader.GetString(9)
+                };
+            }
+
+            return null;
+        }
+
+        public async Task<User?> GetByUsernameAsync(string username)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT u.""Id"", u.""Username"", u.""CreatedAt"", r.""RoleLevel"", r.""RoleName"",
+                       p.""FirstName"", p.""LastName"", p.""AvatarPath"", r.""DisplayName"" as RoleDisplayName,
+                       r.""Color"" as RoleColor
+                FROM ""Users"" u
+                LEFT JOIN ""UserRoles"" ur ON u.""Id"" = ur.""UserId""
+                LEFT JOIN ""Roles"" r ON ur.""RoleId"" = r.""Id""
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE u.""Username"" = @username";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("username", username);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new User
+                {
+                    Id = reader.GetInt32(0),
+                    Username = reader.GetString(1),
+                    CreatedAt = reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+                    RoleLevel = reader.IsDBNull(3) ? null : reader.GetInt32(3),
+                    Role = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    FirstName = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    LastName = reader.IsDBNull(6) ? null : reader.GetString(6),
+                    Avatar = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    AvatarPath = reader.IsDBNull(7) ? null : reader.GetString(7),
+                    RoleDisplayName = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    RoleColor = reader.IsDBNull(9) ? null : reader.GetString(9)
+                };
+            }
+
+            return null;
+        }
+
+        // ===================================================================
+        // REGISTRATION
+        // ===================================================================
+
         public async Task<bool> RegisterUserAsync(string username, string password)
         {
             try

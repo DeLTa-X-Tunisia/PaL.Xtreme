@@ -1,35 +1,40 @@
 # PaL.Xtreme
 
-PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger.
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-repo/releases)
+[![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
+[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://reactjs.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## �️ Architecture du Projet
+PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger. Elle inclut désormais un **panel d'administration complet** en React + TypeScript.
+
+## 🏗️ Architecture du Projet
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              PaL.Xtreme                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐                  │
-│  │   Launcher   │───▶│    Client    │◀──▶│     API      │                  │
-│  │    (WPF)     │    │    (WPF)     │    │ (ASP.NET)    │                  │
-│  └──────────────┘    └──────────────┘    └──────────────┘                  │
-│        │                    │                    │                          │
-│        ▼                    ▼                    ▼                          │
-│  ┌──────────┐      ┌───────────────┐    ┌───────────────┐                  │
-│  │  Health  │      │   SignalR     │    │  PostgreSQL   │                  │
-│  │  Check   │      │   (Realtime)  │    │   Database    │                  │
-│  └──────────┘      └───────────────┘    └───────────────┘                  │
-│                            │                    │                          │
-│                            ▼                    ▼                          │
-│                    ┌───────────────────────────────────┐                   │
-│                    │         Services Layer            │                   │
-│                    ├───────────────────────────────────┤                   │
-│                    │ • AuthService    • RoomService    │                   │
-│                    │ • UserService    • BotService     │                   │
-│                    │ • FriendService  • VoiceService   │                   │
-│                    └───────────────────────────────────┘                   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────┐
+│                                    PaL.Xtreme                                       │
+├─────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                     │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
+│  │   Launcher   │───▶│    Client    │◀──▶│     API      │◀──▶│ Admin Panel  │      │
+│  │    (WPF)     │    │    (WPF)     │    │ (ASP.NET)    │    │   (React)    │      │
+│  └──────────────┘    └──────────────┘    └──────────────┘    └──────────────┘      │
+│        │                    │                    │                    │             │
+│        ▼                    ▼                    ▼                    ▼             │
+│  ┌──────────┐      ┌───────────────┐    ┌───────────────┐    ┌───────────────┐     │
+│  │  Health  │      │   SignalR     │    │  PostgreSQL   │    │   Tailwind    │     │
+│  │  Check   │      │   (Realtime)  │    │   Database    │    │     CSS       │     │
+│  └──────────┘      └───────────────┘    └───────────────┘    └───────────────┘     │
+│                            │                    │                                   │
+│                            ▼                    ▼                                   │
+│                    ┌───────────────────────────────────┐                           │
+│                    │         Services Layer            │                           │
+│                    ├───────────────────────────────────┤                           │
+│                    │ • AuthService    • RoomService    │                           │
+│                    │ • UserService    • BotService     │                           │
+│                    │ • FriendService  • AdminService   │                           │
+│                    └───────────────────────────────────┘                           │
+│                                                                                     │
+└─────────────────────────────────────────────────────────────────────────────────────┘
 
                          ┌─────────────────┐
                          │   Technologies  │
@@ -41,22 +46,86 @@ PaL.Xtreme est une solution de messagerie instantanée moderne développée en W
                          │ • PostgreSQL    │
                          │ • WebRTC        │
                          │ • JWT Auth      │
+                         │ • React 18      │
+                         │ • TypeScript    │
+                         │ • Tailwind CSS  │
+                         │ • Vite          │
                          └─────────────────┘
 ```
 
-## �🏗 Structure du Projet
+## 🏗 Structure du Projet
 
-La solution se compose de trois projets principaux :
+La solution se compose de **cinq projets principaux** :
 
 *   **PaLX.API** : Le cœur du système. Une API REST (ASP.NET Core) qui gère l'authentification, la base de données PostgreSQL, et la communication temps réel via SignalR.
 *   **PaLX.Launcher** : Le point d'entrée unique. Il vérifie l'état du serveur (Health Check), joue le son de bienvenue et lance l'application Client.
 *   **PaLX.Client** : L'application principale. Elle permet de se connecter, de gérer son statut, de gérer ses amis, son profil, et d'effectuer des appels vidéo/audio.
+*   **PaL.X.Admin.React** : **NOUVEAU** - Panel d'administration complet en React + TypeScript + Tailwind CSS.
+*   **PaL.X.Admin.Launcher** : Launcher WPF pour démarrer facilement le panel admin.
 
-> **Note** : Une interface d'administration (modération, rôles, abonnements) sera ajoutée ultérieurement.
+---
+
+## 🛡️ Panel d'Administration (v2.0.0)
+
+Le nouveau panel d'administration offre une interface moderne et complète pour gérer PaL.Xtreme :
+
+### 📊 Dashboard
+- Statistiques en temps réel (utilisateurs, salons, messages)
+- Répartition des abonnements (graphiques)
+- Activité récente et alertes
+
+### 👥 Gestion des Utilisateurs
+- Liste paginée avec recherche et filtres
+- Détail complet d'un utilisateur
+- Actions : ban/unban, changement de rôle, avertissements
+
+### 🎭 Gestion des Rôles
+- Visualisation de tous les rôles système (0-6)
+- Descriptions détaillées des permissions
+- Code couleur par niveau
+
+### 📁 Catégories & Sous-catégories
+- CRUD complet sur les catégories de salons
+- Gestion des sous-catégories par catégorie parente
+- Personnalisation : icône, couleur, ordre d'affichage
+
+### 🚪 Gestion des Salons
+- Liste des salons actifs/inactifs
+- Fermeture et suppression de salons
+- Statistiques par salon
+
+### 📢 Diffusion (Broadcast)
+- Envoi de messages à tous les utilisateurs connectés
+- Historique des annonces
+- Types : Info, Alerte, Maintenance
+
+### 🏅 Badges
+- Gestion des badges utilisateurs
+- Attribution et retrait
+
+### 📋 Logs & Rapports
+- Journal d'audit des actions admin
+- Signalements utilisateurs
+- Résolution des rapports
+
+---
 
 ## 🌟 Nouveautés & Améliorations
 
 Voici un résumé des fonctionnalités et optimisations intégrées au projet, classées par version (du plus récent au plus ancien) :
+
+---
+
+### 🛡️ v2.0.0 - Panel d'Administration React *(Version Actuelle)*
+
+*   **Panel Admin Complet** : Interface React + TypeScript + Tailwind CSS
+*   **Dashboard temps réel** : Statistiques utilisateurs, salons, messages
+*   **Gestion des rôles** : Liste avec descriptions et couleurs
+*   **Catégories & Sous-catégories** : CRUD complet avec personnalisation
+*   **Broadcast** : Envoi d'annonces à tous les utilisateurs
+*   **Corrections API** : Fix requêtes SQL (SubCategoryId inexistant)
+*   **AdminHub SignalR** : Communication temps réel avec le panel
+*   **Sécurité renforcée** : JWT + vérification niveau admin (≥1)
 
 ---
 

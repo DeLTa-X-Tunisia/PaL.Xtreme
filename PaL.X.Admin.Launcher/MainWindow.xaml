@@ -1,0 +1,344 @@
+<Window x:Class="PaL.X.Admin.Launcher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        mc:Ignorable="d"
+        Title="PaL.Xtreme Admin Launcher"
+        Height="520" Width="980"
+        MinHeight="500" MinWidth="950"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanMinimize"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown">
+
+    <Window.Resources>
+        <Storyboard x:Key="PulseAnimation" RepeatBehavior="Forever">
+            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                           From="1" To="0.4" Duration="0:0:1"
+                           AutoReverse="True"/>
+        </Storyboard>
+    </Window.Resources>
+
+    <Border CornerRadius="16" Background="{StaticResource DarkGradient}">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="30" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+        </Border.Effect>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="44"/>
+            </Grid.RowDefinitions>
+
+            <!-- Title Bar -->
+            <Border Grid.Row="0" Background="#0d0d15" CornerRadius="16,16,0,0" Padding="16,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Width="32" Height="32" CornerRadius="8" Background="{StaticResource PurpleCyanGradient}" Margin="0,0,10,0">
+                            <materialDesign:PackIcon Kind="ShieldCrown" Width="18" Height="18" 
+                                                    Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="PaL.Xtreme" FontSize="14" FontWeight="Bold" Foreground="White" Margin="0,-2,0,0"/>
+                            <TextBlock Text="Admin Launcher" FontSize="10" Foreground="#666" Margin="0,-2,0,0"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                Width="28" Height="28" Click="MinimizeButton_Click" ToolTip="Minimiser">
+                            <materialDesign:PackIcon Kind="WindowMinimize" Width="14" Height="14" Foreground="#888"/>
+                        </Button>
+                        <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                Width="28" Height="28" Click="CloseButton_Click" ToolTip="Fermer">
+                            <materialDesign:PackIcon Kind="Close" Width="14" Height="14" Foreground="#888"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Main Content - Horizontal Layout -->
+            <Grid Grid.Row="1" Margin="24,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="20"/>
+                    <ColumnDefinition Width="240"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- LEFT COLUMN - Hero Section -->
+                <Border Grid.Column="0" Style="{StaticResource ModernCard}" Padding="20">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" HorizontalAlignment="Center">
+                            <Border Width="70" Height="70" CornerRadius="18" 
+                                    Background="{StaticResource PurpleCyanGradient}" Margin="0,0,0,12">
+                                <materialDesign:PackIcon Kind="ViewDashboard" Width="36" Height="36" 
+                                                        Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <TextBlock Text="Panel Admin" FontSize="18" FontWeight="Bold" 
+                                      Foreground="White" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Interface React moderne" FontSize="11" 
+                                      Foreground="#888" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,12,0,0">
+                            <Border Background="#7c3aed22" CornerRadius="8" Padding="10,6" HorizontalAlignment="Center">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Tag" Foreground="{StaticResource AccentPurpleBrush}" 
+                                                            Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="v1.0.0" Foreground="{StaticResource AccentPurpleBrush}" FontWeight="SemiBold" FontSize="12"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <Button x:Name="LaunchButton" Grid.Row="2"
+                                Style="{StaticResource PrimaryButton}"
+                                Click="LaunchButton_Click"
+                                Height="44" FontSize="13" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="RocketLaunch" Width="18" Height="18" 
+                                                        VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Lancer" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- CENTER COLUMN - Status and Config -->
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="12"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Status Card -->
+                    <Border Grid.Row="0" Style="{StaticResource ModernCard}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="STATUT DES SERVICES" FontSize="11" FontWeight="Bold" 
+                                      Foreground="#888" Margin="0,0,0,14"/>
+
+                            <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                                <!-- API Status -->
+                                <Border Background="#1a1a2e" CornerRadius="10" Padding="12" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Width="32" Height="32" CornerRadius="8" Background="#10b98122">
+                                            <materialDesign:PackIcon Kind="Api" Foreground="{StaticResource SuccessGreenBrush}" 
+                                                                    Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="PaLX.API" FontWeight="SemiBold" Foreground="White" FontSize="13"/>
+                                            <TextBlock x:Name="ApiStatusText" Text="Vérification..." FontSize="11" Foreground="#aaa" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button x:Name="RefreshApiButton" Click="RefreshApiButton_Click"
+                                                    Style="{StaticResource MaterialDesignIconButton}"
+                                                    Width="28" Height="28" Margin="0,0,6,0"
+                                                    ToolTip="Reconnecter à l'API">
+                                                <materialDesign:PackIcon Kind="Refresh" Width="14" Height="14" Foreground="#888"/>
+                                            </Button>
+                                            <Ellipse x:Name="ApiStatusDot" Width="12" Height="12" 
+                                                    Fill="{StaticResource WarningOrangeBrush}" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- React Status -->
+                                <Border Background="#1a1a2e" CornerRadius="10" Padding="12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Width="32" Height="32" CornerRadius="8" Background="#06b6d422">
+                                            <materialDesign:PackIcon Kind="React" Foreground="{StaticResource AccentCyanBrush}" 
+                                                                    Width="16" Height="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
+                                            <TextBlock Text="Panel React" FontWeight="SemiBold" Foreground="White" FontSize="13"/>
+                                            <TextBlock x:Name="ReactStatusText" Text="Non démarré" FontSize="11" Foreground="#aaa"/>
+                                        </StackPanel>
+
+                                        <Ellipse x:Name="ReactStatusDot" Grid.Column="2" Width="12" Height="12" 
+                                                Fill="#666" VerticalAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Configuration Card -->
+                    <Border Grid.Row="2" Style="{StaticResource ModernCard}" Padding="16">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Text="CONFIGURATION" FontSize="11" FontWeight="Bold" 
+                                      Foreground="#888" Margin="0,0,0,14"/>
+
+                            <Grid Grid.Row="1" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="12"/>
+                                    <ColumnDefinition Width="90"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="URL de l'API" FontSize="13" Foreground="#bbb" FontWeight="Medium" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="ApiUrlTextBox" 
+                                            Text="http://localhost:5145"
+                                            Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                            materialDesign:HintAssist.Hint=""
+                                            materialDesign:HintAssist.IsFloating="False"
+                                            materialDesign:TextFieldAssist.HasClearButton="False"
+                                            FontSize="13" Height="42" Foreground="#00e5ff" FontWeight="Medium"
+                                            Background="#1a1a2e" BorderBrush="#444" Padding="10,0"
+                                            ToolTip="URL complète de l'API PaL.Xtreme"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Port" FontSize="13" Foreground="#bbb" FontWeight="Medium" Margin="0,0,0,6"/>
+                                    <TextBox x:Name="ReactPortTextBox" 
+                                            Text="5173"
+                                            Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                                            materialDesign:HintAssist.Hint=""
+                                            materialDesign:HintAssist.IsFloating="False"
+                                            FontSize="14" Height="42" Foreground="#00e5ff" FontWeight="SemiBold"
+                                            Background="#1a1a2e" BorderBrush="#444" Padding="5,0"
+                                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            ToolTip="Port du serveur React Admin"/>
+                                </StackPanel>
+                            </Grid>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- RIGHT COLUMN - Quick Actions -->
+                <Border Grid.Column="4" Style="{StaticResource ModernCard}" Padding="16">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Text="ACTIONS RAPIDES" FontSize="11" FontWeight="Bold" 
+                                  Foreground="#888" Margin="0,0,0,14"/>
+
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                            <Button x:Name="OpenBrowserButton" 
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    BorderBrush="{StaticResource AccentCyanBrush}"
+                                    Foreground="{StaticResource AccentCyanBrush}"
+                                    Click="OpenBrowserButton_Click"
+                                    IsEnabled="False"
+                                    Height="44" Margin="0,0,0,10"
+                                    materialDesign:ButtonAssist.CornerRadius="10"
+                                    HorizontalContentAlignment="Left" Padding="14,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="OpenInNew" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Ouvrir navigateur" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button x:Name="StopButton" 
+                                    Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    BorderBrush="{StaticResource ErrorRedBrush}"
+                                    Foreground="{StaticResource ErrorRedBrush}"
+                                    Click="StopButton_Click"
+                                    IsEnabled="False"
+                                    Height="44" Margin="0,0,0,10"
+                                    materialDesign:ButtonAssist.CornerRadius="10"
+                                    HorizontalContentAlignment="Left" Padding="14,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Stop" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Arrêter serveur" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                    BorderBrush="#666" Foreground="#aaa"
+                                    Click="OpenLogsButton_Click"
+                                    Height="44" Margin="0,0,0,10"
+                                    materialDesign:ButtonAssist.CornerRadius="10"
+                                    HorizontalContentAlignment="Left" Padding="14,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FileDocument" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="Voir les logs" VerticalAlignment="Center" FontSize="13"/>
+                                </StackPanel>
+                            </Button>
+
+                            <CheckBox x:Name="AutoOpenBrowserCheckBox" 
+                                     Content="Auto-ouvrir navigateur"
+                                     IsChecked="True"
+                                     Foreground="#aaa" FontSize="12" Margin="0,12,0,0"
+                                     Style="{StaticResource MaterialDesignCheckBox}"/>
+
+                            <Border x:Name="LoadingPanel" Visibility="Collapsed" 
+                                    Background="#1a1a2e" CornerRadius="10" Padding="12" Margin="0,12,0,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <ProgressBar x:Name="LaunchProgressBar" 
+                                                IsIndeterminate="True"
+                                                Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                                Value="0" Width="24" Height="24"/>
+                                    <TextBlock x:Name="LoadingText" Text="Démarrage..." 
+                                              Foreground="#888" FontSize="10" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Footer -->
+            <Border Grid.Row="2" Background="#0d0d15" CornerRadius="0,0,16,16" Padding="16,0">
+                <Grid>
+                    <TextBlock Text="© 2026 Azizi Mounir - PaL.Xtreme" 
+                              FontSize="10" Foreground="#444" 
+                              HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                    
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Button Style="{StaticResource MaterialDesignIconButton}" 
+                                Width="24" Height="24" Click="OpenSettingsButton_Click" ToolTip="Paramètres">
+                            <materialDesign:PackIcon Kind="Cog" Width="14" Height="14" Foreground="#555"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

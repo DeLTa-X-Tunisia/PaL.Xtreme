@@ -7,6 +7,152 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.0.0] - 2026-01-16
+
+### 🛡️ Panel d'Administration React - Version Majeure
+
+Cette version majeure introduit un **panel d'administration complet** développé en React + TypeScript + Tailwind CSS, offrant une interface moderne et professionnelle pour gérer PaL.Xtreme.
+
+#### 🆕 Nouveaux Projets
+- **PaL.X.Admin.React** : Application web admin (Vite + React 18 + TypeScript)
+- **PaL.X.Admin.Launcher** : Launcher WPF pour démarrer le panel admin
+
+#### 📊 Dashboard
+- Statistiques temps réel : utilisateurs totaux, en ligne, salons actifs, messages
+- Graphique de répartition des abonnements (Free/Premium/VIP)
+- Indicateurs : nouveaux utilisateurs du jour, rapports en attente
+- Uptime serveur et métriques de performance
+
+#### 👥 Gestion des Utilisateurs (UsersPage)
+- Liste paginée avec pagination intelligente
+- Recherche par nom d'utilisateur
+- Filtres : rôle, statut en ligne, statut ban
+- Actions rapides : voir détails, ban/unban
+
+#### 👤 Détail Utilisateur (UserDetailPage)
+- Profil complet avec avatar, badges, informations
+- Historique des sessions et connexions
+- Actions admin : changer rôle, bannir, avertir
+- Statistiques personnelles
+
+#### 🎭 Gestion des Rôles (RolesPage)
+- Liste complète des 7 niveaux de rôles système (0-6)
+- Descriptions détaillées des permissions par rôle :
+  - **ServerMaster (6)** : Accès total, gestion serveur
+  - **ServerOwner (5)** : Gestion globale, modération avancée
+  - **ServerSuperAdmin (4)** : Administration étendue
+  - **ServerAdmin (3)** : Gestion utilisateurs et salons
+  - **ServerModerator (2)** : Modération de base
+  - **ServerHelper (1)** : Assistance et support
+  - **User (0)** : Utilisateur standard
+- Code couleur par niveau (rouge → vert)
+- Compteur d'utilisateurs par rôle
+
+#### 📁 Catégories (CategoriesPage)
+- Liste des catégories de salons avec statistiques
+- Création de nouvelles catégories
+- Modification : nom, description, icône, couleur, ordre
+- Suppression avec confirmation
+- Aperçu des couleurs en temps réel
+- Compteur de sous-catégories par catégorie
+
+#### 📂 Sous-catégories (SubCategoriesPage)
+- Liste complète ou filtrée par catégorie parente
+- CRUD complet (Create, Read, Update, Delete)
+- Personnalisation : icône, couleur de fond, couleur de texte
+- Gestion de l'ordre d'affichage
+- Toggle visibilité et statut actif
+- Affichage du nom de la catégorie parente
+
+#### 🚪 Gestion des Salons (RoomsPage)
+- Liste des salons avec filtres (actifs/inactifs)
+- Recherche par nom
+- Informations : propriétaire, catégorie, participants
+- Actions : fermer salon, supprimer
+
+#### 📢 Diffusion / Broadcast (BroadcastPage)
+- Envoi d'annonces à tous les utilisateurs connectés
+- Types de messages : Info, Alerte, Maintenance
+- Historique des annonces avec pagination
+- Prévisualisation avant envoi
+
+#### 🏅 Badges (BadgesPage)
+- Gestion des badges système
+- Attribution aux utilisateurs
+
+#### 📋 Logs d'Audit (LogsPage)
+- Journal complet des actions admin
+- Filtrage par type d'action
+- Détails : admin, cible, date/heure
+
+#### ⚙️ Paramètres (SettingsPage)
+- Mode maintenance (activation/désactivation)
+- Configuration système
+
+#### 🔐 Authentification (LoginPage)
+- Connexion sécurisée avec JWT
+- Vérification niveau admin (RoleLevel ≥ 1)
+- Gestion des sessions
+
+### 🔧 Corrections & Améliorations API
+
+#### Corrections SQL Critiques
+- **GetSubCategoriesAsync** : Suppression de la référence à `Rooms.SubCategoryId` (colonne inexistante)
+- **GetSubCategoryByIdAsync** : Même correction
+- **RoomsCount** : Mis à 0 car la table Rooms n'a pas de SubCategoryId
+
+#### Renommage DTOs (éviter conflits)
+- `RoomCategoryDto` → `AdminRoomCategoryDto`
+- `RoomSubCategoryDto` → `AdminRoomSubCategoryDto`
+- Mise à jour de `AdminService.cs` et `MoreDtos.cs`
+
+#### AdminHub SignalR
+- Hub dédié pour communication temps réel avec le panel admin
+- Événements : `ReceiveBroadcast`, `UserStatusChanged`, `NewReport`
+
+### 📁 Fichiers Créés
+
+#### PaL.X.Admin.React
+```
+src/
+├── components/
+│   └── Sidebar.tsx          # Navigation latérale
+├── layouts/
+│   └── MainLayout.tsx       # Layout principal avec sidebar
+├── pages/
+│   ├── BadgesPage.tsx       # Gestion badges
+│   ├── BroadcastPage.tsx    # Annonces globales
+│   ├── CategoriesPage.tsx   # Gestion catégories
+│   ├── DashboardPage.tsx    # Tableau de bord
+│   ├── LoginPage.tsx        # Authentification
+│   ├── LogsPage.tsx         # Logs d'audit
+│   ├── ReportsPage.tsx      # Signalements
+│   ├── RolesPage.tsx        # Gestion rôles
+│   ├── RoomsPage.tsx        # Gestion salons
+│   ├── SettingsPage.tsx     # Paramètres
+│   ├── SubCategoriesPage.tsx # Sous-catégories
+│   ├── UserDetailPage.tsx   # Détail utilisateur
+│   └── UsersPage.tsx        # Liste utilisateurs
+├── services/
+│   └── api.ts               # Service API centralisé
+├── App.tsx                  # Routes et configuration
+└── index.css                # Styles Tailwind
+```
+
+#### PaL.X.Admin.Launcher
+- Application WPF pour lancer le panel admin
+- Health check et démarrage automatique
+
+### 📁 Fichiers Modifiés
+
+#### PaLX.API
+- `Services/AdminService.cs` : Nouvelles méthodes catégories/sous-catégories, corrections SQL
+- `DTOs/MoreDtos.cs` : DTOs renommés et nouveaux DTOs
+- `Controllers/AdminController.cs` : Endpoints catégories/sous-catégories
+- `Hubs/AdminHub.cs` : Hub SignalR pour admin
+
+---
+
 ## [1.9.0] - 2026-01-14
 
 ### 📚 Documentation & Qualité

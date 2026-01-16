@@ -109,6 +109,9 @@ namespace PaLX.Client.Services
         // Room Visibility Changed Event (real-time update)
         public event Action<int, bool, bool>? OnRoomVisibilityChanged; // roomId, isActive, isSystemHidden
 
+        // Global Announcement Event (admin broadcast)
+        public event Action<GlobalAnnouncementDto>? OnGlobalAnnouncementReceived;
+
         // System Events
         public event Action? OnConnectionClosed;
         public event Action<string>? OnForceDisconnect; // Session kicked by another login
@@ -744,6 +747,22 @@ namespace PaLX.Client.Services
             _hubConnection.On<int, string, string, string>("ReceiveFileRequest", (id, sender, filename, url) => OnFileRequestReceived?.Invoke(id, sender, filename, url));
             _hubConnection.On<int, string, string, string>("FileRequestSent", (id, receiver, filename, url) => OnFileRequestSent?.Invoke(id, receiver, filename, url));
             _hubConnection.On<int, bool, string>("FileTransferUpdated", (id, isAccepted, url) => OnFileTransferUpdated?.Invoke(id, isAccepted, url));
+
+            // Global Announcement Handler (admin broadcast to all users)
+            _hubConnection.On<GlobalAnnouncementDto>("ReceiveGlobalAnnouncement", (announcement) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** ReceiveGlobalAnnouncement EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] Type={announcement.Type}, Title={announcement.Title}, Message={announcement.Message}");
+                try
+                {
+                    OnGlobalAnnouncementReceived?.Invoke(announcement);
+                    Console.WriteLine($"[SignalR CLIENT] OnGlobalAnnouncementReceived event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in ReceiveGlobalAnnouncement handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
 
             // Room Hub Handlers - Messages et membres
             _roomHubConnection.On<RoomMessageDto>("ReceiveMessage", (dto) => 

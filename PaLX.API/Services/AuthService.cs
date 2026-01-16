@@ -85,7 +85,7 @@ namespace PaLX.API.Services
                 Token = token,
                 IsProfileComplete = isProfileComplete,
                 Role = user.Role,
-                RoleLevel = user.RoleLevel
+                RoleLevel = user.RoleLevel ?? 0
             };
         }
 
@@ -240,8 +240,8 @@ namespace PaLX.API.Services
                 new Claim(JwtRegisteredClaimNames.Sub, user.Username),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.Username), // SignalR uses this for UserIdentifier
-                new Claim(ClaimTypes.Role, user.Role),
-                new Claim("RoleLevel", user.RoleLevel.ToString()),
+                new Claim(ClaimTypes.Role, user.Role ?? "User"),
+                new Claim("RoleLevel", (user.RoleLevel ?? 0).ToString()),
                 new Claim("UserId", user.Id.ToString()) // Custom claim for API Controllers
             };
 

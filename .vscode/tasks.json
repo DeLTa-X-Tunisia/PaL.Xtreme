@@ -47,6 +47,20 @@
 			"group": "build"
 		},
 		{
+			"label": "build_admin_launcher",
+			"type": "shell",
+			"command": "dotnet",
+			"args": [
+				"build",
+				"PaL.X.Admin.Launcher/PaL.X.Admin.Launcher.csproj"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$msCompile"
+			],
+			"group": "build"
+		},
+		{
 			"label": "build_all",
 			"type": "shell",
 			"command": "dotnet",

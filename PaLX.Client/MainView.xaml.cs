@@ -180,6 +180,9 @@ namespace PaLX.Client
             // Room Role Request
             ApiService.Instance.OnRoleRequestReceived += OnRoleRequestReceived;
 
+            // Global Announcements (Admin Broadcast)
+            ApiService.Instance.OnGlobalAnnouncementReceived += OnGlobalAnnouncementReceived;
+
             // System Events
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
             ApiService.Instance.OnForceDisconnect += OnForceDisconnect;
@@ -429,6 +432,25 @@ namespace PaLX.Client
                 
                 // Logout and close
                 Logout_Click(null!, null!);
+            });
+        }
+
+        /// <summary>
+        /// Handler pour les annonces globales envoyées par les administrateurs
+        /// </summary>
+        private void OnGlobalAnnouncementReceived(Services.GlobalAnnouncementDto announcement)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    Console.WriteLine($"[MainView] Showing global announcement: {announcement.Title}");
+                    GlobalAnnouncementWindow.Show(announcement);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MainView] Error showing global announcement: {ex.Message}");
+                }
             });
         }
 

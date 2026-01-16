@@ -86,4 +86,39 @@ namespace PaLX.Client.Services
         public bool IsActive { get; set; }
         public string? TimeRemaining { get; set; }
     }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════
+    // GLOBAL ANNOUNCEMENT DTO - Admin Broadcast
+    // ═══════════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Représente une annonce globale envoyée par un administrateur
+    /// </summary>
+    public class GlobalAnnouncementDto
+    {
+        /// <summary>
+        /// Type d'annonce: "info", "warning", "alert", "success"
+        /// </summary>
+        public string Type { get; set; } = "info";
+        
+        /// <summary>
+        /// Titre de l'annonce
+        /// </summary>
+        public string Title { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Contenu du message
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Nom d'utilisateur de l'admin qui a envoyé l'annonce
+        /// </summary>
+        public string SentBy { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// Date/heure d'envoi
+        /// </summary>
+        public DateTime Timestamp { get; set; }
+    }
 }

@@ -61,6 +61,20 @@ namespace PaLX.API
             /// Vérifie si le niveau de rôle est un administrateur système (1-6)
             /// </summary>
             public static bool IsSystemAdmin(int roleLevel) => roleLevel >= 1 && roleLevel <= 6;
+
+            /// <summary>
+            /// Retourne le nom du rôle correspondant au niveau
+            /// </summary>
+            public static string GetRoleName(int roleLevel) => roleLevel switch
+            {
+                ServerMaster => "Server Master",
+                ServerEditor => "Server Editor",
+                ServerSuperAdmin => "Super Admin",
+                ServerAdmin => "Admin",
+                ServerModerator => "Moderator",
+                ServerHelp => "Support",
+                _ => "User"
+            };
         }
 
         /// <summary>

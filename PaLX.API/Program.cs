@@ -14,7 +14,6 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using PaLX.API.Hubs;
 using PaLX.API.Services;
-using PaLX.API.Services;
 using Serilog;
 using Serilog.Events;
 
@@ -77,6 +76,26 @@ builder.Configuration["Jwt:Key"] = jwtKey;
 builder.Services.AddControllers();
 builder.Services.AddSignalR();
 builder.Services.AddOpenApi();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CORS Configuration (pour le Panel Admin React)
+// ═══════════════════════════════════════════════════════════════════════════
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AdminPanel", policy =>
+    {
+        policy.WithOrigins(
+                "http://localhost:5173",  // Vite dev server
+                "http://localhost:3000",  // Alternative React port
+                "http://127.0.0.1:5173",
+                "http://127.0.0.1:3000"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 // Note: IUserService est enregistré plus bas avec IAuthService
 builder.Services.AddScoped<DatabaseInitializer>();
 builder.Services.AddScoped<IRoomService, RoomService>();
@@ -161,6 +180,7 @@ builder.Services.AddAuthentication(options =>
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IAdminService, AdminService>(); // Panel Admin React
 builder.Services.AddHostedService<StartupService>();
 
 var app = builder.Build();
@@ -177,6 +197,9 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// CORS - DOIT être AVANT les autres middlewares
+app.UseCors("AdminPanel");
 
 app.UseHttpsRedirection();
 
@@ -202,6 +225,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<RoomHub>("/roomHub");
+app.MapHub<AdminHub>("/hub/admin");
 
     Log.Information("✅ PaLX.API démarré avec succès");
     app.Run();
