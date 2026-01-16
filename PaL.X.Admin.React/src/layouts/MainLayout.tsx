@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSignalR } from '../contexts/SignalRContext';
 import {
@@ -19,32 +19,164 @@ import {
   MegaphoneIcon,
   FolderIcon,
   TagIcon,
+  CreditCardIcon,
+  BuildingOffice2Icon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 
-const navigation = [
+// Types pour la navigation
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+}
+
+interface NavGroup {
+  name: string;
+  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
+  children: NavItem[];
+}
+
+type NavigationItem = NavItem | NavGroup;
+
+// Vérifier si c'est un groupe
+const isNavGroup = (item: NavigationItem): item is NavGroup => {
+  return 'children' in item;
+};
+
+// Navigation structurée avec sous-menus
+const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Utilisateurs', href: '/users', icon: UsersIcon },
+  {
+    name: 'Utilisateurs',
+    icon: UsersIcon,
+    children: [
+      { name: 'Gestion', href: '/users', icon: UsersIcon },
+      { name: 'Abonnements', href: '/subscriptions', icon: CreditCardIcon },
+      { name: 'Badges', href: '/badges', icon: SparklesIcon },
+    ],
+  },
   { name: 'Rôles', href: '/roles', icon: ShieldCheckIcon },
   { name: 'Diffusion', href: '/broadcast', icon: MegaphoneIcon },
-  { name: 'Catégories', href: '/categories', icon: FolderIcon },
-  { name: 'Sous-catégories', href: '/subcategories', icon: TagIcon },
-  { name: 'Salons', href: '/rooms', icon: ChatBubbleLeftRightIcon },
+  {
+    name: 'Salons',
+    icon: ChatBubbleLeftRightIcon,
+    children: [
+      { name: 'Gestion', href: '/rooms', icon: ChatBubbleLeftRightIcon },
+      { name: 'Abonnements', href: '/room-subscriptions', icon: BuildingOffice2Icon },
+    ],
+  },
+  {
+    name: 'Catégories',
+    icon: FolderIcon,
+    children: [
+      { name: 'Catégories', href: '/categories', icon: FolderIcon },
+      { name: 'Sous-catégories', href: '/subcategories', icon: TagIcon },
+    ],
+  },
   { name: 'Signalements', href: '/reports', icon: FlagIcon },
-  { name: 'Badges', href: '/badges', icon: SparklesIcon },
   { name: 'Logs', href: '/logs', icon: DocumentTextIcon },
   { name: 'Paramètres', href: '/settings', icon: Cog6ToothIcon },
 ];
+
+// Composant pour les sous-menus
+const NavGroupItem: React.FC<{
+  group: NavGroup;
+  isOpen: boolean;
+  onToggle: () => void;
+  onLinkClick: () => void;
+  location: ReturnType<typeof useLocation>;
+}> = ({ group, isOpen, onToggle, onLinkClick, location }) => {
+  // Vérifier si un enfant est actif
+  const isChildActive = group.children.some(child => location.pathname.startsWith(child.href));
+  
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+          isChildActive
+            ? 'bg-palx-600/20 text-palx-400'
+            : 'text-dark-300 hover:text-white hover:bg-dark-700/50'
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <group.icon className="w-5 h-5" />
+          <span>{group.name}</span>
+        </div>
+        <ChevronDownIcon
+          className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
+      </button>
+      
+      {/* Sous-menu avec animation */}
+      <div
+        className={`overflow-hidden transition-all duration-200 ${
+          isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="pl-4 space-y-1 pt-1">
+          {group.children.map((child) => (
+            <NavLink
+              key={child.href}
+              to={child.href}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                  isActive
+                    ? 'bg-palx-600/30 text-palx-300 border-l-2 border-palx-500'
+                    : 'text-dark-400 hover:text-white hover:bg-dark-700/30 border-l-2 border-transparent'
+                }`
+              }
+              onClick={onLinkClick}
+            >
+              <child.icon className="w-4 h-4" />
+              <span>{child.name}</span>
+            </NavLink>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const MainLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { isConnected } = useSignalR();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+
+  // Ouvrir automatiquement le groupe contenant la page active
+  useEffect(() => {
+    navigation.forEach((item) => {
+      if (isNavGroup(item)) {
+        const isChildActive = item.children.some(child => location.pathname.startsWith(child.href));
+        if (isChildActive && !openGroups.includes(item.name)) {
+          setOpenGroups(prev => [...prev, item.name]);
+        }
+      }
+    });
+  }, [location.pathname]);
+
+  const toggleGroup = (groupName: string) => {
+    setOpenGroups(prev =>
+      prev.includes(groupName)
+        ? prev.filter(name => name !== groupName)
+        : [...prev, groupName]
+    );
+  };
 
   const getPageTitle = () => {
     const path = location.pathname;
-    const nav = navigation.find(n => path.startsWith(n.href));
-    return nav?.name || 'Admin Panel';
+    for (const item of navigation) {
+      if (isNavGroup(item)) {
+        const child = item.children.find(c => path.startsWith(c.href));
+        if (child) return `${item.name} - ${child.name}`;
+      } else if (path.startsWith(item.href)) {
+        return item.name;
+      }
+    }
+    return 'Admin Panel';
   };
 
   return (
@@ -84,19 +216,30 @@ const MainLayout: React.FC = () => {
 
         {/* Navigation */}
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.name}
-              to={item.href}
-              className={({ isActive }) =>
-                isActive ? 'sidebar-link-active' : 'sidebar-link'
-              }
-              onClick={() => setSidebarOpen(false)}
-            >
-              <item.icon className="w-5 h-5" />
-              <span>{item.name}</span>
-            </NavLink>
-          ))}
+          {navigation.map((item) =>
+            isNavGroup(item) ? (
+              <NavGroupItem
+                key={item.name}
+                group={item}
+                isOpen={openGroups.includes(item.name)}
+                onToggle={() => toggleGroup(item.name)}
+                onLinkClick={() => setSidebarOpen(false)}
+                location={location}
+              />
+            ) : (
+              <NavLink
+                key={item.name}
+                to={item.href}
+                className={({ isActive }) =>
+                  isActive ? 'sidebar-link-active' : 'sidebar-link'
+                }
+                onClick={() => setSidebarOpen(false)}
+              >
+                <item.icon className="w-5 h-5" />
+                <span>{item.name}</span>
+              </NavLink>
+            )
+          )}
         </nav>
 
         {/* User Info */}

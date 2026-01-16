@@ -153,6 +153,16 @@ class ApiService {
     return response.data;
   }
 
+  async updateBroadcast(id: number, data: BroadcastRequest): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.put<{ success: boolean; message: string }>(`/admin/broadcasts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteBroadcast(id: number): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.delete<{ success: boolean; message: string }>(`/admin/broadcasts/${id}`);
+    return response.data;
+  }
+
   // ============================================
   // Users Management
   // ============================================
@@ -323,15 +333,146 @@ class ApiService {
   }
 
   // ============================================
+  // Subscriptions Management (Full)
+  // ============================================
+  async getSubscriptionTiers(): Promise<any[]> {
+    const response = await this.client.get('/admin/subscriptions/tiers');
+    return response.data;
+  }
+
+  async updateSubscriptionTier(id: number, data: any): Promise<any> {
+    const response = await this.client.put(`/admin/subscriptions/tiers/${id}`, data);
+    return response.data;
+  }
+
+  async getSubscriptionDurations(): Promise<any[]> {
+    const response = await this.client.get('/admin/subscriptions/durations');
+    return response.data;
+  }
+
+  async updateSubscriptionDuration(id: number, data: any): Promise<any> {
+    const response = await this.client.put(`/admin/subscriptions/durations/${id}`, data);
+    return response.data;
+  }
+
+  async getSubscriptionPrices(): Promise<any[]> {
+    const response = await this.client.get('/admin/subscriptions/prices');
+    return response.data;
+  }
+
+  async setSubscriptionPrice(tierId: number, durationId: number, data: { priceCents: number; points: number }): Promise<any> {
+    const response = await this.client.put(`/admin/subscriptions/prices/${tierId}/${durationId}`, data);
+    return response.data;
+  }
+
+  async resetSubscriptionPrice(tierId: number, durationId: number): Promise<void> {
+    await this.client.delete(`/admin/subscriptions/prices/${tierId}/${durationId}`);
+  }
+
+  async getSubscriptionStats(): Promise<any> {
+    const response = await this.client.get('/admin/subscriptions/stats');
+    return response.data;
+  }
+
+  async getUserSubscriptions(filters?: { status?: string; tierId?: number }): Promise<any[]> {
+    const response = await this.client.get('/admin/subscriptions/users', { params: filters });
+    return response.data;
+  }
+
+  async grantUserSubscription(userId: number, data: { tierId: number; durationId: number; paymentMethod: string }): Promise<any> {
+    const response = await this.client.post(`/admin/subscriptions/users/${userId}/grant`, data);
+    return response.data;
+  }
+
+  async revokeUserSubscription(userId: number, reason: string): Promise<void> {
+    await this.client.post(`/admin/subscriptions/users/${userId}/revoke`, { reason });
+  }
+
+  async extendUserSubscription(userId: number, days: number, reason: string): Promise<void> {
+    await this.client.post(`/admin/subscriptions/users/${userId}/extend`, { days, reason });
+  }
+
+  async getUserPoints(userId: number): Promise<any> {
+    const response = await this.client.get(`/admin/subscriptions/users/${userId}/points`);
+    return response.data;
+  }
+
+  async grantUserPoints(userId: number, amount: number, reason: string): Promise<any> {
+    const response = await this.client.post(`/admin/subscriptions/users/${userId}/points/grant`, { amount, reason });
+    return response.data;
+  }
+
+  async getUserPointsHistory(userId: number): Promise<any[]> {
+    const response = await this.client.get(`/admin/subscriptions/users/${userId}/points/history`);
+    return response.data;
+  }
+
+  async checkUserTrial(userId: number, tierId: number): Promise<{ canUseTrial: boolean; remainingDays?: number }> {
+    const response = await this.client.get(`/admin/subscriptions/users/${userId}/trial/${tierId}`);
+    return response.data;
+  }
+
+  async activateUserTrial(userId: number, tierId: number): Promise<any> {
+    const response = await this.client.post(`/admin/subscriptions/users/${userId}/trial/${tierId}`);
+    return response.data;
+  }
+
+  // ============================================
+  // Room Subscriptions Management
+  // ============================================
+  async getRoomSubscriptionTiers(): Promise<any[]> {
+    const response = await this.client.get('/admin/room-subscriptions/tiers');
+    return response.data;
+  }
+
+  async updateRoomSubscriptionTier(id: number, data: any): Promise<any> {
+    const response = await this.client.put(`/admin/room-subscriptions/tiers/${id}`, data);
+    return response.data;
+  }
+
+  async getRoomSubscriptions(): Promise<any[]> {
+    const response = await this.client.get('/admin/room-subscriptions/subscriptions');
+    return response.data;
+  }
+
+  async getRoomSubscription(roomId: number): Promise<any> {
+    const response = await this.client.get(`/admin/room-subscriptions/subscriptions/room/${roomId}`);
+    return response.data;
+  }
+
+  async grantRoomSubscription(data: { roomId: number; tierId: number; grantedByAdminId?: number; durationDays?: number }): Promise<any> {
+    const response = await this.client.post('/admin/room-subscriptions/subscriptions/grant', data);
+    return response.data;
+  }
+
+  async revokeRoomSubscription(roomId: number): Promise<any> {
+    const response = await this.client.post(`/admin/room-subscriptions/subscriptions/revoke/${roomId}`);
+    return response.data;
+  }
+
+  async extendRoomSubscription(roomId: number, days: number): Promise<any> {
+    const response = await this.client.post(`/admin/room-subscriptions/subscriptions/extend/${roomId}?days=${days}`);
+    return response.data;
+  }
+
+  async searchRoomsForSubscription(query?: string, limit: number = 50): Promise<any[]> {
+    const params = new URLSearchParams();
+    if (query) params.append('query', query);
+    params.append('limit', limit.toString());
+    const response = await this.client.get(`/admin/room-subscriptions/rooms/search?${params.toString()}`);
+    return response.data;
+  }
+
+  async getRoomSubscriptionStats(): Promise<any> {
+    const response = await this.client.get('/admin/room-subscriptions/stats');
+    return response.data;
+  }
+
+  // ============================================
   // System
   // ============================================
   async getSystemInfo(): Promise<any> {
     const response = await this.client.get('/admin/system/info');
-    return response.data;
-  }
-
-  async sendBroadcast(message: string): Promise<ApiResponse<void>> {
-    const response = await this.client.post<ApiResponse<void>>('/admin/system/broadcast', { message });
     return response.data;
   }
 

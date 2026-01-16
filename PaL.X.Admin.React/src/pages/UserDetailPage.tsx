@@ -13,11 +13,61 @@ import {
   ExclamationTriangleIcon,
   PencilIcon,
   TrashIcon,
-  CheckIcon
+  CheckIcon,
+  CreditCardIcon,
+  ClockIcon,
+  XMarkIcon,
+  PlusIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import apiService from '../services/api';
-import { User, UserRole, SubscriptionType } from '../types';
+import { User, Role } from '../types';
 import toast from 'react-hot-toast';
+
+// Helper pour convertir le type d'abonnement numérique en string
+const subscriptionTierToString = (tierId: number | string): string => {
+  if (typeof tierId === 'string') return tierId;
+  switch (tierId) {
+    case 0: return 'Free';
+    case 1: return 'Premium';
+    case 2: return 'VIP';
+    default: return 'Free';
+  }
+};
+
+// Helper pour convertir le type d'abonnement string en numérique
+const subscriptionStringToTier = (type: string): number => {
+  switch (type) {
+    case 'Free': return 0;
+    case 'Premium': return 1;
+    case 'VIP': return 2;
+    default: return 0;
+  }
+};
+
+// Interface pour les tiers d'abonnement
+interface SubscriptionTier {
+  id: number;
+  name: string;
+  displayName: string;
+  color: string;
+  maxRoomsOwned: number;
+  maxRoomsJoined: number;
+  canBroadcast: boolean;
+  canUploadFiles: boolean;
+  maxFileSize: number;
+  customStatus: boolean;
+  prioritySupport: boolean;
+  adFree: boolean;
+}
+
+// Interface pour les durées d'abonnement
+interface SubscriptionDuration {
+  id: number;
+  name: string;
+  days: number;
+  displayName: string;
+}
 
 const UserDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -25,19 +75,77 @@ const UserDetailPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ role: '', subscriptionType: '' });
+  const [editForm, setEditForm] = useState({ roleLevel: 7, subscriptionType: 'Free' });
+  const [roles, setRoles] = useState<Role[]>([]);
+  
+  // États pour la gestion des abonnements
+  const [subscriptionTiers, setSubscriptionTiers] = useState<SubscriptionTier[]>([]);
+  const [subscriptionDurations, setSubscriptionDurations] = useState<SubscriptionDuration[]>([]);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [subscriptionForm, setSubscriptionForm] = useState({
+    tierId: 1,
+    durationId: 1,
+    paymentMethod: 'admin_grant'
+  });
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+
+  useEffect(() => {
+    fetchRoles();
+    fetchSubscriptionData();
+  }, []);
 
   useEffect(() => {
     fetchUser();
   }, [id]);
+
+  const fetchSubscriptionData = async () => {
+    try {
+      const [tiers, durations] = await Promise.all([
+        apiService.getSubscriptionTiers(),
+        apiService.getSubscriptionDurations()
+      ]);
+      // Filtrer pour exclure "Free" des tiers assignables
+      setSubscriptionTiers(tiers.filter((t: SubscriptionTier) => t.name !== 'Free'));
+      setSubscriptionDurations(durations);
+      if (tiers.length > 0) {
+        const firstPaidTier = tiers.find((t: SubscriptionTier) => t.name !== 'Free');
+        if (firstPaidTier) {
+          setSubscriptionForm(prev => ({ ...prev, tierId: firstPaidTier.id }));
+        }
+      }
+      if (durations.length > 0) {
+        setSubscriptionForm(prev => ({ ...prev, durationId: durations[0].id }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription data:', error);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const data = await apiService.getRoles();
+      // Charger tous les rôles pour l'affichage
+      setRoles(data);
+    } catch (error) {
+      console.error('Failed to fetch roles:', error);
+    }
+  };
 
   const fetchUser = async () => {
     if (!id) return;
     setLoading(true);
     try {
       const data = await apiService.getUserById(parseInt(id));
+      console.log('User data received:', data);
+      console.log('RoleLevel:', data.roleLevel, 'SubscriptionType:', data.subscriptionType);
       setUser(data);
-      setEditForm({ role: data.role, subscriptionType: data.subscriptionType });
+      // Utiliser roleLevel et convertir subscriptionType
+      const subType = subscriptionTierToString(data.subscriptionType);
+      console.log('Setting editForm - roleLevel:', data.roleLevel || 7, 'subscriptionType:', subType);
+      setEditForm({ 
+        roleLevel: data.roleLevel || 7,
+        subscriptionType: subType
+      });
     } catch (error) {
       console.error('Failed to fetch user:', error);
       // Mock data for demo
@@ -46,6 +154,7 @@ const UserDetailPage: React.FC = () => {
         username: 'DemoUser',
         email: 'demo@palx.com',
         role: 'User',
+        roleLevel: 7,
         subscriptionType: 'Premium',
         subscriptionEndDate: '2025-12-31',
         isOnline: true,
@@ -58,7 +167,7 @@ const UserDetailPage: React.FC = () => {
         messagesCount: 1250,
         warningsCount: 1,
       });
-      setEditForm({ role: 'User', subscriptionType: 'Premium' });
+      setEditForm({ roleLevel: 7, subscriptionType: 'Premium' });
     } finally {
       setLoading(false);
     }
@@ -67,12 +176,17 @@ const UserDetailPage: React.FC = () => {
   const handleSaveChanges = async () => {
     if (!user) return;
     try {
-      // Update role if changed
-      if (editForm.role !== user.role) {
-        await apiService.changeUserRole(user.id, editForm.role);
+      // Update role if changed (compare by roleLevel)
+      if (editForm.roleLevel !== user.roleLevel) {
+        // Trouver le nom du rôle correspondant au roleLevel
+        const selectedRole = roles.find(r => r.roleLevel === editForm.roleLevel);
+        if (selectedRole) {
+          await apiService.changeUserRole(user.id, selectedRole.roleName);
+        }
       }
       // Update subscription if changed
-      if (editForm.subscriptionType !== user.subscriptionType) {
+      const currentSubType = subscriptionTierToString(user.subscriptionType);
+      if (editForm.subscriptionType !== currentSubType) {
         if (editForm.subscriptionType === 'Free') {
           await apiService.revokeSubscription(user.id);
         } else {
@@ -137,6 +251,63 @@ const UserDetailPage: React.FC = () => {
     } catch (error) {
       toast.error('Échec de la suppression');
     }
+  };
+
+  // Gestion des abonnements
+  const handleGrantSubscription = async () => {
+    if (!user) return;
+    setSubscriptionLoading(true);
+    try {
+      await apiService.grantUserSubscription(user.id, subscriptionForm);
+      toast.success('Abonnement attribué avec succès');
+      setShowSubscriptionModal(false);
+      fetchUser();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Échec de l\'attribution');
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  };
+
+  const handleRevokeSubscription = async () => {
+    if (!user) return;
+    if (!confirm(`Révoquer l'abonnement de ${user.displayName || user.username} ?`)) return;
+    
+    try {
+      await apiService.revokeSubscription(user.id);
+      toast.success('Abonnement révoqué');
+      fetchUser();
+    } catch (error) {
+      toast.error('Échec de la révocation');
+    }
+  };
+
+  const handleExtendSubscription = async (days: number) => {
+    if (!user) return;
+    try {
+      // Utiliser le tier actuel pour prolonger
+      const currentTier = subscriptionTiers.find(t => t.name === user.subscriptionType);
+      if (currentTier) {
+        await apiService.grantSubscription(user.id, currentTier.name, days);
+        toast.success(`Abonnement prolongé de ${days} jours`);
+        fetchUser();
+      }
+    } catch (error) {
+      toast.error('Échec de la prolongation');
+    }
+  };
+
+  // Calcul des jours restants
+  const getDaysRemaining = () => {
+    if (!user?.subscriptionEndDate) return 0;
+    const end = new Date(user.subscriptionEndDate);
+    const now = new Date();
+    const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  };
+
+  const isSubscriptionActive = () => {
+    return user?.subscriptionType && user.subscriptionType !== 'Free' && getDaysRemaining() > 0;
   };
 
   if (loading) {
@@ -276,14 +447,23 @@ const UserDetailPage: React.FC = () => {
                 <div>
                   <label className="label">Rôle</label>
                   <select
-                    value={editForm.role}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value }))}
+                    value={editForm.roleLevel}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, roleLevel: parseInt(e.target.value) }))}
                     className="input"
                   >
-                    <option value="User">Utilisateur</option>
-                    <option value="Moderator">Modérateur</option>
-                    <option value="Admin">Admin</option>
-                    <option value="SuperAdmin">SuperAdmin</option>
+                    {roles.length > 0 ? (
+                      roles.map((role) => (
+                        <option key={role.id} value={role.roleLevel}>
+                          {role.displayName}
+                        </option>
+                      ))
+                    ) : (
+                      <>
+                        <option value={7}>Utilisateur</option>
+                        <option value={5}>Modérateur</option>
+                        <option value={4}>Admin</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div>
@@ -367,6 +547,130 @@ const UserDetailPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Subscription Management Card */}
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <CreditCardIcon className="w-5 h-5 text-palx-400" />
+                Abonnement Membre
+              </h3>
+              {isSubscriptionActive() && (
+                <span className="badge bg-success/20 text-success">Actif</span>
+              )}
+            </div>
+
+            {/* Current Subscription Status */}
+            <div className={`p-4 rounded-xl border ${
+              isSubscriptionActive() 
+                ? 'bg-gradient-to-r from-palx-600/10 to-warning/10 border-palx-500/30' 
+                : 'bg-dark-700/30 border-dark-600/50'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                    user.subscriptionType === 'VIP' 
+                      ? 'bg-gradient-to-br from-warning to-amber-600' 
+                      : user.subscriptionType === 'Premium'
+                        ? 'bg-gradient-to-br from-palx-500 to-palx-700'
+                        : 'bg-dark-600'
+                  }`}>
+                    <SparklesIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold text-lg">
+                      {user.subscriptionType === 'VIP' ? '👑 VIP' : 
+                       user.subscriptionType === 'Premium' ? '⭐ Premium' : 
+                       '🆓 Gratuit'}
+                    </p>
+                    {isSubscriptionActive() ? (
+                      <div className="flex items-center gap-2 text-sm">
+                        <ClockIcon className="w-4 h-4 text-dark-400" />
+                        <span className="text-dark-300">
+                          Expire le {new Date(user.subscriptionEndDate!).toLocaleDateString('fr-FR')}
+                        </span>
+                        <span className={`font-medium ${
+                          getDaysRemaining() <= 7 ? 'text-danger' : 
+                          getDaysRemaining() <= 30 ? 'text-warning' : 'text-success'
+                        }`}>
+                          ({getDaysRemaining()} jours restants)
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-dark-400 text-sm">Aucun abonnement actif</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="mt-4 flex flex-wrap gap-3">
+              {!isSubscriptionActive() ? (
+                <button 
+                  onClick={() => setShowSubscriptionModal(true)}
+                  className="btn-primary"
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  Attribuer un abonnement
+                </button>
+              ) : (
+                <>
+                  <button 
+                    onClick={() => setShowSubscriptionModal(true)}
+                    className="btn-primary"
+                  >
+                    <ArrowPathIcon className="w-5 h-5" />
+                    Modifier / Prolonger
+                  </button>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleExtendSubscription(7)}
+                      className="btn-secondary text-sm"
+                    >
+                      +7 jours
+                    </button>
+                    <button 
+                      onClick={() => handleExtendSubscription(30)}
+                      className="btn-secondary text-sm"
+                    >
+                      +30 jours
+                    </button>
+                  </div>
+                  <button 
+                    onClick={handleRevokeSubscription}
+                    className="btn-danger"
+                  >
+                    <XMarkIcon className="w-5 h-5" />
+                    Révoquer
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Subscription Benefits Preview */}
+            {isSubscriptionActive() && (
+              <div className="mt-4 pt-4 border-t border-dark-700/50">
+                <p className="text-dark-400 text-xs mb-2">Avantages actifs :</p>
+                <div className="flex flex-wrap gap-2">
+                  {user.subscriptionType === 'VIP' && (
+                    <>
+                      <span className="text-xs px-2 py-1 bg-warning/10 text-warning rounded">Support prioritaire</span>
+                      <span className="text-xs px-2 py-1 bg-warning/10 text-warning rounded">Sans publicité</span>
+                      <span className="text-xs px-2 py-1 bg-warning/10 text-warning rounded">Salons illimités</span>
+                    </>
+                  )}
+                  {user.subscriptionType === 'Premium' && (
+                    <>
+                      <span className="text-xs px-2 py-1 bg-palx-500/10 text-palx-400 rounded">Diffusion vidéo</span>
+                      <span className="text-xs px-2 py-1 bg-palx-500/10 text-palx-400 rounded">Upload fichiers</span>
+                      <span className="text-xs px-2 py-1 bg-palx-500/10 text-palx-400 rounded">Status personnalisé</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
           <div className="card">
             <h3 className="text-lg font-semibold text-white mb-4">Actions</h3>
@@ -387,6 +691,133 @@ const UserDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-dark-800 border border-dark-700 rounded-2xl max-w-4xl w-full shadow-2xl animate-fade-in my-4">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-5 border-b border-dark-700">
+              <div className="flex items-center gap-3">
+                <CreditCardIcon className="w-6 h-6 text-palx-400" />
+                <div>
+                  <h3 className="text-lg font-semibold text-white">
+                    {isSubscriptionActive() ? 'Modifier l\'abonnement' : 'Attribuer un abonnement'}
+                  </h3>
+                  <p className="text-dark-400 text-sm">{user.displayName || user.username} (@{user.username})</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="p-2 text-dark-400 hover:text-white hover:bg-dark-700 rounded-lg"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5">
+              {/* Tier Selection - Grid 5 colonnes */}
+              <div className="mb-4">
+                <label className="label mb-2">Type d'abonnement ({subscriptionTiers.length} disponibles)</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+                  {subscriptionTiers.map((tier) => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => setSubscriptionForm(prev => ({ ...prev, tierId: tier.id }))}
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        subscriptionForm.tierId === tier.id
+                          ? 'border-palx-500 bg-palx-500/10'
+                          : 'border-dark-600 bg-dark-700/30 hover:border-dark-500'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span 
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: tier.color || '#8B5CF6' }}
+                        />
+                        <span 
+                          className="font-semibold text-sm truncate"
+                          style={{ color: tier.color || '#8B5CF6' }}
+                        >
+                          {tier.displayName}
+                        </span>
+                      </div>
+                      <p className="text-dark-400 text-xs">
+                        {tier.maxRoomsOwned > 0 ? `${tier.maxRoomsOwned} salons` : 'Fonctionnalités étendues'}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Duration & Payment Method - Side by side */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="label">Durée</label>
+                  <select
+                    value={subscriptionForm.durationId}
+                    onChange={(e) => setSubscriptionForm(prev => ({ ...prev, durationId: parseInt(e.target.value) }))}
+                    className="input"
+                  >
+                    {subscriptionDurations.map((duration) => (
+                      <option key={duration.id} value={duration.id}>
+                        {duration.displayName} ({duration.days} jours)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label">Méthode</label>
+                  <select
+                    value={subscriptionForm.paymentMethod}
+                    onChange={(e) => setSubscriptionForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                    className="input"
+                  >
+                    <option value="admin_grant">Attribution Admin (Gratuit)</option>
+                    <option value="gift">Cadeau</option>
+                    <option value="compensation">Compensation</option>
+                    <option value="promotion">Promotion</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Info */}
+              <div className="p-3 bg-info/10 border border-info/30 rounded-lg text-sm">
+                <p className="text-info">
+                  💡 L'abonnement sera attribué immédiatement. Si l'utilisateur a déjà un abonnement actif, la durée sera ajoutée.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex gap-3 p-5 border-t border-dark-700">
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="btn-secondary flex-1"
+                disabled={subscriptionLoading}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleGrantSubscription}
+                className="btn-primary flex-1"
+                disabled={subscriptionLoading}
+              >
+                {subscriptionLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <CheckIcon className="w-5 h-5" />
+                    Confirmer
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

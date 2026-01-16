@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSignalR } from '../contexts/SignalRContext';
 import { 
   Cog6ToothIcon, 
-  BellIcon, 
   ShieldCheckIcon,
   MegaphoneIcon,
   WrenchScrewdriverIcon,
@@ -27,7 +26,11 @@ const SettingsPage: React.FC = () => {
     }
 
     try {
-      await apiService.sendBroadcast(broadcastMessage);
+      await apiService.sendBroadcast({
+        type: 'info',
+        title: 'Annonce système',
+        message: broadcastMessage
+      });
       toast.success('Message broadcast envoyé');
       setBroadcastMessage('');
     } catch (error) {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MagnifyingGlassIcon, 
   FunnelIcon, 
@@ -14,6 +15,7 @@ import { Room, RoomCategory, RoomFilters } from '../types';
 import toast from 'react-hot-toast';
 
 const RoomsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 20, totalPages: 1, totalCount: 0 });
@@ -39,11 +41,11 @@ const RoomsPage: React.FC = () => {
       console.error('Failed to fetch rooms:', error);
       // Mock data for demo
       setRooms([
-        { id: 1, name: 'Salon Principal', description: 'Le salon principal de discussion', ownerId: 1, ownerUsername: 'Admin', createdAt: '2024-01-01', isActive: true, currentUsers: 45, maxUsers: 100, isPrivate: false, hasPassword: false, category: 'General', bannedUsers: [], tags: ['chat', 'communauté'] },
-        { id: 2, name: 'Gaming Zone', description: 'Pour les gamers', ownerId: 2, ownerUsername: 'Gamer1', createdAt: '2024-03-15', isActive: true, currentUsers: 23, maxUsers: 50, isPrivate: false, hasPassword: false, category: 'Gaming', bannedUsers: [], tags: ['jeux', 'fps', 'mmorpg'] },
-        { id: 3, name: 'Music Lounge', description: 'Partagez votre musique', ownerId: 5, ownerUsername: 'DJ_Master', createdAt: '2024-04-20', isActive: true, currentUsers: 12, maxUsers: 30, isPrivate: false, hasPassword: false, category: 'Music', bannedUsers: [], tags: ['musique', 'dj'] },
-        { id: 4, name: 'VIP Only', description: 'Réservé aux VIP', ownerId: 1, ownerUsername: 'Admin', createdAt: '2024-02-10', isActive: true, currentUsers: 8, maxUsers: 20, isPrivate: true, hasPassword: true, category: 'General', bannedUsers: [], tags: ['vip', 'exclusif'] },
-        { id: 5, name: 'Tech Talk', description: 'Discussions tech', ownerId: 3, ownerUsername: 'TechGuru', createdAt: '2024-05-01', isActive: false, currentUsers: 0, maxUsers: 40, isPrivate: false, hasPassword: false, category: 'Tech', bannedUsers: [], tags: ['tech', 'dev', 'code'] },
+        { id: 1, name: 'Salon Principal', description: 'Le salon principal de discussion', ownerId: 1, ownerUsername: 'admin', ownerDisplayName: 'Admin System', createdAt: '2024-01-01', isActive: true, currentUsers: 45, maxUsers: 100, isPrivate: false, hasPassword: false, category: 'General', bannedUsers: [], tags: ['chat', 'communauté'] },
+        { id: 2, name: 'Gaming Zone', description: 'Pour les gamers', ownerId: 2, ownerUsername: 'gamer1', ownerDisplayName: 'Jean Gamer', createdAt: '2024-03-15', isActive: true, currentUsers: 23, maxUsers: 50, isPrivate: false, hasPassword: false, category: 'Gaming', bannedUsers: [], tags: ['jeux', 'fps', 'mmorpg'] },
+        { id: 3, name: 'Music Lounge', description: 'Partagez votre musique', ownerId: 5, ownerUsername: 'dj_master', ownerDisplayName: 'DJ Master Mix', createdAt: '2024-04-20', isActive: true, currentUsers: 12, maxUsers: 30, isPrivate: false, hasPassword: false, category: 'Music', bannedUsers: [], tags: ['musique', 'dj'] },
+        { id: 4, name: 'VIP Only', description: 'Réservé aux VIP', ownerId: 1, ownerUsername: 'admin', ownerDisplayName: 'Admin System', createdAt: '2024-02-10', isActive: true, currentUsers: 8, maxUsers: 20, isPrivate: true, hasPassword: true, category: 'General', bannedUsers: [], tags: ['vip', 'exclusif'] },
+        { id: 5, name: 'Tech Talk', description: 'Discussions tech', ownerId: 3, ownerUsername: 'techguru', ownerDisplayName: 'Pierre Technologie', createdAt: '2024-05-01', isActive: false, currentUsers: 0, maxUsers: 40, isPrivate: false, hasPassword: false, category: 'Tech', bannedUsers: [], tags: ['tech', 'dev', 'code'] },
       ]);
       setPagination(prev => ({ ...prev, totalPages: 3, totalCount: 23 }));
     } finally {
@@ -221,7 +223,7 @@ const RoomsPage: React.FC = () => {
 
               {/* Owner & Date */}
               <div className="flex items-center justify-between text-sm text-dark-400 mb-4">
-                <span>Par {room.ownerUsername}</span>
+                <span>Par {room.ownerDisplayName || room.ownerUsername}</span>
                 <span>{new Date(room.createdAt).toLocaleDateString('fr-FR')}</span>
               </div>
 
@@ -255,7 +257,10 @@ const RoomsPage: React.FC = () => {
 
               {/* Actions */}
               <div className="flex items-center gap-2 pt-4 border-t border-dark-700/50">
-                <button className="btn-ghost flex-1 py-2 text-sm">
+                <button 
+                  onClick={() => navigate(`/rooms/${room.id}`)}
+                  className="btn-ghost flex-1 py-2 text-sm"
+                >
                   <EyeIcon className="w-4 h-4" />
                   Détails
                 </button>

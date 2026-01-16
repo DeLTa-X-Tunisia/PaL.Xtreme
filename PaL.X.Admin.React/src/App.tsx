@@ -10,10 +10,13 @@ import DashboardPage from './pages/DashboardPage';
 import UsersPage from './pages/UsersPage';
 import UserDetailPage from './pages/UserDetailPage';
 import RoomsPage from './pages/RoomsPage';
+import RoomDetailPage from './pages/RoomDetailPage';
 import RolesPage from './pages/RolesPage';
 import BroadcastPage from './pages/BroadcastPage';
 import CategoriesPage from './pages/CategoriesPage';
 import SubCategoriesPage from './pages/SubCategoriesPage';
+import SubscriptionsPage from './pages/SubscriptionsPage';
+import RoomSubscriptionsPage from './pages/RoomSubscriptionsPage';
 import ReportsPage from './pages/ReportsPage';
 import BadgesPage from './pages/BadgesPage';
 import LogsPage from './pages/LogsPage';
@@ -64,7 +67,10 @@ function App() {
         <Route path="broadcast" element={<BroadcastPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="subcategories" element={<SubCategoriesPage />} />
+        <Route path="subscriptions" element={<SubscriptionsPage />} />
+        <Route path="room-subscriptions" element={<RoomSubscriptionsPage />} />
         <Route path="rooms" element={<RoomsPage />} />
+        <Route path="rooms/:id" element={<RoomDetailPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="badges" element={<BadgesPage />} />
         <Route path="logs" element={<LogsPage />} />

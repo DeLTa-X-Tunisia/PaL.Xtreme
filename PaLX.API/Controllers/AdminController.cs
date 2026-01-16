@@ -131,6 +131,48 @@ namespace PaLX.API.Controllers
             return Ok(history);
         }
 
+        /// <summary>
+        /// Met à jour une annonce existante
+        /// </summary>
+        [HttpPut("broadcasts/{id}")]
+        public async Task<IActionResult> UpdateBroadcast(int id, [FromBody] BroadcastRequest request)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            if (string.IsNullOrWhiteSpace(request.Message))
+                return BadRequest("Le message ne peut pas être vide");
+
+            var result = await _adminService.UpdateBroadcastAsync(
+                id,
+                request.Type ?? "info",
+                request.Title ?? "Annonce",
+                request.Message
+            );
+
+            if (!result.Success)
+                return NotFound(new { message = result.Message });
+
+            return Ok(new { success = true, message = result.Message });
+        }
+
+        /// <summary>
+        /// Supprime une annonce
+        /// </summary>
+        [HttpDelete("broadcasts/{id}")]
+        public async Task<IActionResult> DeleteBroadcast(int id)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var result = await _adminService.DeleteBroadcastAsync(id);
+
+            if (!result.Success)
+                return NotFound(new { message = result.Message });
+
+            return Ok(new { success = true, message = result.Message });
+        }
+
         // ============================================
         // Categories Management
         // ============================================

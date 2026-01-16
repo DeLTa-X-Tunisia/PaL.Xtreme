@@ -54,6 +54,7 @@ export interface Room {
   description?: string;
   ownerId: number;
   ownerUsername: string;
+  ownerDisplayName?: string; // Prénom Nom du propriétaire
   createdAt: string;
   isActive: boolean;
   currentUsers: number;
@@ -63,6 +64,9 @@ export interface Room {
   category: RoomCategory;
   bannedUsers: number[];
   tags: string[];
+  // Subscription fields
+  subscriptionType?: string;
+  subscriptionEndDate?: string;
 }
 
 export type RoomCategory = 'General' | 'Gaming' | 'Music' | 'Art' | 'Tech' | 'Other';
@@ -273,22 +277,4 @@ export interface SignalREvents {
   statsUpdated: (stats: DashboardStats) => void;
   messageDeleted: (messageId: number) => void;
   roomClosed: (roomId: number) => void;
-}
-
-// === Broadcast / Annonces ===
-export interface BroadcastRequest {
-  type?: 'info' | 'warning' | 'alert' | 'success';
-  title?: string;
-  message: string;
-}
-
-export interface BroadcastHistory {
-  id: number;
-  sentByUserId: number;
-  sentByUsername: string;
-  sentByDisplayName: string;
-  type: string;
-  title: string;
-  message: string;
-  sentAt: string;
 }

@@ -1,9 +1,21 @@
 # PaL.Xtreme
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/your-repo/releases)
-[![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://reactjs.org/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<p align="center">
+  <img src="assets/logo.png" alt="PaL.Xtreme Logo" width="250"/>
+</p>
+
+<p align="center">
+  <strong>🚀 Modern Chat Application inspired by Paltalk Messenger</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/your-repo/releases"><img src="https://img.shields.io/badge/version-2.1.0-blue.svg" alt="Version"></a>
+  <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-purple.svg" alt=".NET"></a>
+  <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
+</p>
+
+---
 
 PaL.Xtreme est une solution de messagerie instantanée moderne développée en WPF (.NET 10.0), inspirée de l'interface de Paltalk Messenger. Elle inclut désormais un **panel d'administration complet** en React + TypeScript.
 

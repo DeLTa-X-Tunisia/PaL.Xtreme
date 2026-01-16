@@ -23,6 +23,9 @@ namespace PaLX.API.Services
         // Broadcast / Annonces globales
         Task SaveBroadcastAsync(int sentByUserId, string type, string title, string message);
         Task<PaginatedResult<BroadcastHistoryDto>> GetBroadcastHistoryAsync(int page, int pageSize);
+        Task<BroadcastHistoryDto?> GetBroadcastByIdAsync(int id);
+        Task<ServiceResult> UpdateBroadcastAsync(int id, string type, string title, string message);
+        Task<ServiceResult> DeleteBroadcastAsync(int id);
         
         // Categories & SubCategories
         Task<List<AdminRoomCategoryDto>> GetCategoriesAsync();
@@ -446,6 +449,81 @@ namespace PaLX.API.Services
                 PageNumber = page,
                 PageSize = pageSize
             };
+        }
+
+        public async Task<BroadcastHistoryDto?> GetBroadcastByIdAsync(int id)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT b.""Id"", b.""SentByUserId"", u.""Username"", 
+                       COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName,
+                       b.""Type"", b.""Title"", b.""Message"", b.""SentAt""
+                FROM ""AdminBroadcasts"" b
+                LEFT JOIN ""Users"" u ON b.""SentByUserId"" = u.""Id""
+                LEFT JOIN ""UserProfiles"" p ON u.""Id"" = p.""UserId""
+                WHERE b.""Id"" = @id";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("id", id);
+            
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new BroadcastHistoryDto
+                {
+                    Id = reader.GetInt32(0),
+                    SentByUserId = reader.GetInt32(1),
+                    SentByUsername = reader.IsDBNull(2) ? "Unknown" : reader.GetString(2),
+                    SentByDisplayName = reader.IsDBNull(3) ? "Unknown" : reader.GetString(3),
+                    Type = reader.IsDBNull(4) ? "info" : reader.GetString(4),
+                    Title = reader.IsDBNull(5) ? "" : reader.GetString(5),
+                    Message = reader.IsDBNull(6) ? "" : reader.GetString(6),
+                    SentAt = reader.GetDateTime(7)
+                };
+            }
+            return null;
+        }
+
+        public async Task<ServiceResult> UpdateBroadcastAsync(int id, string type, string title, string message)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                UPDATE ""AdminBroadcasts"" 
+                SET ""Type"" = @type, ""Title"" = @title, ""Message"" = @message
+                WHERE ""Id"" = @id";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("id", id);
+            cmd.Parameters.AddWithValue("type", type);
+            cmd.Parameters.AddWithValue("title", title);
+            cmd.Parameters.AddWithValue("message", message);
+            
+            var affected = await cmd.ExecuteNonQueryAsync();
+            if (affected == 0)
+                return new ServiceResult { Success = false, Message = "Annonce non trouvée" };
+
+            return new ServiceResult { Success = true, Message = "Annonce mise à jour avec succès" };
+        }
+
+        public async Task<ServiceResult> DeleteBroadcastAsync(int id)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"DELETE FROM ""AdminBroadcasts"" WHERE ""Id"" = @id";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("id", id);
+            
+            var affected = await cmd.ExecuteNonQueryAsync();
+            if (affected == 0)
+                return new ServiceResult { Success = false, Message = "Annonce non trouvée" };
+
+            return new ServiceResult { Success = true, Message = "Annonce supprimée avec succès" };
         }
 
         // ============================================
@@ -1148,10 +1226,12 @@ namespace PaLX.API.Services
                 SELECT 
                     r.""Id"", r.""Name"", r.""Description"", r.""IsActive"", r.""CreatedAt"",
                     r.""OwnerId"", u.""Username"" as OwnerUsername,
+                    COALESCE(NULLIF(TRIM(CONCAT(up.""LastName"", ' ', up.""FirstName"")), ''), u.""Username"") as OwnerDisplayName,
                     r.""MaxUsers"", r.""IsPrivate"", CASE WHEN r.""Password"" IS NOT NULL AND r.""Password"" <> '' THEN true ELSE false END as HasPassword,
                     (SELECT COUNT(*) FROM ""RoomMembers"" rm WHERE rm.""RoomId"" = r.""Id"") as CurrentUsers
                 FROM ""Rooms"" r
                 LEFT JOIN ""Users"" u ON r.""OwnerId"" = u.""Id""
+                LEFT JOIN ""UserProfiles"" up ON u.""Id"" = up.""UserId""
                 {whereClause}
                 ORDER BY r.""CreatedAt"" DESC
                 LIMIT @pageSize OFFSET @offset";
@@ -1178,10 +1258,11 @@ namespace PaLX.API.Services
                         CreatedAt = reader.GetDateTime(4),
                         OwnerId = reader.GetInt32(5),
                         OwnerUsername = reader.IsDBNull(6) ? "Inconnu" : reader.GetString(6),
-                        MaxUsers = reader.GetInt32(7),
-                        IsPrivate = reader.GetBoolean(8),
-                        HasPassword = reader.GetBoolean(9),
-                        CurrentUsers = reader.GetInt32(10)
+                        OwnerDisplayName = reader.IsDBNull(7) ? "Inconnu" : reader.GetString(7),
+                        MaxUsers = reader.GetInt32(8),
+                        IsPrivate = reader.GetBoolean(9),
+                        HasPassword = reader.GetBoolean(10),
+                        CurrentUsers = reader.GetInt32(11)
                     });
                 }
             }
@@ -1576,6 +1657,7 @@ namespace PaLX.API.Services
         public DateTime CreatedAt { get; set; }
         public int OwnerId { get; set; }
         public string OwnerUsername { get; set; } = "";
+        public string OwnerDisplayName { get; set; } = ""; // Prénom Nom
         public int MaxUsers { get; set; }
         public int CurrentUsers { get; set; }
         public bool IsPrivate { get; set; }
@@ -1622,11 +1704,5 @@ namespace PaLX.API.Services
         public int PageNumber { get; set; }
         public int PageSize { get; set; }
         public int TotalPages { get; set; }
-    }
-
-    public class ServiceResult
-    {
-        public bool Success { get; set; }
-        public string? Message { get; set; }
     }
 }

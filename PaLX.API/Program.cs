@@ -181,6 +181,8 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAdminService, AdminService>(); // Panel Admin React
+builder.Services.AddScoped<ISubscriptionService, SubscriptionService>(); // Gestion des abonnements utilisateurs
+builder.Services.AddScoped<RoomSubscriptionService>(); // Gestion des abonnements salons
 builder.Services.AddHostedService<StartupService>();
 
 var app = builder.Build();

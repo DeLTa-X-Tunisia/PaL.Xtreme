@@ -7,6 +7,73 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.1.0] - 2026-01-16
+
+### 🎨 Améliorations Interface Admin
+
+#### 📱 Menu Latéral Réorganisé avec Sous-menus
+- **Utilisateurs** (menu dépliable)
+  - Gestion des utilisateurs
+  - Abonnements membres
+  - Badges
+- **Salons** (menu dépliable)
+  - Gestion des salons
+  - Abonnements salons
+- **Catégories** (menu dépliable)
+  - Catégories
+  - Sous-catégories
+- Animation fluide d'ouverture/fermeture des sous-menus
+- Ouverture automatique du groupe contenant la page active
+
+#### 💳 Gestion des Abonnements Utilisateurs (UserDetailPage)
+- Nouvelle section "Abonnement Membre" dans le profil utilisateur
+- Statut visuel de l'abonnement actif (Premium/VIP/Gratuit)
+- Affichage des jours restants avec indicateur coloré
+- Boutons d'actions rapides (+7 jours, +30 jours)
+- Modale d'attribution d'abonnement avec :
+  - Sélection du tier en grille (tous les tiers disponibles)
+  - Choix de la durée
+  - Méthode d'attribution (Admin, Cadeau, Compensation, Promotion)
+- Révocation d'abonnement avec confirmation
+- Aperçu des avantages actifs
+
+#### 🏠 Page Détail Salon (RoomDetailPage) - NOUVEAU
+- Route `/rooms/:id` avec navigation depuis la liste des salons
+- Informations complètes : propriétaire, catégorie, date de création
+- Statistiques : utilisateurs en ligne, capacité max, utilisateurs bannis
+- Barre de progression de capacité avec couleurs dynamiques
+- Section "Abonnement Salon" identique aux utilisateurs :
+  - Attribution d'abonnement (Deluxe, Extreme, VIP, Bronze, Silver, Gold, Platinum, Ultimate, Legend)
+  - Prolongation rapide (+7 jours, +30 jours)
+  - Révocation d'abonnement
+  - Aperçu des avantages actifs
+- Actions : Fermer salon, Supprimer salon
+
+#### 🎯 Modales d'Attribution Optimisées
+- Design plus large (max-w-4xl) pour meilleure visibilité
+- Grille de tiers sur 5 colonnes (desktop)
+- Affichage dynamique des vraies données depuis l'API :
+  - Nom et couleur du tier
+  - Capacité réelle (membres max)
+- Durée et méthode côte à côte
+- Scroll intégré si beaucoup de tiers
+- Plus de textes hardcodés - tout est dynamique
+
+### 🔧 Corrections Techniques
+
+#### Backend (RoomSubscriptionController)
+- Correction de l'attribut d'autorisation : `[Authorize]` au lieu de `[Authorize(Roles = "Admin")]`
+- Permet aux utilisateurs avec rôle "ServerMaster" d'accéder aux endpoints
+
+#### Types TypeScript
+- Ajout des champs `subscriptionType` et `subscriptionEndDate` à l'interface `Room`
+
+### 📝 Documentation
+- Ajout du logo PaL.Xtreme dans le README
+- Mise à jour de la version vers 2.1.0
+
+---
+
 ## [2.0.0] - 2026-01-16
 
 ### 🛡️ Panel d'Administration React - Version Majeure
