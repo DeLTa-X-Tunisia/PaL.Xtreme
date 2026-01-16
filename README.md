@@ -1,11 +1,13 @@
+
 # PaL.Xtreme
 
 <p align="center">
-  <img src="assets/logo.png" alt="PaL.Xtreme Logo" width="250"/>
+  <strong>🚀 Modern Chat Application inspired by Paltalk Messenger</strong>
 </p>
 
 <p align="center">
-  <strong>🚀 Modern Chat Application inspired by Paltalk Messenger</strong>
+<img width="300" height="200" alt="Logo" src="https://github.com/user-attachments/assets/84fc18ba-28be-4582-ab92-c9258302bd49" />
+
 </p>
 
 <p align="center">
@@ -14,6 +16,7 @@
   <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
 </p>
+
 
 ---
 
