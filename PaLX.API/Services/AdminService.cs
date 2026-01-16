@@ -644,7 +644,7 @@ namespace PaLX.API.Services
                 SELECT sc.""Id"", sc.""CategoryId"", c.""Name"" as CategoryName, sc.""Name"", sc.""Description"", 
                        sc.""Icon"", sc.""Color"", sc.""TextColor"", sc.""DisplayOrder"", sc.""IsVisible"", sc.""IsActive"",
                        sc.""CreatedAt"", sc.""UpdatedAt"",
-                       0 as RoomsCount
+                       (SELECT COUNT(*) FROM ""Rooms"" r WHERE r.""SubCategoryId"" = sc.""Id"") as RoomsCount
                 FROM ""RoomSubCategories"" sc
                 LEFT JOIN ""RoomCategories"" c ON sc.""CategoryId"" = c.""Id""
                 {whereClause}
@@ -688,7 +688,7 @@ namespace PaLX.API.Services
                 SELECT sc.""Id"", sc.""CategoryId"", c.""Name"" as CategoryName, sc.""Name"", sc.""Description"", 
                        sc.""Icon"", sc.""Color"", sc.""TextColor"", sc.""DisplayOrder"", sc.""IsVisible"", sc.""IsActive"",
                        sc.""CreatedAt"", sc.""UpdatedAt"",
-                       0 as RoomsCount
+                       (SELECT COUNT(*) FROM ""Rooms"" r WHERE r.""SubCategoryId"" = sc.""Id"") as RoomsCount
                 FROM ""RoomSubCategories"" sc
                 LEFT JOIN ""RoomCategories"" c ON sc.""CategoryId"" = c.""Id""
                 WHERE sc.""Id"" = @id";
