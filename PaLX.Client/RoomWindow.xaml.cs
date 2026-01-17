@@ -18,6 +18,49 @@ namespace PaLX.Client
 {
     public partial class RoomWindow : Window
     {
+        // *** STATIC: Track all open room windows to prevent duplicates ***
+        private static readonly Dictionary<int, RoomWindow> _openRoomWindows = new Dictionary<int, RoomWindow>();
+        private static readonly object _lockObject = new object();
+        
+        /// <summary>
+        /// Checks if a room window is already open for the given room ID
+        /// </summary>
+        public static bool IsRoomOpen(int roomId)
+        {
+            lock (_lockObject)
+            {
+                return _openRoomWindows.ContainsKey(roomId);
+            }
+        }
+        
+        /// <summary>
+        /// Gets the existing room window if open, or null
+        /// </summary>
+        public static RoomWindow? GetOpenRoomWindow(int roomId)
+        {
+            lock (_lockObject)
+            {
+                return _openRoomWindows.TryGetValue(roomId, out var window) ? window : null;
+            }
+        }
+        
+        /// <summary>
+        /// Brings an existing room window to the foreground
+        /// </summary>
+        public static void BringToFront(int roomId)
+        {
+            var window = GetOpenRoomWindow(roomId);
+            if (window != null)
+            {
+                if (window.WindowState == WindowState.Minimized)
+                {
+                    window.WindowState = WindowState.Normal;
+                }
+                window.Activate();
+                window.Focus();
+            }
+        }
+        
         private readonly int _roomId;
         private readonly RoomViewModel _room;
         private readonly ApiService _apiService;
@@ -41,6 +84,12 @@ namespace PaLX.Client
             _roomId = room.Id;
             _apiService = ApiService.Instance;
             _isInvisibleMode = isInvisible;
+            
+            // *** Register this window in the static tracker ***
+            lock (_lockObject)
+            {
+                _openRoomWindows[_roomId] = this;
+            }
 
             // Setup Header
             RoomNameText.Text = room.Name;
@@ -678,6 +727,12 @@ namespace PaLX.Client
 
         private async void RoomWindow_Closed(object? sender, EventArgs e)
         {
+            // *** Remove from static tracker ***
+            lock (_lockObject)
+            {
+                _openRoomWindows.Remove(_roomId);
+            }
+            
             _speakingTimer.Stop();
             _globalTimer.Stop();
             _uptimeTimer.Stop();

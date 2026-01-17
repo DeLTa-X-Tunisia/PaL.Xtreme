@@ -7,6 +7,36 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.2] - 2026-01-17
+
+### 🛡️ Prévention des Fenêtres de Salon en Double
+
+Amélioration UX pour éviter l'ouverture de plusieurs fenêtres du même salon.
+
+#### Comportement
+
+**Quand l'utilisateur clique sur un salon déjà ouvert :**
+- ✅ Toast élégant : *"Vous êtes déjà dans le salon « Nom »"*
+- ✅ Fenêtre existante amenée au **premier plan**
+- ✅ Si minimisée, la fenêtre est **restaurée**
+- ✅ Fonctionne depuis la liste des salons ET les invitations
+
+**Implémentation technique :**
+```csharp
+// RoomWindow.cs - Tracking statique
+private static readonly Dictionary<int, RoomWindow> _openRoomWindows;
+
+public static bool IsRoomOpen(int roomId);
+public static void BringToFront(int roomId);
+```
+
+**Fichiers modifiés :**
+- `PaLX.Client/RoomWindow.xaml.cs` - Dictionnaire statique + méthodes utilitaires
+- `PaLX.Client/Controls/RoomListControl.xaml.cs` - Vérification avant ouverture
+- `PaLX.Client/MainView.xaml.cs` - Vérification pour les invitations
+
+---
+
 ## [2.4.1] - 2026-01-17
 
 ### 🛡️ Amélioration UX - Invitations de Salon

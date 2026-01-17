@@ -274,6 +274,15 @@ namespace PaLX.Client.Controls
                 var success = await _apiService.JoinRoomAsync(room.Id, password, isInvisible);
                 if (success)
                 {
+                    // *** Check if room window is already open ***
+                    if (RoomWindow.IsRoomOpen(room.Id))
+                    {
+                        // Bring existing window to front and show toast
+                        RoomWindow.BringToFront(room.Id);
+                        ToastService.Info($"Vous êtes déjà dans le salon « {room.Name} »", "Salon déjà ouvert");
+                        return;
+                    }
+                    
                     var roomWin = new RoomWindow(room, isInvisible);
                     roomWin.Show();
                 }
