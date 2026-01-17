@@ -7,6 +7,59 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.3] - 2026-01-17
+
+### 🔄 Synchronisation MySQL pour Scripts PHP (Laragon)
+
+Ajout d'un service de synchronisation automatique vers une base MySQL locale pour permettre l'intégration avec des scripts PHP externes.
+
+#### Fonctionnalités
+
+**Synchronisation automatique lors de :**
+- ✅ **Inscription** : Nouveau compte créé aussi dans MySQL
+- ✅ **Mise à jour profil** : Nom, prénom, email, avatar synchronisés
+
+**Table MySQL créée automatiquement :**
+```sql
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    palx_user_id INT UNIQUE NOT NULL,        -- ID dans PostgreSQL
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password_hash VARCHAR(255),               -- Hash BCrypt
+    email VARCHAR(255),
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    avatar_path VARCHAR(500),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)
+```
+
+**Configuration (appsettings.json) :**
+```json
+"MySqlSync": {
+  "Enabled": true,
+  "Host": "localhost",
+  "Port": 3306,
+  "Database": "pal_xtreme",
+  "User": "root",
+  "Password": ""
+}
+```
+
+#### Fichiers créés
+- `PaLX.API/Services/MySqlSyncService.cs` - Service complet avec interface IMySqlSyncService
+
+#### Fichiers modifiés
+- `PaLX.API/appsettings.json` - Configuration MySqlSync
+- `PaLX.API/Program.cs` - Enregistrement du service
+- `PaLX.API/Services/UserService.cs` - Appels de synchronisation
+
+#### Dépendances ajoutées
+- `MySqlConnector` v2.5.0 (NuGet)
+
+---
+
 ## [2.4.2] - 2026-01-17
 
 ### 🛡️ Prévention des Fenêtres de Salon en Double

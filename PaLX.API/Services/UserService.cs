@@ -10,12 +10,14 @@ namespace PaLX.API.Services
     {
         private readonly string _connectionString;
         private readonly IHubContext<ChatHub> _hubContext;
+        private readonly IMySqlSyncService _mySqlSyncService;
 
-        public UserService(IConfiguration configuration, IHubContext<ChatHub> hubContext)
+        public UserService(IConfiguration configuration, IHubContext<ChatHub> hubContext, IMySqlSyncService mySqlSyncService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
             _hubContext = hubContext;
+            _mySqlSyncService = mySqlSyncService;
         }
 
         // ===================================================================
@@ -145,6 +147,9 @@ namespace PaLX.API.Services
                     await cmd.ExecuteNonQueryAsync();
                 }
 
+                // 4. *** SYNC TO MYSQL (Laragon/PHP Script) ***
+                await _mySqlSyncService.SyncNewUserAsync(userId, username, passwordHash);
+
                 return true;
             }
             catch (PostgresException ex) when (ex.SqlState == "23505") // Unique violation
@@ -226,6 +231,10 @@ namespace PaLX.API.Services
             cmd.Parameters.AddWithValue("dob", profile.DateOfBirth ?? (object)DBNull.Value);
 
             await cmd.ExecuteNonQueryAsync();
+
+            // *** SYNC PROFILE TO MYSQL (Laragon/PHP Script) ***
+            await _mySqlSyncService.SyncUserProfileAsync(username, profile.FirstName, profile.LastName, profile.Email, profile.AvatarPath);
+
             return true;
         }
 

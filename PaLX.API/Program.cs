@@ -263,6 +263,7 @@ builder.Services.AddScoped<IAdminService, AdminService>(); // Panel Admin React
 builder.Services.AddScoped<IRoomRoleService, RoomRoleService>(); // Gestion des rôles de salons (CRUD)
 builder.Services.AddScoped<ISubscriptionService, SubscriptionService>(); // Gestion des abonnements utilisateurs
 builder.Services.AddScoped<RoomSubscriptionService>(); // Gestion des abonnements salons
+builder.Services.AddSingleton<IMySqlSyncService, MySqlSyncService>(); // Synchronisation MySQL (Laragon/PHP)
 builder.Services.AddHostedService<StartupService>();
 
 var app = builder.Build();

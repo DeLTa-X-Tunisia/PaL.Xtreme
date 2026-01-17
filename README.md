@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/your-repo/releases"><img src="https://img.shields.io/badge/version-2.4.2-blue.svg" alt="Version"></a>
+  <a href="https://github.com/your-repo/releases"><img src="https://img.shields.io/badge/version-2.4.3-blue.svg" alt="Version"></a>
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-purple.svg" alt=".NET"></a>
   <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
@@ -199,7 +199,31 @@ Nouvelle fonctionnalité sociale pour inviter ses amis directement dans un salon
 
 ---
 
-### 🚀 v2.3.0 - Scalabilité & Performance
+### � v2.4.3 - Synchronisation MySQL (PHP Integration)
+
+Synchronisation automatique des utilisateurs vers une base MySQL locale pour permettre l'intégration avec des scripts PHP externes (ex: Laragon).
+
+**Fonctionnalités :**
+- ✅ Sync automatique lors de l'inscription
+- ✅ Sync automatique lors de la mise à jour du profil
+- ✅ Table créée automatiquement si absente
+- ✅ Activation/désactivation via configuration
+
+**Configuration** (`appsettings.json`) :
+```json
+"MySqlSync": {
+  "Enabled": true,
+  "Host": "localhost",
+  "Port": 3306,
+  "Database": "pal_xtreme",
+  "User": "root",
+  "Password": ""
+}
+```
+
+---
+
+### �🚀 v2.3.0 - Scalabilité & Performance
 
 Cette version introduit les fondations pour supporter 10K+ utilisateurs concurrents :
 
