@@ -97,6 +97,25 @@ namespace PaLX.API.Services
             L2Expiration = TimeSpan.FromMinutes(30),
             UseSlidingExpiration = true
         };
+
+        // Generic duration-based presets
+        public static CacheOptions ShortTerm => new() 
+        { 
+            L1Expiration = TimeSpan.FromSeconds(30), 
+            L2Expiration = TimeSpan.FromMinutes(2) 
+        };
+
+        public static CacheOptions MediumTerm => new() 
+        { 
+            L1Expiration = TimeSpan.FromMinutes(2), 
+            L2Expiration = TimeSpan.FromMinutes(15) 
+        };
+
+        public static CacheOptions LongTerm => new() 
+        { 
+            L1Expiration = TimeSpan.FromMinutes(5), 
+            L2Expiration = TimeSpan.FromHours(1) 
+        };
     }
 
     /// <summary>

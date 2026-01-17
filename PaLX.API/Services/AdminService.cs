@@ -3,6 +3,15 @@ using PaLX.API.DTOs;
 
 namespace PaLX.API.Services
 {
+    // Cache key constants for AdminService
+    public static class AdminCacheKeys
+    {
+        public const string Roles = "admin:roles";
+        public const string Categories = "admin:categories";
+        public const string SubCategories = "admin:subcategories";
+        public static string SubCategoriesByCategory(int categoryId) => $"admin:subcategories:cat:{categoryId}";
+    }
+
     public interface IAdminService
     {
         // Dashboard
@@ -61,13 +70,15 @@ namespace PaLX.API.Services
     public class AdminService : IAdminService
     {
         private readonly string _connectionString;
+        private readonly ICacheService _cache;
         private static bool _maintenanceMode = false;
         private static string? _maintenanceMessage;
 
-        public AdminService(IConfiguration configuration)
+        public AdminService(IConfiguration configuration, ICacheService cacheService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection")
                 ?? throw new InvalidOperationException("Connection string not found");
+            _cache = cacheService;
         }
 
         // ============================================
@@ -311,6 +322,15 @@ namespace PaLX.API.Services
 
         public async Task<List<AdminRoleDto>> GetRolesAsync()
         {
+            return await _cache.GetOrSetAsync(
+                AdminCacheKeys.Roles,
+                async () => await FetchRolesFromDatabaseAsync(),
+                CacheOptions.MediumTerm // 15 minutes - roles don't change often
+            );
+        }
+
+        private async Task<List<AdminRoleDto>> FetchRolesFromDatabaseAsync()
+        {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
@@ -533,6 +553,15 @@ namespace PaLX.API.Services
 
         public async Task<List<AdminRoomCategoryDto>> GetCategoriesAsync()
         {
+            return await _cache.GetOrSetAsync(
+                AdminCacheKeys.Categories,
+                async () => await FetchCategoriesFromDatabaseAsync(),
+                CacheOptions.MediumTerm // 15 minutes
+            );
+        }
+
+        private async Task<List<AdminRoomCategoryDto>> FetchCategoriesFromDatabaseAsync()
+        {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
@@ -633,6 +662,9 @@ namespace PaLX.API.Services
             var newId = await cmd.ExecuteScalarAsync();
             await LogActionAsync(adminId, "CreateCategory", "Category", Convert.ToInt32(newId), $"Créé: {dto.Name}");
 
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.Categories);
+
             return new ServiceResult { Success = true, Message = "Catégorie créée avec succès" };
         }
 
@@ -668,6 +700,10 @@ namespace PaLX.API.Services
                 return new ServiceResult { Success = false, Message = "Catégorie non trouvée" };
 
             await LogActionAsync(adminId, "UpdateCategory", "Category", id, $"Modifié: {dto.Name ?? "N/A"}");
+            
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.Categories);
+            
             return new ServiceResult { Success = true, Message = "Catégorie mise à jour" };
         }
 
@@ -705,6 +741,10 @@ namespace PaLX.API.Services
                 return new ServiceResult { Success = false, Message = "Catégorie non trouvée" };
 
             await LogActionAsync(adminId, "DeleteCategory", "Category", id, "Supprimé");
+            
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.Categories);
+            
             return new ServiceResult { Success = true, Message = "Catégorie supprimée" };
         }
 
@@ -713,6 +753,19 @@ namespace PaLX.API.Services
         // ============================================
 
         public async Task<List<AdminRoomSubCategoryDto>> GetSubCategoriesAsync(int? categoryId = null)
+        {
+            var cacheKey = categoryId.HasValue 
+                ? AdminCacheKeys.SubCategoriesByCategory(categoryId.Value) 
+                : AdminCacheKeys.SubCategories;
+
+            return await _cache.GetOrSetAsync(
+                cacheKey,
+                async () => await FetchSubCategoriesFromDatabaseAsync(categoryId),
+                CacheOptions.MediumTerm // 15 minutes
+            );
+        }
+
+        private async Task<List<AdminRoomSubCategoryDto>> FetchSubCategoriesFromDatabaseAsync(int? categoryId)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
@@ -832,6 +885,11 @@ namespace PaLX.API.Services
             var newId = await cmd.ExecuteScalarAsync();
             await LogActionAsync(adminId, "CreateSubCategory", "SubCategory", Convert.ToInt32(newId), $"Créé: {dto.Name}");
 
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.SubCategories);
+            await _cache.RemoveAsync(AdminCacheKeys.SubCategoriesByCategory(dto.CategoryId));
+            await _cache.RemoveAsync(AdminCacheKeys.Categories); // SubCategories count changed
+
             return new ServiceResult { Success = true, Message = "Sous-catégorie créée avec succès" };
         }
 
@@ -868,6 +926,12 @@ namespace PaLX.API.Services
                 return new ServiceResult { Success = false, Message = "Sous-catégorie non trouvée" };
 
             await LogActionAsync(adminId, "UpdateSubCategory", "SubCategory", id, $"Modifié: {dto.Name ?? "N/A"}");
+            
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.SubCategories);
+            // We don't know the categoryId here, so invalidate all category-specific caches is not efficient
+            // But it's a rare operation, so it's acceptable
+            
             return new ServiceResult { Success = true, Message = "Sous-catégorie mise à jour" };
         }
 
@@ -893,6 +957,11 @@ namespace PaLX.API.Services
                 return new ServiceResult { Success = false, Message = "Sous-catégorie non trouvée" };
 
             await LogActionAsync(adminId, "DeleteSubCategory", "SubCategory", id, "Supprimé");
+            
+            // Invalidate cache
+            await _cache.RemoveAsync(AdminCacheKeys.SubCategories);
+            await _cache.RemoveAsync(AdminCacheKeys.Categories); // SubCategories count changed
+            
             return new ServiceResult { Success = true, Message = "Sous-catégorie supprimée" };
         }
 

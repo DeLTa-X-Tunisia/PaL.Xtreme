@@ -7,6 +7,14 @@ using PaLX.API.Hubs;
 
 namespace PaLX.API.Services
 {
+    // Cache key constants for RoomService
+    public static class RoomCacheKeys
+    {
+        public const string Categories = "room:categories";
+        public const string SubscriptionTiers = "room:subscription_tiers";
+        public static string SubCategories(int categoryId) => $"room:subcategories:{categoryId}";
+    }
+
     public class RoomService : IRoomService
     {
         private readonly string _connectionString;
@@ -15,11 +23,12 @@ namespace PaLX.API.Services
         private readonly IAccessControlService _accessControl;
         private readonly ILogger<RoomService> _logger;
         private readonly IServiceProvider _serviceProvider; // Pour accéder au BotService sans dépendance circulaire
+        private readonly ICacheService _cache;
 
         // System admin role levels (1-5 have full room access)
         private const int MAX_SYSTEM_ADMIN_LEVEL = 5; // ServerMaster(1) to ServerModerator(5)
 
-        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl, ILogger<RoomService> logger, IServiceProvider serviceProvider)
+        public RoomService(IConfiguration configuration, IHubContext<RoomHub> roomHubContext, IHubContext<ChatHub> chatHubContext, IAccessControlService accessControl, ILogger<RoomService> logger, IServiceProvider serviceProvider, ICacheService cacheService)
         {
             _connectionString = configuration.GetConnectionString("DefaultConnection") 
                                 ?? throw new InvalidOperationException("Connection string not found.");
@@ -28,6 +37,7 @@ namespace PaLX.API.Services
             _accessControl = accessControl;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _cache = cacheService;
         }
         
         // Helper pour obtenir le BotService sans dépendance circulaire
@@ -879,6 +889,15 @@ namespace PaLX.API.Services
 
         public async Task<List<RoomCategoryDto>> GetCategoriesAsync()
         {
+            return await _cache.GetOrSetAsync(
+                RoomCacheKeys.Categories,
+                async () => await FetchCategoriesFromDatabaseAsync(),
+                CacheOptions.MediumTerm // 15 minutes
+            );
+        }
+
+        private async Task<List<RoomCategoryDto>> FetchCategoriesFromDatabaseAsync()
+        {
             var list = new List<RoomCategoryDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
@@ -910,6 +929,15 @@ namespace PaLX.API.Services
 
         public async Task<List<RoomSubCategoryDto>> GetSubCategoriesAsync(int categoryId)
         {
+            return await _cache.GetOrSetAsync(
+                RoomCacheKeys.SubCategories(categoryId),
+                async () => await FetchSubCategoriesFromDatabaseAsync(categoryId),
+                CacheOptions.MediumTerm // 15 minutes
+            );
+        }
+
+        private async Task<List<RoomSubCategoryDto>> FetchSubCategoriesFromDatabaseAsync(int categoryId)
+        {
             var list = new List<RoomSubCategoryDto>();
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
@@ -939,6 +967,15 @@ namespace PaLX.API.Services
         }
 
         public async Task<List<RoomSubscriptionTierDto>> GetRoomSubscriptionTiersAsync()
+        {
+            return await _cache.GetOrSetAsync(
+                RoomCacheKeys.SubscriptionTiers,
+                async () => await FetchRoomSubscriptionTiersFromDatabaseAsync(),
+                CacheOptions.LongTerm // 1 hour - subscription tiers rarely change
+            );
+        }
+
+        private async Task<List<RoomSubscriptionTierDto>> FetchRoomSubscriptionTiersFromDatabaseAsync()
         {
             var list = new List<RoomSubscriptionTierDto>();
             using var conn = new NpgsqlConnection(_connectionString);

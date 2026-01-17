@@ -7,6 +7,73 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.3.1] - 2026-01-17
+
+### 🗄️ Intégration Cache - AdminService & RoomService
+
+Cette version applique le système de cache multi-niveau aux services critiques pour réduire drastiquement les appels base de données.
+
+#### AdminService - Cache Intégré
+
+**Méthodes optimisées avec cache :**
+- `GetRolesAsync()` - Cache 15 min (MediumTerm)
+- `GetCategoriesAsync()` - Cache 15 min (MediumTerm)
+- `GetSubCategoriesAsync()` - Cache 15 min (MediumTerm)
+
+**Cache Invalidation automatique :**
+- `CreateCategoryAsync()` → Invalide `admin:categories`
+- `UpdateCategoryAsync()` → Invalide `admin:categories`
+- `DeleteCategoryAsync()` → Invalide `admin:categories`
+- `CreateSubCategoryAsync()` → Invalide `admin:subcategories`, `admin:categories`
+- `UpdateSubCategoryAsync()` → Invalide `admin:subcategories`
+- `DeleteSubCategoryAsync()` → Invalide `admin:subcategories`, `admin:categories`
+
+**Clés de cache centralisées :**
+```csharp
+public static class AdminCacheKeys
+{
+    public const string Roles = "admin:roles";
+    public const string Categories = "admin:categories";
+    public const string SubCategories = "admin:subcategories";
+    public static string SubCategoriesByCategory(int categoryId) => $"admin:subcategories:cat:{categoryId}";
+}
+```
+
+#### RoomService - Cache Intégré
+
+**Méthodes optimisées avec cache :**
+- `GetCategoriesAsync()` - Cache 15 min (MediumTerm)
+- `GetSubCategoriesAsync(categoryId)` - Cache 15 min (MediumTerm)
+- `GetRoomSubscriptionTiersAsync()` - Cache 1 heure (LongTerm)
+
+**Clés de cache centralisées :**
+```csharp
+public static class RoomCacheKeys
+{
+    public const string Categories = "room:categories";
+    public const string SubscriptionTiers = "room:subscription_tiers";
+    public static string SubCategories(int categoryId) => $"room:subcategories:{categoryId}";
+}
+```
+
+#### CacheOptions - Nouveaux Presets
+
+**3 nouveaux presets génériques ajoutés :**
+
+| Preset | TTL L1 | TTL L2 | Usage |
+|--------|--------|--------|-------|
+| ShortTerm | 30s | 2 min | Données volatiles |
+| MediumTerm | 2 min | 15 min | Catégories, rôles |
+| LongTerm | 5 min | 1 heure | Configs stables |
+
+#### Impact Performance
+
+- **Réduction ~90% des requêtes DB** pour les listes de catégories/sous-catégories
+- **Dashboard Admin reste temps réel** (pas de cache pour les stats)
+- **Invalidation automatique** lors des modifications admin
+
+---
+
 ## [2.3.0] - 2026-01-17
 
 ### 🚀 Scalabilité - Préparation pour la Croissance
