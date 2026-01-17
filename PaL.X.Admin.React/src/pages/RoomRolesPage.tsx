@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   HomeModernIcon,
-  CrownIcon,
   ShieldCheckIcon,
   ShieldExclamationIcon,
   BoltIcon,
