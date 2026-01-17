@@ -7,6 +7,139 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.3.0] - 2026-01-17
+
+### 🚀 Scalabilité - Préparation pour la Croissance
+
+Cette version introduit les fondations pour supporter une charge utilisateur beaucoup plus importante (10K+ utilisateurs concurrents) avec des optimisations de performance et des services prêts pour Redis.
+
+#### 🗄️ Service de Cache Multi-Niveau (CacheService)
+Nouveau système de cache à deux niveaux pour réduire drastiquement les appels base de données :
+
+```
+Requête → L1 (Memory) → L2 (Redis/Memory) → Database
+           <1ms          ~5ms               ~50ms
+```
+
+**Fonctionnalités :**
+- **L1 Cache** : `IMemoryCache` local au process (ultra rapide)
+- **L2 Cache** : `IDistributedCache` (Redis en prod, Memory en dev)
+- **Protection Cache Stampede** : Verrouillage pour éviter les requêtes simultanées
+- **Presets par type de données** :
+  | Type | TTL L1 | TTL L2 |
+  |------|--------|--------|
+  | User Profile | 30s | 5min |
+  | Room List | 10s | 30s |
+  | Room Members | 5s | 15s |
+  | Online Status | 5s | 10s |
+  | Subscriptions | 5min | 1h |
+
+- **Invalidation intelligente** par entité (`InvalidateEntityAsync`)
+- **Clés standardisées** via `CacheKeys` helper class
+
+**Fichier créé :** `Services/CacheService.cs`
+
+#### 🔌 Service de Base de Données Optimisé (DatabaseService)
+Remplacement du pattern `new NpgsqlConnection()` par un service centralisé avec pooling optimisé :
+
+**Avantages :**
+- Connection pooling natif via `NpgsqlDataSource`
+- Multiplexing optionnel (plusieurs requêtes/connexion)
+- Configuration centralisée (MinPool, MaxPool, Timeouts)
+- Extensions helper : `ExecuteAsync()`, `ExecuteInTransactionAsync()`
+- Monitoring prêt (stats du pool)
+
+**Configuration dans `appsettings.json` :**
+```json
+"Database": {
+  "MinPoolSize": 10,
+  "MaxPoolSize": 100,
+  "ConnectionIdleLifetimeSeconds": 300,
+  "EnableMultiplexing": false
+}
+```
+
+**Fichier créé :** `Services/DatabaseService.cs`
+
+#### 📡 SignalR Haute Performance
+Configuration SignalR optimisée pour le scaling horizontal :
+
+**Paramètres configurables :**
+- `MaximumReceiveMessageSizeKB` : 64 KB par défaut
+- `KeepAliveIntervalSeconds` : 15s
+- `ClientTimeoutSeconds` : 60s
+- `StreamBufferCapacity` : 20
+
+**Redis Backplane (optionnel) :**
+Activation via `appsettings.json` pour permettre plusieurs instances API :
+```json
+"Redis": {
+  "ConnectionString": "localhost:6379",
+  "EnableSignalRBackplane": true
+}
+```
+
+**Fichiers créés :** `Services/SignalRSettings.cs`
+
+#### ❤️ Health Checks Complets
+Endpoints de monitoring pour les load balancers et le DevOps :
+
+| Endpoint | Usage |
+|----------|-------|
+| `/health` | Status complet JSON (tous les checks) |
+| `/health/live` | Liveness probe (l'app répond) |
+| `/health/ready` | Readiness probe (DB connectée) |
+
+**Checks implémentés :**
+- **PostgreSQL** : Vérifie la connexion DB
+- **Redis** : Vérifie le cache distribué (si configuré)
+- **SignalR** : Vérifie les hubs
+- **Disk Space** : Alerte si < 1 GB libre
+
+**Exemple de réponse `/health` :**
+```json
+{
+  "status": "Healthy",
+  "timestamp": "2026-01-17T12:00:00Z",
+  "version": "2.3.0",
+  "checks": [
+    { "name": "postgresql", "status": "Healthy", "duration": 12.5 },
+    { "name": "redis", "status": "Healthy", "duration": 3.2 },
+    { "name": "signalr", "status": "Healthy", "duration": 0.1 }
+  ]
+}
+```
+
+**Fichier créé :** `Services/HealthChecks.cs`
+
+### 📦 Nouvelles Dépendances NuGet
+
+| Package | Version | Usage |
+|---------|---------|-------|
+| `Microsoft.Extensions.Caching.StackExchangeRedis` | 10.0.2 | Cache distribué Redis |
+| `Microsoft.AspNetCore.SignalR.StackExchangeRedis` | 10.0.2 | SignalR backplane Redis |
+
+### ⚙️ Configuration Enrichie (appsettings.json)
+
+Nouvelles sections de configuration :
+```json
+{
+  "Database": { /* Connection pooling */ },
+  "Redis": { /* Cache + SignalR backplane */ },
+  "SignalR": { /* Performance tuning */ },
+  "Cache": { /* TTL defaults */ }
+}
+```
+
+### 🔧 Fichiers Modifiés
+
+- `Program.cs` : Intégration des nouveaux services, health checks, version 2.3.0
+- `appsettings.json` : Nouvelles sections Database, Redis, SignalR, Cache
+- `PaLX.API.csproj` : Packages Redis ajoutés
+- `README.md` : Version 2.3.0
+
+---
+
 ## [2.2.0] - 2026-01-17
 
 ### 🔒 Sécurité Renforcée - Admin Panel

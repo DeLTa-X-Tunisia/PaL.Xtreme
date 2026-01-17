@@ -16,6 +16,8 @@ using PaLX.API.Hubs;
 using PaLX.API.Services;
 using Serilog;
 using Serilog.Events;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Text.Json;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION SERILOG (Logging Structuré)
@@ -38,7 +40,7 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    Log.Information("🚀 Démarrage de PaLX.API...");
+    Log.Information("🚀 Démarrage de PaLX.API v2.3.0...");
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(); // Utiliser Serilog pour tout le logging ASP.NET Core
@@ -74,8 +76,74 @@ builder.Configuration["Jwt:Key"] = jwtKey;
 
 // Add services to the container.
 builder.Services.AddControllers();
-builder.Services.AddSignalR();
 builder.Services.AddOpenApi();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CACHE SERVICES (Multi-niveau: Memory + Redis optionnel)
+// ═══════════════════════════════════════════════════════════════════════════
+var redisSettings = builder.Configuration.GetSection("Redis").Get<RedisSettings>() ?? new RedisSettings();
+
+// L1 Cache: Memory (toujours actif)
+builder.Services.AddMemoryCache(options =>
+{
+    options.SizeLimit = 10000; // Limite en nombre d'entrées
+});
+
+// L2 Cache: Redis (si configuré) ou Memory fallback
+if (redisSettings.EnableDistributedCache && !string.IsNullOrEmpty(redisSettings.ConnectionString))
+{
+    Log.Information("🔴 Redis distributed cache enabled: {Connection}", redisSettings.ConnectionString);
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisSettings.GetFullConnectionString();
+        options.InstanceName = redisSettings.InstanceName;
+    });
+}
+else
+{
+    Log.Information("💾 Using in-memory distributed cache (Redis not configured)");
+    builder.Services.AddDistributedMemoryCache();
+}
+
+// Register Cache Service
+builder.Services.AddSingleton<ICacheService, CacheService>();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DATABASE SERVICE (Connection Pooling optimisé)
+// ═══════════════════════════════════════════════════════════════════════════
+builder.Services.AddSingleton<IDatabaseService, DatabaseService>();
+Log.Information("🗄️ Database connection pooling configured");
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIGNALR Configuration (Haute Performance)
+// ═══════════════════════════════════════════════════════════════════════════
+var signalRSettings = builder.Configuration.GetSection("SignalR").Get<SignalRSettings>() ?? new SignalRSettings();
+
+var signalRBuilder = builder.Services.AddSignalR(options =>
+{
+    options.MaximumReceiveMessageSize = signalRSettings.MaximumReceiveMessageSizeKB * 1024;
+    options.StreamBufferCapacity = signalRSettings.StreamBufferCapacity;
+    options.KeepAliveInterval = TimeSpan.FromSeconds(signalRSettings.KeepAliveIntervalSeconds);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(signalRSettings.ClientTimeoutSeconds);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(signalRSettings.HandshakeTimeoutSeconds);
+    options.EnableDetailedErrors = signalRSettings.EnableDetailedErrors;
+});
+
+// Redis Backplane pour SignalR (si configuré)
+if (redisSettings.EnableSignalRBackplane && !string.IsNullOrEmpty(redisSettings.ConnectionString))
+{
+    Log.Information("🔴 SignalR Redis backplane enabled for horizontal scaling");
+    signalRBuilder.AddStackExchangeRedis(redisSettings.GetFullConnectionString(), options =>
+    {
+        options.Configuration.ChannelPrefix = new StackExchange.Redis.RedisChannel("PaLX", StackExchange.Redis.RedisChannel.PatternMode.Literal);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HEALTH CHECKS (Monitoring)
+// ═══════════════════════════════════════════════════════════════════════════
+builder.Services.AddPaLXHealthChecks();
+Log.Information("❤️ Health checks configured");
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CORS Configuration (pour le Panel Admin React)
@@ -267,7 +335,44 @@ app.MapHub<ChatHub>("/chatHub");
 app.MapHub<RoomHub>("/roomHub");
 app.MapHub<AdminHub>("/hub/admin");
 
-    Log.Information("✅ PaLX.API démarré avec succès");
+// ═══════════════════════════════════════════════════════════════════════════
+// HEALTH CHECK ENDPOINTS
+// ═══════════════════════════════════════════════════════════════════════════
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow,
+            version = "2.3.0",
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                description = e.Value.Description,
+                duration = e.Value.Duration.TotalMilliseconds
+            })
+        });
+        await context.Response.WriteAsync(result);
+    }
+});
+
+// Health check simplifié pour les load balancers
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false // Ne vérifie rien, juste que l'app répond
+});
+
+// Health check complet (DB, Redis, etc.)
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("critical")
+});
+
+    Log.Information("✅ PaLX.API v2.3.0 démarré avec succès");
     app.Run();
 }
 catch (Exception ex)
