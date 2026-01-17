@@ -133,7 +133,50 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🏠 v2.3.2 - Gestion des Rôles de Salons *(Version Actuelle)*
+### 🛡️ v2.4.2 - Prévention Doublons de Salons *(Version Actuelle)*
+
+*   **Anti-doublon intelligent** : Impossible d'ouvrir plusieurs fenêtres du même salon
+*   **Toast élégant** : "Vous êtes déjà dans le salon « Nom »"
+*   **Bring to Front** : La fenêtre existante est automatiquement mise au premier plan
+*   **Restauration** : Si minimisée, la fenêtre est restaurée
+*   **Tracking statique** : Dictionnaire centralisé des fenêtres ouvertes
+
+---
+
+### 🎉 v2.4.1 - UX Invitations Améliorée
+
+*   **Détection amis présents** : Les amis déjà dans le salon sont marqués "✅ Déjà dans le salon"
+*   **Désactivation visuelle** : Checkbox grisé et ligne opacité 50%
+*   **Select All intelligent** : Ignore automatiquement les amis déjà présents
+*   **Convertisseurs XAML** : BoolToOpacityConverter, InRoomToColorConverter
+
+---
+
+### 🎊 v2.4.0 - Inviter des Amis dans un Salon
+
+Nouvelle fonctionnalité sociale pour inviter ses amis directement dans un salon de chat :
+
+**Côté Émetteur (User A) :**
+*   📋 Liste des amis en ligne/absents avec photo, nom, statut
+*   ✅ Sélection multiple avec checkboxes
+*   🔘 Bouton "Tout sélectionner"
+*   📤 Envoi groupé des invitations via SignalR
+
+**Côté Récepteur (User B) :**
+*   🔔 Popup d'invitation élégant (style toast moderne)
+*   👤 Photo et nom de l'inviteur
+*   🏠 Nom du salon et catégorie
+*   ✅ Accepter → Rejoint automatiquement le salon
+*   ❌ Refuser → Ferme le popup
+*   ⏰ Auto-fermeture après 30 secondes
+
+**Fichiers créés :**
+*   `InviteToRoomWindow.xaml/.cs` - Interface de sélection d'amis
+*   `RoomInvitationPopup.xaml/.cs` - Popup de réception d'invitation
+
+---
+
+### 🏠 v2.3.2 - Gestion des Rôles de Salons
 
 *   **Nouvelle page Admin** : Visualisation complète des rôles de salons
 *   **Hiérarchie des rôles** : RoomOwner → SuperAdmin → Admin → PowerUser → Moderator → Member
