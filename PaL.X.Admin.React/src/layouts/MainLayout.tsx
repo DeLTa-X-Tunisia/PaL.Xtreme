@@ -22,6 +22,7 @@ import {
   CreditCardIcon,
   BuildingOffice2Icon,
   ChevronDownIcon,
+  HomeModernIcon,
 } from '@heroicons/react/24/outline';
 
 // Types pour la navigation
@@ -56,7 +57,14 @@ const navigation: NavigationItem[] = [
       { name: 'Badges', href: '/badges', icon: SparklesIcon },
     ],
   },
-  { name: 'Rôles', href: '/roles', icon: ShieldCheckIcon },
+  {
+    name: 'Rôles',
+    icon: ShieldCheckIcon,
+    children: [
+      { name: 'Rôles Serveur', href: '/roles', icon: ShieldCheckIcon },
+      { name: 'Rôles Salons', href: '/room-roles', icon: HomeModernIcon },
+    ],
+  },
   { name: 'Diffusion', href: '/broadcast', icon: MegaphoneIcon },
   {
     name: 'Salons',

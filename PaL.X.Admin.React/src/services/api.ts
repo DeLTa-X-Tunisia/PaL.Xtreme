@@ -83,6 +83,14 @@ class ApiService {
   }
 
   // ============================================
+  // Room Roles Management (Rôles de Salons)
+  // ============================================
+  async getRoomRoles(): Promise<any[]> {
+    const response = await this.client.get<any[]>('/admin/room-roles');
+    return response.data;
+  }
+
+  // ============================================
   // Categories Management
   // ============================================
   async getCategories(): Promise<any[]> {

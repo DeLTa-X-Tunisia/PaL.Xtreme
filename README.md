@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/your-repo/releases"><img src="https://img.shields.io/badge/version-2.3.1-blue.svg" alt="Version"></a>
+  <a href="https://github.com/your-repo/releases"><img src="https://img.shields.io/badge/version-2.3.2-blue.svg" alt="Version"></a>
   <a href="https://dotnet.microsoft.com/"><img src="https://img.shields.io/badge/.NET-10.0-purple.svg" alt=".NET"></a>
   <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-18-61dafb.svg" alt="React"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
@@ -133,7 +133,18 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### �️ v2.3.1 - Intégration Cache Services *(Version Actuelle)*
+### 🏠 v2.3.2 - Gestion des Rôles de Salons *(Version Actuelle)*
+
+*   **Nouvelle page Admin** : Visualisation complète des rôles de salons
+*   **Hiérarchie des rôles** : RoomOwner → SuperAdmin → Admin → PowerUser → Moderator → Member
+*   **Permissions détaillées** : Chaque rôle affiche ses permissions spécifiques
+*   **Panel de détails** : Clic sur un rôle pour voir toutes ses informations
+*   **Schéma visuel** : Représentation graphique de la hiérarchie
+*   **Navigation améliorée** : Sous-menu "Rôles" avec Serveur et Salons
+
+---
+
+### 🗄️ v2.3.1 - Intégration Cache Services
 
 *   **AdminService avec Cache** : GetRolesAsync, GetCategoriesAsync, GetSubCategoriesAsync cachés (15 min)
 *   **RoomService avec Cache** : GetCategoriesAsync, GetSubCategoriesAsync, GetRoomSubscriptionTiersAsync cachés

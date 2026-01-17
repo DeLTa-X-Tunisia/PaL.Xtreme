@@ -12,6 +12,7 @@ import UserDetailPage from './pages/UserDetailPage';
 import RoomsPage from './pages/RoomsPage';
 import RoomDetailPage from './pages/RoomDetailPage';
 import RolesPage from './pages/RolesPage';
+import RoomRolesPage from './pages/RoomRolesPage';
 import BroadcastPage from './pages/BroadcastPage';
 import CategoriesPage from './pages/CategoriesPage';
 import SubCategoriesPage from './pages/SubCategoriesPage';
@@ -64,6 +65,7 @@ function App() {
         <Route path="users" element={<UsersPage />} />
         <Route path="users/:id" element={<UserDetailPage />} />
         <Route path="roles" element={<RolesPage />} />
+        <Route path="room-roles" element={<RoomRolesPage />} />
         <Route path="broadcast" element={<BroadcastPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="subcategories" element={<SubCategoriesPage />} />

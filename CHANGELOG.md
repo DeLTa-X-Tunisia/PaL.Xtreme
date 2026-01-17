@@ -7,6 +7,49 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.3.2] - 2026-01-17
+
+### 🏠 Gestion des Rôles de Salons - Admin Panel
+
+Nouvelle page dans l'interface d'administration pour visualiser et comprendre la hiérarchie des rôles de salons.
+
+#### Nouvelle Page: Rôles des Salons
+
+**Hiérarchie des rôles (du plus haut au plus bas) :**
+
+| Niveau | Rôle | Description |
+|--------|------|-------------|
+| 1 | RoomOwner | Propriétaire - Contrôle total |
+| 2 | RoomSuperAdmin | Super Admin - Pouvoirs étendus |
+| 3 | RoomAdmin | Administrateur - Gestion modération |
+| 4 | PowerUser | Utilisateur Avancé - Privilèges étendus |
+| 5 | RoomModerator | Modérateur - Surveillance chat |
+| 6 | RoomMember | Membre - Permissions de base |
+
+**Fonctionnalités de la page :**
+- 👁️ Visualisation de la hiérarchie complète
+- 🔐 Détail des permissions par rôle
+- 🎯 Panel latéral de détails au clic
+- 📊 Schéma visuel de la hiérarchie
+- 🎨 Code couleur par niveau de rôle
+
+**Fichiers modifiés/créés :**
+- `PaL.X.Admin.React/src/pages/RoomRolesPage.tsx` (nouveau)
+- `PaL.X.Admin.React/src/types/index.ts` (ajout RoomRole)
+- `PaL.X.Admin.React/src/services/api.ts` (ajout getRoomRoles)
+- `PaL.X.Admin.React/src/App.tsx` (route /room-roles)
+- `PaL.X.Admin.React/src/layouts/MainLayout.tsx` (navigation)
+- `PaLX.API/Controllers/AdminController.cs` (endpoint GET /api/admin/room-roles)
+
+#### Navigation Admin
+
+Les rôles sont maintenant groupés dans un sous-menu :
+- **Rôles**
+  - Rôles Serveur (ancienne page)
+  - Rôles Salons (nouvelle page)
+
+---
+
 ## [2.3.1] - 2026-01-17
 
 ### 🗄️ Intégration Cache - AdminService & RoomService

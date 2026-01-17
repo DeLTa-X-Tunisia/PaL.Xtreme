@@ -47,6 +47,18 @@ export interface Role {
   userCount: number; // Nombre d'utilisateurs avec ce rôle
 }
 
+// === Room Roles (Rôles de Salons) ===
+export interface RoomRole {
+  id: number;
+  roleLevel: number; // 1=Owner, 2=SuperAdmin, 3=Admin, 4=PowerUser, 5=Moderator, 6=Member
+  roleName: string; // Nom technique (RoomOwner, RoomAdmin, etc.)
+  displayName: string; // Nom affiché (Propriétaire du Salon)
+  icon: string; // Icône (crown, shield, user, etc.)
+  color: string; // Couleur hex
+  description: string; // Description des permissions
+  permissions: string[]; // Liste des permissions
+}
+
 // === Rooms ===
 export interface Room {
   id: number;
