@@ -183,6 +183,9 @@ namespace PaLX.Client
             // Global Announcements (Admin Broadcast)
             ApiService.Instance.OnGlobalAnnouncementReceived += OnGlobalAnnouncementReceived;
 
+            // Room Invitation (v2.4.0) - Friend inviting to join a room
+            ApiService.Instance.OnRoomInvitationReceived += OnRoomInvitationReceived;
+
             // System Events
             ApiService.Instance.OnConnectionClosed += OnConnectionClosed;
             ApiService.Instance.OnForceDisconnect += OnForceDisconnect;
@@ -452,6 +455,107 @@ namespace PaLX.Client
                     Console.WriteLine($"[MainView] Error showing global announcement: {ex.Message}");
                 }
             });
+        }
+
+        /// <summary>
+        /// Handler pour les invitations à rejoindre un salon (v2.4.0)
+        /// </summary>
+        private void OnRoomInvitationReceived(string inviterUsername, string inviterDisplayName, string? inviterAvatarPath, 
+                                               int roomId, string roomName, string roomCategory)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                try
+                {
+                    Console.WriteLine($"[MainView] Room invitation received from {inviterDisplayName} for room {roomName}");
+                    
+                    var popup = new RoomInvitationPopup(inviterUsername, inviterDisplayName, inviterAvatarPath, 
+                                                        roomId, roomName, roomCategory);
+                    
+                    popup.InvitationAccepted += (acceptedRoomId, inviter) =>
+                    {
+                        Dispatcher.Invoke(async () =>
+                        {
+                            try
+                            {
+                                // Join the room
+                                await JoinRoomFromInvitation(acceptedRoomId);
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine($"[MainView] Error joining room from invitation: {ex.Message}");
+                                ToastService.Error("Impossible de rejoindre le salon.", "Erreur");
+                            }
+                        });
+                    };
+                    
+                    popup.Show();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[MainView] Error showing room invitation popup: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Join a room from an invitation (v2.4.0)
+        /// </summary>
+        private async Task JoinRoomFromInvitation(int roomId)
+        {
+            try
+            {
+                // Get room details
+                var rooms = await ApiService.Instance.GetRoomsAsync();
+                var roomDto = rooms.FirstOrDefault(r => r.Id == roomId);
+                
+                if (roomDto == null)
+                {
+                    ToastService.Error("Ce salon n'existe plus ou n'est pas disponible.", "Erreur");
+                    return;
+                }
+
+                // Join the room (normal mode)
+                var result = await ApiService.Instance.JoinRoomAsync(roomId, null, false);
+                if (result)
+                {
+                    // Convert RoomDto to RoomViewModel
+                    var roomViewModel = new Controls.RoomViewModel
+                    {
+                        Id = roomDto.Id,
+                        Name = roomDto.Name,
+                        Description = roomDto.Description ?? "",
+                        CategoryId = roomDto.CategoryId,
+                        CategoryName = roomDto.CategoryName ?? "",
+                        OwnerId = roomDto.OwnerId,
+                        OwnerName = roomDto.OwnerName ?? "",
+                        UserCount = roomDto.UserCount,
+                        MaxUsers = roomDto.MaxUsers,
+                        IsPrivate = roomDto.IsPrivate,
+                        Is18Plus = roomDto.Is18Plus,
+                        IsActive = roomDto.IsActive,
+                        IsSystemHidden = roomDto.IsSystemHidden,
+                        SubscriptionLevel = roomDto.SubscriptionLevel,
+                        CreatedAt = roomDto.CreatedAt,
+                        UserRole = roomDto.UserRole,
+                        DefaultTextEnabled = roomDto.DefaultTextEnabled,
+                        DefaultMicEnabled = roomDto.DefaultMicEnabled,
+                        DefaultCamEnabled = roomDto.DefaultCamEnabled
+                    };
+                    
+                    var roomWindow = new RoomWindow(roomViewModel, false);
+                    roomWindow.Show();
+                }
+                else
+                {
+                    ToastService.Error("Impossible de rejoindre le salon.", "Erreur");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MainView] JoinRoomFromInvitation error: {ex.Message}");
+                ToastService.Error("Une erreur est survenue.", "Erreur");
+            }
         }
 
         private void OnUserBlocked(string username)
@@ -870,6 +974,7 @@ namespace PaLX.Client
             ApiService.Instance.OnFriendRemoved -= OnFriendUpdate;
             ApiService.Instance.OnConnectionClosed -= OnConnectionClosed;
             ApiService.Instance.OnForceDisconnect -= OnForceDisconnect;
+            ApiService.Instance.OnRoomInvitationReceived -= OnRoomInvitationReceived;
 
             try
             {

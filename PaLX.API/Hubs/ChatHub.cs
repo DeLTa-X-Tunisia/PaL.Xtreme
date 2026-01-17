@@ -889,5 +889,76 @@ namespace PaLX.API.Hubs
             }
             catch { /* Ignore logging errors */ }
         }
+
+        #region Room Invitations v2.4.0
+
+        /// <summary>
+        /// Send a room invitation to a specific user
+        /// </summary>
+        public async Task SendRoomInvitation(string targetUsername, int roomId, string roomName, string roomCategory)
+        {
+            var senderUsername = Context.UserIdentifier;
+            Console.WriteLine($"[ChatHub.SendRoomInvitation] START - Sender={senderUsername}, Target={targetUsername}, Room={roomId}");
+            
+            if (string.IsNullOrEmpty(senderUsername)) 
+            {
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] ERROR: senderUsername is null or empty");
+                return;
+            }
+
+            try
+            {
+                // Get sender info
+                string senderDisplayName = senderUsername;
+                string? senderAvatarPath = null;
+
+                using (var conn = new NpgsqlConnection(_connectionString))
+                {
+                    await conn.OpenAsync();
+                    // DisplayName is computed from UserProfiles table (LastName + FirstName)
+                    var sql = @"SELECT COALESCE(p.""LastName"" || ' ' || p.""FirstName"", u.""Username"") as DisplayName, 
+                                       p.""AvatarPath"" 
+                                FROM ""Users"" u 
+                                LEFT JOIN ""UserProfiles"" p ON p.""UserId"" = u.""Id""
+                                WHERE u.""Username"" = @u";
+                    using var cmd = new NpgsqlCommand(sql, conn);
+                    cmd.Parameters.AddWithValue("u", senderUsername);
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    if (await reader.ReadAsync())
+                    {
+                        senderDisplayName = reader.IsDBNull(0) ? senderUsername : reader.GetString(0);
+                        senderAvatarPath = reader.IsDBNull(1) ? null : reader.GetString(1);
+                    }
+                }
+
+                _logger.LogInformation("[ChatHub.SendRoomInvitation] {Sender} ({DisplayName}) inviting {Target} to room {RoomId} ({RoomName})",
+                    senderUsername, senderDisplayName, targetUsername, roomId, roomName);
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] Sending ReceiveRoomInvitation to user '{targetUsername}'");
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] AvatarPath = '{senderAvatarPath ?? "null"}'");
+
+                // Send invitation to target user (use empty string instead of null for avatar to avoid SignalR issues)
+                await Clients.User(targetUsername).SendAsync("ReceiveRoomInvitation",
+                    senderUsername,
+                    senderDisplayName,
+                    senderAvatarPath ?? "",
+                    roomId,
+                    roomName,
+                    roomCategory);
+                
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] ReceiveRoomInvitation sent to '{targetUsername}'");
+
+                // Confirm to sender
+                await Clients.Caller.SendAsync("RoomInvitationSent", targetUsername, roomId);
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] RoomInvitationSent confirmation sent to caller");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ChatHub.SendRoomInvitation] EXCEPTION: {ex.Message}");
+                _logger.LogError(ex, "[ChatHub.SendRoomInvitation] Error sending invitation from {Sender} to {Target}",
+                    senderUsername, targetUsername);
+            }
+        }
+
+        #endregion
     }
 }

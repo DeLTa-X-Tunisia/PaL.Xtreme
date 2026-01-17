@@ -18,15 +18,18 @@ namespace PaLX.API.Controllers
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _adminService;
+        private readonly IRoomRoleService _roomRoleService;
         private readonly IHubContext<ChatHub> _chatHubContext;
         private readonly IHubContext<RoomHub> _roomHubContext;
 
         public AdminController(
-            IAdminService adminService, 
+            IAdminService adminService,
+            IRoomRoleService roomRoleService,
             IHubContext<ChatHub> chatHubContext,
             IHubContext<RoomHub> roomHubContext)
         {
             _adminService = adminService;
+            _roomRoleService = roomRoleService;
             _chatHubContext = chatHubContext;
             _roomHubContext = roomHubContext;
         }
@@ -75,121 +78,105 @@ namespace PaLX.API.Controllers
         /// Liste tous les rôles de salons (Room Roles) avec leurs permissions
         /// </summary>
         [HttpGet("room-roles")]
-        public IActionResult GetRoomRoles()
+        public async Task<IActionResult> GetRoomRoles()
         {
             if (!IsSystemAdmin())
                 return Forbid("Accès réservé aux administrateurs système");
 
-            // Les rôles de salons sont statiques et définis dans le code
-            var roomRoles = new[]
-            {
-                new {
-                    Id = 1,
-                    RoleLevel = 1,
-                    RoleName = "RoomOwner",
-                    DisplayName = "Propriétaire du Salon",
-                    Icon = "crown",
-                    Color = "#FFD700",
-                    Description = "Contrôle total sur le salon. Peut modifier tous les paramètres, gérer les rôles et supprimer le salon.",
-                    Permissions = new[] {
-                        "Modifier les paramètres du salon",
-                        "Supprimer le salon",
-                        "Attribuer tous les rôles",
-                        "Gérer les abonnements",
-                        "Configurer le bot",
-                        "Accès complet au studio",
-                        "Kicker et bannir",
-                        "Muter les utilisateurs",
-                        "Modérer les messages"
-                    }
-                },
-                new {
-                    Id = 2,
-                    RoleLevel = 2,
-                    RoleName = "RoomSuperAdmin",
-                    DisplayName = "Super Administrateur",
-                    Icon = "shield-check",
-                    Color = "#E74C3C",
-                    Description = "Pouvoirs étendus de gestion. Peut attribuer les rôles Admin et inférieurs.",
-                    Permissions = new[] {
-                        "Modifier les paramètres du salon",
-                        "Attribuer les rôles Admin et inférieurs",
-                        "Gérer la modération",
-                        "Configurer le bot",
-                        "Accès au studio",
-                        "Kicker et bannir",
-                        "Muter les utilisateurs",
-                        "Modérer les messages"
-                    }
-                },
-                new {
-                    Id = 3,
-                    RoleLevel = 3,
-                    RoleName = "RoomAdmin",
-                    DisplayName = "Administrateur",
-                    Icon = "shield",
-                    Color = "#9B59B6",
-                    Description = "Gère la modération et les membres. Peut attribuer les rôles Modérateur et inférieurs.",
-                    Permissions = new[] {
-                        "Attribuer les rôles Mod et inférieurs",
-                        "Gérer la modération",
-                        "Kicker et bannir",
-                        "Muter les utilisateurs",
-                        "Modérer les messages",
-                        "Inviter des membres"
-                    }
-                },
-                new {
-                    Id = 4,
-                    RoleLevel = 4,
-                    RoleName = "PowerUser",
-                    DisplayName = "Utilisateur Avancé",
-                    Icon = "bolt",
-                    Color = "#3498DB",
-                    Description = "Utilisateur de confiance avec des privilèges étendus comme le partage vidéo prioritaire.",
-                    Permissions = new[] {
-                        "Priorité micro/caméra",
-                        "Inviter des membres",
-                        "Voir la liste des membres",
-                        "Accès aux statistiques basiques",
-                        "Partage de fichiers"
-                    }
-                },
-                new {
-                    Id = 5,
-                    RoleLevel = 5,
-                    RoleName = "RoomModerator",
-                    DisplayName = "Modérateur",
-                    Icon = "eye",
-                    Color = "#2ECC71",
-                    Description = "Surveille le chat et peut avertir ou muter les utilisateurs problématiques.",
-                    Permissions = new[] {
-                        "Muter les utilisateurs",
-                        "Avertir les utilisateurs",
-                        "Supprimer des messages",
-                        "Signaler au propriétaire",
-                        "Voir la liste des membres"
-                    }
-                },
-                new {
-                    Id = 6,
-                    RoleLevel = 6,
-                    RoleName = "RoomMember",
-                    DisplayName = "Membre",
-                    Icon = "user",
-                    Color = "#95A5A6",
-                    Description = "Membre standard du salon avec les permissions de base.",
-                    Permissions = new[] {
-                        "Envoyer des messages",
-                        "Voir le chat",
-                        "Demander le micro",
-                        "Demander la caméra",
-                        "Voir les membres en ligne"
-                    }
-                }
-            };
+            var roles = await _roomRoleService.GetRoleDefinitionsAsync();
+            return Ok(roles);
+        }
 
-            return Ok(roomRoles);
+        /// <summary>
+        /// Récupère un rôle de salon par son ID
+        /// </summary>
+        [HttpGet("room-roles/{id}")]
+        public async Task<IActionResult> GetRoomRoleById(int id)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var role = await _roomRoleService.GetRoleDefinitionByIdAsync(id);
+            if (role == null)
+                return NotFound("Rôle non trouvé");
+
+            return Ok(role);
+        }
+
+        /// <summary>
+        /// Crée un nouveau rôle de salon personnalisé
+        /// </summary>
+        [HttpPost("room-roles")]
+        public async Task<IActionResult> CreateRoomRole([FromBody] CreateRoomRoleDto dto)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var adminId = GetCurrentUserId();
+            var result = await _roomRoleService.CreateRoleDefinitionAsync(dto, adminId);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            // Log l'action
+            await _adminService.LogActionAsync(adminId, "CREATE_ROOM_ROLE", "RoomRole", result.Role?.Id, $"Created room role: {dto.RoleName}");
+
+            return CreatedAtAction(nameof(GetRoomRoleById), new { id = result.Role?.Id }, result);
+        }
+
+        /// <summary>
+        /// Modifie un rôle de salon existant (y compris ses permissions)
+        /// </summary>
+        [HttpPut("room-roles/{id}")]
+        public async Task<IActionResult> UpdateRoomRole(int id, [FromBody] UpdateRoomRoleDto dto)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var adminId = GetCurrentUserId();
+            var result = await _roomRoleService.UpdateRoleDefinitionAsync(id, dto, adminId);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            // Log l'action
+            await _adminService.LogActionAsync(adminId, "UPDATE_ROOM_ROLE", "RoomRole", id, $"Updated room role: {dto.DisplayName}");
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Supprime un rôle de salon personnalisé (les rôles système ne peuvent pas être supprimés)
+        /// </summary>
+        [HttpDelete("room-roles/{id}")]
+        public async Task<IActionResult> DeleteRoomRole(int id)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var adminId = GetCurrentUserId();
+            var result = await _roomRoleService.DeleteRoleDefinitionAsync(id, adminId);
+
+            if (!result.Success)
+                return BadRequest(result);
+
+            // Log l'action
+            await _adminService.LogActionAsync(adminId, "DELETE_ROOM_ROLE", "RoomRole", id, "Deleted room role");
+
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Liste toutes les permissions disponibles groupées par catégorie
+        /// </summary>
+        [HttpGet("room-permissions")]
+        public async Task<IActionResult> GetRoomPermissions()
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var permissions = await _roomRoleService.GetPermissionsGroupedAsync();
+            return Ok(permissions);
         }
 
         // ============================================

@@ -7,6 +7,91 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.1] - 2026-01-17
+
+### 🛡️ Amélioration UX - Invitations de Salon
+
+Correction d'un cas limite où un utilisateur pouvait être invité dans un salon où il se trouvait déjà.
+
+#### Détection des amis déjà présents
+
+**Comportement :**
+- ✅ Les amis déjà dans le salon sont marqués **"✅ Déjà dans le salon"** en vert
+- ✅ Leur checkbox est **désactivé** (impossible de les sélectionner)
+- ✅ Leur ligne est **grisée** (opacité 50%)
+- ✅ La fonction "Tout sélectionner" **ignore** automatiquement ceux déjà présents
+
+**Fichiers modifiés :**
+- `PaLX.Client/InviteToRoomWindow.xaml` - Bindings opacité et couleur
+- `PaLX.Client/InviteToRoomWindow.xaml.cs` - Propriétés `IsInRoom`, `CanBeInvited`
+- `PaLX.Client/RoomWindow.xaml.cs` - Passage de la liste des participants
+- `PaLX.Client/Converters/ChatConverters.cs` - Nouveaux convertisseurs
+
+---
+
+## [2.4.0] - 2026-01-17
+
+### 🎉 Nouvelle Fonctionnalité: Inviter des Amis dans un Salon
+
+Permet aux utilisateurs d'inviter leurs amis en ligne directement dans le salon de chat où ils se trouvent.
+
+#### Côté Émetteur (User A)
+
+**Interface d'invitation :**
+- 📋 Liste des amis en ligne/absents (triés par statut)
+- ✅ Sélection multiple avec checkboxes
+- 🖼️ Photo de profil, nom d'affichage, statut
+- 🔘 Bouton "Tout sélectionner"
+- 📤 Envoi groupé des invitations
+
+**Fichiers créés :**
+- `PaLX.Client/InviteToRoomWindow.xaml` - Interface moderne style PaL.X
+- `PaLX.Client/InviteToRoomWindow.xaml.cs` - Logique de sélection et envoi
+
+#### Côté Récepteur (User B)
+
+**Popup d'invitation :**
+- 🔔 Notification popup élégante (style toast)
+- 👤 Photo et nom de l'inviteur
+- 🏠 Nom du salon et catégorie
+- ✅ Bouton Accepter → Rejoint automatiquement le salon
+- ❌ Bouton Refuser → Ferme le popup
+- ⏰ Auto-fermeture après 30 secondes
+- 📚 Empilage si plusieurs invitations
+
+**Fichiers créés :**
+- `PaLX.Client/RoomInvitationPopup.xaml` - Design du popup
+- `PaLX.Client/RoomInvitationPopup.xaml.cs` - Gestion accepter/refuser
+
+#### SignalR - Communication Temps Réel
+
+**Nouvelles méthodes Hub :**
+```csharp
+// ChatHub.cs
+SendRoomInvitation(targetUsername, roomId, roomName, roomCategory)
+```
+
+**Nouveaux événements client :**
+```csharp
+// ApiService.cs
+ReceiveRoomInvitation(inviterUsername, inviterDisplayName, inviterAvatarPath, roomId, roomName, roomCategory)
+RoomInvitationSent(targetUsername, roomId)
+```
+
+**Fichiers modifiés :**
+- `PaLX.API/Hubs/ChatHub.cs` - Méthode `SendRoomInvitation`
+- `PaLX.Client/Services/ApiService.cs` - Handlers SignalR
+- `PaLX.Client/MainView.xaml.cs` - Affichage du popup
+- `PaLX.Client/RoomWindow.xaml.cs` - Bouton "Inviter"
+
+#### Bouton d'accès
+
+**Localisation :** Barre d'outils de la fenêtre de salon (RoomWindow)
+- 📍 Icône: 👥➕
+- 💡 Tooltip: "Inviter des amis"
+
+---
+
 ## [2.3.2] - 2026-01-17
 
 ### 🏠 Gestion des Rôles de Salons - Admin Panel

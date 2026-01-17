@@ -112,6 +112,11 @@ namespace PaLX.Client.Services
         // Global Announcement Event (admin broadcast)
         public event Action<GlobalAnnouncementDto>? OnGlobalAnnouncementReceived;
 
+        // Room Invitation Event (v2.4.0) - friend inviting to room
+        // Params: inviterUsername, inviterDisplayName, inviterAvatarPath, roomId, roomName, roomCategory
+        public event Action<string, string, string?, int, string, string>? OnRoomInvitationReceived;
+        public event Action<string, int>? OnRoomInvitationSent; // targetUsername, roomId (confirmation)
+
         // System Events
         public event Action? OnConnectionClosed;
         public event Action<string>? OnForceDisconnect; // Session kicked by another login
@@ -764,6 +769,32 @@ namespace PaLX.Client.Services
                 }
             });
 
+            // Room Invitation Handler (v2.4.0) - Receive invitation to join a room
+            _hubConnection.On<string, string, string, int, string, string>("ReceiveRoomInvitation", 
+                (inviterUsername, inviterDisplayName, inviterAvatarPath, roomId, roomName, roomCategory) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** ReceiveRoomInvitation EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] Inviter={inviterDisplayName}, Avatar={inviterAvatarPath ?? "null"}, Room={roomName} (ID={roomId})");
+                try
+                {
+                    // Convert empty string to null for avatar
+                    string? avatar = string.IsNullOrEmpty(inviterAvatarPath) ? null : inviterAvatarPath;
+                    OnRoomInvitationReceived?.Invoke(inviterUsername, inviterDisplayName, avatar, roomId, roomName, roomCategory);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoomInvitationReceived event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in ReceiveRoomInvitation handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Room Invitation Sent confirmation (v2.4.0)
+            _hubConnection.On<string, int>("RoomInvitationSent", (targetUsername, roomId) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] RoomInvitationSent: target={targetUsername}, roomId={roomId}");
+                OnRoomInvitationSent?.Invoke(targetUsername, roomId);
+            });
+
             // Room Hub Handlers - Messages et membres
             _roomHubConnection.On<RoomMessageDto>("ReceiveMessage", (dto) => 
             {
@@ -1012,6 +1043,17 @@ namespace PaLX.Client.Services
             if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
             {
                 await _hubConnection.InvokeAsync("SendBuzz", receiver);
+            }
+        }
+
+        /// <summary>
+        /// Send a room invitation to a user via SignalR (v2.4.0)
+        /// </summary>
+        public async Task SendRoomInvitationAsync(string targetUsername, int roomId, string roomName, string roomCategory)
+        {
+            if (_hubConnection != null && _hubConnection.State == HubConnectionState.Connected)
+            {
+                await _hubConnection.InvokeAsync("SendRoomInvitation", targetUsername, roomId, roomName, roomCategory);
             }
         }
 

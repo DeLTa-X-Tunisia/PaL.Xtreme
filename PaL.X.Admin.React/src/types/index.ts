@@ -56,7 +56,52 @@ export interface RoomRole {
   icon: string; // Icône (crown, shield, user, etc.)
   color: string; // Couleur hex
   description: string; // Description des permissions
-  permissions: string[]; // Liste des permissions
+  isSystem: boolean; // Rôles système non supprimables
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  permissions: RoomPermission[]; // Liste des permissions détaillées
+}
+
+export interface RoomPermission {
+  id: number;
+  permissionKey: string; // Technical key (manage_settings, kick_users)
+  displayName: string; // Nom affiché (Modifier les paramètres)
+  description?: string;
+  category: string; // general, moderation, media, members, base
+  isActive: boolean;
+  isEnabled: boolean; // Si la permission est attribuée au rôle
+}
+
+export interface PermissionGroup {
+  category: string;
+  categoryDisplayName: string;
+  permissions: RoomPermission[];
+}
+
+export interface CreateRoomRoleDto {
+  roleLevel: number;
+  roleName: string;
+  displayName: string;
+  description?: string;
+  icon: string;
+  color: string;
+  permissionIds: number[];
+}
+
+export interface UpdateRoomRoleDto {
+  displayName: string;
+  description?: string;
+  icon: string;
+  color: string;
+  isActive: boolean;
+  permissionIds: number[];
+}
+
+export interface RoomRoleOperationResult {
+  success: boolean;
+  message?: string;
+  role?: RoomRole;
 }
 
 // === Rooms ===

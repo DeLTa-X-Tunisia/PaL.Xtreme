@@ -547,6 +547,34 @@ namespace PaLX.Client
         }
 
         /// <summary>
+        /// Ouvre la fenêtre pour inviter des amis dans le salon (v2.4.0)
+        /// </summary>
+        private void InviteFriends_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                // Pass list of usernames already in the room to prevent duplicate invitations
+                var usernamesInRoom = Members.Select(m => m.Username).ToList();
+                var inviteWindow = new InviteToRoomWindow(_roomId, _room.Name, _room.CategoryName, Members.Count, usernamesInRoom);
+                inviteWindow.Owner = this;
+                
+                if (inviteWindow.ShowDialog() == true && inviteWindow.InvitedUsernames.Count > 0)
+                {
+                    // Show toast confirmation
+                    int count = inviteWindow.InvitedUsernames.Count;
+                    ToastService.Success(
+                        $"{count} invitation{(count > 1 ? "s" : "")} envoyée{(count > 1 ? "s" : "")} avec succès !",
+                        "Invitations envoyées");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error opening invite friends window: {ex.Message}");
+                ToastService.Error("Impossible d'ouvrir la fenêtre d'invitation.", "Erreur");
+            }
+        }
+
+        /// <summary>
         /// Ouvre la fenêtre de gestion des utilisateurs bannis
         /// </summary>
         private void BannedUsers_Click(object sender, RoutedEventArgs e)

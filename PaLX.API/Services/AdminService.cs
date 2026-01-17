@@ -183,7 +183,7 @@ namespace PaLX.API.Services
                     d.day::date as date,
                     COUNT(DISTINCT s.""UserId"") as active_users,
                     COUNT(s.""Id"") as connections,
-                    COALESCE((SELECT COUNT(*) FROM ""PrivateMessages"" pm WHERE pm.""SentAt""::date = d.day::date), 0) as messages
+                    COALESCE((SELECT COUNT(*) FROM ""PrivateMessages"" pm WHERE pm.""CreatedAt""::date = d.day::date), 0) as messages
                 FROM generate_series(CURRENT_DATE - INTERVAL '6 days', CURRENT_DATE, INTERVAL '1 day') as d(day)
                 LEFT JOIN ""UserSessions"" s ON s.""ConnectéLe""::date = d.day::date
                 GROUP BY d.day

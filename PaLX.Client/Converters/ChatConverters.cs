@@ -565,4 +565,49 @@ namespace PaLX.Client.Converters
             throw new NotImplementedException();
         }
     }
+
+    /// <summary>
+    /// Converts a boolean to opacity (true = 1.0, false = 0.5)
+    /// Used for graying out friends already in the room
+    /// </summary>
+    public class BoolToOpacityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool canBeInvited)
+            {
+                return canBeInvited ? 1.0 : 0.5;
+            }
+            return 1.0;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    /// <summary>
+    /// Converts IsInRoom boolean to color for status text
+    /// True (in room) = Green, False = Gray
+    /// </summary>
+    public class InRoomToColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool isInRoom)
+            {
+                // Green for "already in room", gray for normal status
+                return isInRoom 
+                    ? new SolidColorBrush(Color.FromRgb(102, 187, 106))  // Green
+                    : new SolidColorBrush(Color.FromRgb(136, 136, 136)); // Gray #888
+            }
+            return new SolidColorBrush(Color.FromRgb(136, 136, 136));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

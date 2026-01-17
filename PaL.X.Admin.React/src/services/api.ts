@@ -1,5 +1,10 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { ApiResponse, PaginatedResponse, User, Room, Report, Badge, AuditLog, DashboardStats, LoginRequest, LoginResponse, UserFilters, RoomFilters, ReportFilters, UserGrowthData, Role, BroadcastRequest, BroadcastHistory } from '../types';
+import { 
+  ApiResponse, PaginatedResponse, User, Room, Report, Badge, AuditLog, DashboardStats, 
+  LoginRequest, LoginResponse, UserFilters, RoomFilters, ReportFilters, UserGrowthData, 
+  Role, BroadcastRequest, BroadcastHistory, RoomRole, CreateRoomRoleDto, UpdateRoomRoleDto,
+  RoomRoleOperationResult, PermissionGroup 
+} from '../types';
 
 // API Base Configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -83,10 +88,35 @@ class ApiService {
   }
 
   // ============================================
-  // Room Roles Management (Rôles de Salons)
+  // Room Roles Management (Rôles de Salons) - CRUD
   // ============================================
-  async getRoomRoles(): Promise<any[]> {
-    const response = await this.client.get<any[]>('/admin/room-roles');
+  async getRoomRoles(): Promise<RoomRole[]> {
+    const response = await this.client.get<RoomRole[]>('/admin/room-roles');
+    return response.data;
+  }
+
+  async getRoomRoleById(id: number): Promise<RoomRole> {
+    const response = await this.client.get<RoomRole>(`/admin/room-roles/${id}`);
+    return response.data;
+  }
+
+  async createRoomRole(data: CreateRoomRoleDto): Promise<RoomRoleOperationResult> {
+    const response = await this.client.post<RoomRoleOperationResult>('/admin/room-roles', data);
+    return response.data;
+  }
+
+  async updateRoomRole(id: number, data: UpdateRoomRoleDto): Promise<RoomRoleOperationResult> {
+    const response = await this.client.put<RoomRoleOperationResult>(`/admin/room-roles/${id}`, data);
+    return response.data;
+  }
+
+  async deleteRoomRole(id: number): Promise<RoomRoleOperationResult> {
+    const response = await this.client.delete<RoomRoleOperationResult>(`/admin/room-roles/${id}`);
+    return response.data;
+  }
+
+  async getRoomPermissions(): Promise<PermissionGroup[]> {
+    const response = await this.client.get<PermissionGroup[]>('/admin/room-permissions');
     return response.data;
   }
 
