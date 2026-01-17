@@ -7,6 +7,73 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.2.0] - 2026-01-17
+
+### 🔒 Sécurité Renforcée - Admin Panel
+
+#### 🛡️ Stockage Sécurisé des Tokens
+- Migration de `localStorage` vers `sessionStorage`
+- Le token est automatiquement supprimé à la fermeture du navigateur
+- Protection accrue contre les attaques XSS
+- Fichiers modifiés : `AuthContext.tsx`, `api.ts`
+
+#### 🔐 Headers de Sécurité HTTP
+Nouveaux headers ajoutés à toutes les réponses API :
+| Header | Protection |
+|--------|------------|
+| `X-Content-Type-Options: nosniff` | Attaques MIME sniffing |
+| `X-Frame-Options: DENY` | Clickjacking (iframe) |
+| `X-XSS-Protection: 1; mode=block` | XSS navigateur |
+| `Referrer-Policy: strict-origin-when-cross-origin` | Fuite d'informations |
+| `Cache-Control: no-store` | Données sensibles en cache |
+| `Permissions-Policy` | Désactive caméra/micro/géolocalisation |
+
+#### 📋 Audit Logging Amélioré
+- Log des connexions admin avec **adresse IP** et **rôle**
+- Double logging : base de données + fichiers Serilog
+- Format enrichi : `[AUDIT] Admin {id} ({username}) - Action: {action} - Target: {type}:{id}`
+- Nouvelle action tracée : `AdminLogin`
+- Récupération du username pour chaque action loggée
+
+#### 🌐 CORS Production-Ready
+- Configuration dynamique dans `appsettings.json`
+- Domaines de production pré-configurés :
+  - `https://admin.palxtreme.com`
+  - `https://panel.palxtreme.com`
+- Extensible sans modification du code source
+- Logging des domaines ajoutés au démarrage
+
+### 🎨 Améliorations Interface Admin
+
+#### 💳 Modales d'Attribution d'Abonnement Refondues
+- **Salons** : Interface alignée avec les vrais champs API
+  - Affichage du nom du tier (plus de displayName vide)
+  - Description du tier si disponible
+  - Capacité max (maxUsers), modérateurs max
+  - Badges de fonctionnalités : Bot, Sous-salons, Priorité, 24/7
+  - Grille 3 colonnes pour meilleure lisibilité
+- **Utilisateurs** : Même refonte
+  - Nom du tier avec couleur
+  - Description et prix mensuel
+  - Nombre d'utilisateurs actifs sur ce tier
+
+### 🔧 Corrections Techniques
+
+#### Interfaces TypeScript Alignées
+- `RoomSubscriptionTier` : 30+ champs alignés avec l'API
+  - `maxUsers`, `maxModerators`, `maxAdmins`, `maxMic`, `maxCam`
+  - `canUseBot`, `canHaveSubRooms`, `hasPriorityListing`, `alwaysOnline`
+  - `storageLimitMB`, `monthlyPriceCents`, `yearlyPriceCents`
+- `SubscriptionTier` (utilisateurs) : Aligné avec `SubscriptionTierDto`
+  - `displayName`, `description`, `monthlyPriceCents`, `activeUsersCount`
+
+#### Suppression des Données Mock
+- Plus de fallback avec données fictives
+- Toast d'erreur si l'API échoue
+- Meilleure gestion des états vides
+
+---
+
 ## [2.1.0] - 2026-01-16
 
 ### 🎨 Améliorations Interface Admin

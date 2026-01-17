@@ -495,6 +495,22 @@ namespace PaLX.API.Controllers
         }
 
         /// <summary>
+        /// Récupère les détails d'un salon par ID
+        /// </summary>
+        [HttpGet("rooms/{id}")]
+        public async Task<IActionResult> GetRoomById(int id)
+        {
+            if (!IsSystemAdmin())
+                return Forbid("Accès réservé aux administrateurs système");
+
+            var room = await _adminService.GetRoomByIdAsync(id);
+            if (room == null)
+                return NotFound(new { message = "Salon non trouvé" });
+
+            return Ok(room);
+        }
+
+        /// <summary>
         /// Ferme un salon
         /// </summary>
         [HttpPost("rooms/{id}/close")]

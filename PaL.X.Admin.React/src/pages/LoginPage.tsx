@@ -54,10 +54,12 @@ const LoginPage: React.FC = () => {
       <div className="relative w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-palx-500 to-palx-700 flex items-center justify-center shadow-glow-lg mb-4">
-            <span className="text-white font-bold text-3xl">PX</span>
-          </div>
-          <h1 className="text-3xl font-bold text-white">PaL.Xtreme</h1>
+          <img 
+            src="/logo.png" 
+            alt="PaL.Xtreme Logo" 
+            className="w-32 h-32 mx-auto mb-4 drop-shadow-2xl"
+          />
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-amber-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">PaL.Xtreme</h1>
           <p className="text-dark-400 mt-2">Panneau d'Administration</p>
         </div>
 

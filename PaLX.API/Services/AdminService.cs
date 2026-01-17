@@ -41,6 +41,7 @@ namespace PaLX.API.Services
         
         // Rooms
         Task<PaginatedResult<AdminRoomDto>> GetRoomsAsync(int page, int pageSize, string? search, bool? isActive);
+        Task<AdminRoomDto?> GetRoomByIdAsync(int id);
         Task<ServiceResult> CloseRoomAsync(int roomId, string? reason, int adminId);
         Task<ServiceResult> DeleteRoomAsync(int roomId, int adminId);
         
@@ -1277,6 +1278,57 @@ namespace PaLX.API.Services
             };
         }
 
+        public async Task<AdminRoomDto?> GetRoomByIdAsync(int id)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var sql = @"
+                SELECT 
+                    r.""Id"", r.""Name"", r.""Description"", r.""IsActive"", r.""CreatedAt"",
+                    r.""OwnerId"", u.""Username"" as OwnerUsername,
+                    COALESCE(NULLIF(TRIM(CONCAT(up.""LastName"", ' ', up.""FirstName"")), ''), u.""Username"") as OwnerDisplayName,
+                    r.""MaxUsers"", r.""IsPrivate"", 
+                    CASE WHEN r.""Password"" IS NOT NULL AND r.""Password"" <> '' THEN true ELSE false END as HasPassword,
+                    (SELECT COUNT(*) FROM ""RoomMembers"" rm WHERE rm.""RoomId"" = r.""Id"") as CurrentUsers,
+                    c.""Name"" as Category,
+                    rs.""TierId"", rst.""Name"" as SubscriptionType, rs.""ExpiresAt"" as SubscriptionEndDate
+                FROM ""Rooms"" r
+                LEFT JOIN ""Users"" u ON r.""OwnerId"" = u.""Id""
+                LEFT JOIN ""UserProfiles"" up ON u.""Id"" = up.""UserId""
+                LEFT JOIN ""RoomCategories"" c ON r.""CategoryId"" = c.""Id""
+                LEFT JOIN ""RoomSubscriptions"" rs ON r.""Id"" = rs.""RoomId"" AND rs.""IsActive"" = true
+                LEFT JOIN ""RoomSubscriptionTiers"" rst ON rs.""TierId"" = rst.""Id""
+                WHERE r.""Id"" = @id";
+
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("id", id);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new AdminRoomDto
+                {
+                    Id = reader.GetInt32(0),
+                    Name = reader.GetString(1),
+                    Description = reader.IsDBNull(2) ? null : reader.GetString(2),
+                    IsActive = reader.GetBoolean(3),
+                    CreatedAt = reader.GetDateTime(4),
+                    OwnerId = reader.GetInt32(5),
+                    OwnerUsername = reader.IsDBNull(6) ? "Inconnu" : reader.GetString(6),
+                    OwnerDisplayName = reader.IsDBNull(7) ? "Inconnu" : reader.GetString(7),
+                    MaxUsers = reader.GetInt32(8),
+                    IsPrivate = reader.GetBoolean(9),
+                    HasPassword = reader.GetBoolean(10),
+                    CurrentUsers = reader.GetInt32(11),
+                    Category = reader.IsDBNull(12) ? null : reader.GetString(12),
+                    SubscriptionType = reader.IsDBNull(14) ? "Free" : reader.GetString(14),
+                    SubscriptionEndDate = reader.IsDBNull(15) ? null : reader.GetDateTime(15)
+                };
+            }
+            return null;
+        }
+
         public async Task<ServiceResult> CloseRoomAsync(int roomId, string? reason, int adminId)
         {
             using var conn = new NpgsqlConnection(_connectionString);
@@ -1522,6 +1574,14 @@ namespace PaLX.API.Services
                 using var conn = new NpgsqlConnection(_connectionString);
                 await conn.OpenAsync();
 
+                // Récupérer le username de l'admin pour un meilleur audit
+                string? adminUsername = null;
+                using (var userCmd = new NpgsqlCommand(@"SELECT ""Username"" FROM ""Users"" WHERE ""Id"" = @id", conn))
+                {
+                    userCmd.Parameters.AddWithValue("id", adminId);
+                    adminUsername = await userCmd.ExecuteScalarAsync() as string;
+                }
+
                 var sql = @"
                     INSERT INTO ""AdminAuditLogs"" (""AdminId"", ""Action"", ""TargetType"", ""TargetId"", ""Details"", ""CreatedAt"")
                     VALUES (@adminId, @action, @targetType, @targetId, @details, NOW())";
@@ -1533,10 +1593,15 @@ namespace PaLX.API.Services
                 cmd.Parameters.AddWithValue("targetId", targetId ?? (object)DBNull.Value);
                 cmd.Parameters.AddWithValue("details", details ?? (object)DBNull.Value);
                 await cmd.ExecuteNonQueryAsync();
+
+                // Log aussi dans Serilog pour une traçabilité complète
+                Serilog.Log.Information(
+                    "[AUDIT] Admin {AdminId} ({Username}) - Action: {Action} - Target: {TargetType}:{TargetId} - Details: {Details}",
+                    adminId, adminUsername ?? "Unknown", action, targetType, targetId, details ?? "N/A");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[AdminService] Failed to log action: {ex.Message}");
+                Serilog.Log.Error(ex, "[AUDIT] Failed to log admin action: {Action}", action);
             }
         }
 
@@ -1662,6 +1727,9 @@ namespace PaLX.API.Services
         public int CurrentUsers { get; set; }
         public bool IsPrivate { get; set; }
         public bool HasPassword { get; set; }
+        public string? Category { get; set; }
+        public string? SubscriptionType { get; set; }
+        public DateTime? SubscriptionEndDate { get; set; }
     }
 
     public class AdminReportDto

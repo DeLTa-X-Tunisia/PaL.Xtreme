@@ -45,20 +45,19 @@ const subscriptionStringToTier = (type: string): number => {
   }
 };
 
-// Interface pour les tiers d'abonnement
+// Interface pour les tiers d'abonnement (alignée avec l'API)
 interface SubscriptionTier {
   id: number;
+  tier: number;
   name: string;
   displayName: string;
+  description: string | null;
   color: string;
-  maxRoomsOwned: number;
-  maxRoomsJoined: number;
-  canBroadcast: boolean;
-  canUploadFiles: boolean;
-  maxFileSize: number;
-  customStatus: boolean;
-  prioritySupport: boolean;
-  adFree: boolean;
+  icon: string;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  isAvailable: boolean;
+  activeUsersCount: number;
 }
 
 // Interface pour les durées d'abonnement
@@ -717,36 +716,60 @@ const UserDetailPage: React.FC = () => {
 
             {/* Modal Body */}
             <div className="p-5">
-              {/* Tier Selection - Grid 5 colonnes */}
+              {/* Tier Selection - Grille améliorée avec descriptions */}
               <div className="mb-4">
                 <label className="label mb-2">Type d'abonnement ({subscriptionTiers.length} disponibles)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-1">
                   {subscriptionTiers.map((tier) => (
                     <button
                       key={tier.id}
                       type="button"
                       onClick={() => setSubscriptionForm(prev => ({ ...prev, tierId: tier.id }))}
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
                         subscriptionForm.tierId === tier.id
-                          ? 'border-palx-500 bg-palx-500/10'
-                          : 'border-dark-600 bg-dark-700/30 hover:border-dark-500'
+                          ? 'border-palx-500 bg-palx-500/10 ring-2 ring-palx-500/30'
+                          : 'border-dark-600 bg-dark-700/30 hover:border-dark-500 hover:bg-dark-700/50'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span 
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: tier.color || '#8B5CF6' }}
-                        />
-                        <span 
-                          className="font-semibold text-sm truncate"
-                          style={{ color: tier.color || '#8B5CF6' }}
-                        >
-                          {tier.displayName}
-                        </span>
+                      {/* Header avec nom et badge */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="w-3 h-3 rounded-full flex-shrink-0 shadow-lg"
+                            style={{ backgroundColor: tier.color || '#8B5CF6' }}
+                          />
+                          <span 
+                            className="font-bold text-base"
+                            style={{ color: tier.color || '#8B5CF6' }}
+                          >
+                            {tier.displayName || tier.name}
+                          </span>
+                        </div>
+                        {subscriptionForm.tierId === tier.id && (
+                          <CheckIcon className="w-5 h-5 text-palx-400" />
+                        )}
                       </div>
-                      <p className="text-dark-400 text-xs">
-                        {tier.maxRoomsOwned > 0 ? `${tier.maxRoomsOwned} salons` : 'Fonctionnalités étendues'}
-                      </p>
+                      
+                      {/* Description */}
+                      {tier.description && (
+                        <p className="text-dark-400 text-xs mb-2 line-clamp-2">
+                          {tier.description}
+                        </p>
+                      )}
+                      
+                      {/* Prix et statistiques */}
+                      <div className="space-y-1">
+                        {tier.monthlyPriceCents > 0 && (
+                          <p className="text-dark-300 text-xs">
+                            Prix: <span className="text-white font-medium">{(tier.monthlyPriceCents / 100).toFixed(2)}€/mois</span>
+                          </p>
+                        )}
+                        <p className="text-dark-400 text-xs">
+                          {tier.activeUsersCount > 0 
+                            ? `${tier.activeUsersCount} utilisateurs actifs` 
+                            : 'Fonctionnalités Premium'}
+                        </p>
+                      </div>
                     </button>
                   ))}
                 </div>

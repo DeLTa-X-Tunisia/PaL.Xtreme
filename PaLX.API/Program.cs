@@ -80,16 +80,27 @@ builder.Services.AddOpenApi();
 // ═══════════════════════════════════════════════════════════════════════════
 // CORS Configuration (pour le Panel Admin React)
 // ═══════════════════════════════════════════════════════════════════════════
+var allowedOrigins = new List<string>
+{
+    "http://localhost:5173",   // Vite dev server
+    "http://localhost:3000",   // Alternative React port
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000"
+};
+
+// Ajouter les domaines de production depuis la config (optionnel)
+var productionOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>();
+if (productionOrigins != null && productionOrigins.Length > 0)
+{
+    allowedOrigins.AddRange(productionOrigins);
+    Log.Information("🔒 CORS: Domaines de production ajoutés: {Origins}", string.Join(", ", productionOrigins));
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AdminPanel", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173",  // Vite dev server
-                "http://localhost:3000",  // Alternative React port
-                "http://127.0.0.1:5173",
-                "http://127.0.0.1:3000"
-            )
+        policy.WithOrigins(allowedOrigins.ToArray())
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials();
@@ -202,6 +213,33 @@ if (app.Environment.IsDevelopment())
 
 // CORS - DOIT être AVANT les autres middlewares
 app.UseCors("AdminPanel");
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SECURITY HEADERS (Protection XSS, Clickjacking, MIME Sniffing)
+// ═══════════════════════════════════════════════════════════════════════════
+app.Use(async (context, next) =>
+{
+    // Empêche le navigateur de deviner le type MIME (protection contre les attaques MIME)
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    
+    // Empêche l'affichage de la page dans un iframe (protection clickjacking)
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+    
+    // Active le filtre XSS du navigateur
+    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    
+    // Contrôle les informations envoyées dans le header Referer
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    
+    // Empêche la mise en cache des données sensibles
+    context.Response.Headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate";
+    context.Response.Headers["Pragma"] = "no-cache";
+    
+    // Permissions Policy (anciennement Feature-Policy)
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    
+    await next();
+});
 
 app.UseHttpsRedirection();
 

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using PaLX.API.Models;
 using PaLX.API.Services;
 using System.Security.Claims;
+using Serilog;
 
 namespace PaLX.API.Controllers
 {
@@ -13,11 +14,13 @@ namespace PaLX.API.Controllers
     {
         private readonly IAuthService _authService;
         private readonly IUserService _userService;
+        private readonly IAdminService _adminService;
 
-        public AuthController(IAuthService authService, IUserService userService)
+        public AuthController(IAuthService authService, IUserService userService, IAdminService adminService)
         {
             _authService = authService;
             _userService = userService;
+            _adminService = adminService;
         }
 
         [HttpPost("login")]
@@ -67,8 +70,20 @@ namespace PaLX.API.Controllers
             var user = await _userService.GetByUsernameAsync(model.Username);
             if (user == null || !Constants.RoleLevels.IsSystemAdmin(user.RoleLevel ?? 0))
             {
+                // Log tentative d'accès non autorisé
+                var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+                Log.Warning("[SECURITY] Tentative d'accès admin refusée - User: {Username}, IP: {IP}, RoleLevel: {RoleLevel}",
+                    model.Username, clientIp, user?.RoleLevel ?? 0);
                 return Forbid(); // 403 Forbidden - pas un admin
             }
+
+            // Log connexion admin réussie
+            var successIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+            Log.Information("[AUDIT] Connexion admin réussie - User: {Username} (ID: {UserId}), IP: {IP}, Role: {Role}",
+                user.Username, user.Id, successIp, user.Role);
+            
+            // Enregistrer dans les logs d'audit
+            await _adminService.LogActionAsync(user.Id, "AdminLogin", "Session", null, $"IP: {successIp}");
 
             // Retourner les infos complètes pour le panel admin
             return Ok(new

@@ -26,20 +26,33 @@ import apiService from '../services/api';
 import { Room } from '../types';
 import toast from 'react-hot-toast';
 
-// Interface pour les tiers d'abonnement salon
+// Interface pour les tiers d'abonnement salon (alignée avec l'API)
 interface RoomSubscriptionTier {
   id: number;
+  tier: number;
   name: string;
-  displayName: string;
+  description: string | null;
   color: string;
-  maxMembers: number;
+  icon: string | null;
+  maxUsers: number;
   maxModerators: number;
-  canBroadcast: boolean;
-  canUploadFiles: boolean;
-  maxFileSize: number;
-  customEmojis: boolean;
-  priorityListing: boolean;
-  adFree: boolean;
+  maxAdmins: number;
+  maxMic: number;
+  maxCam: number;
+  canHavePassword: boolean;
+  canBe18Plus: boolean;
+  canHaveSubRooms: boolean;
+  maxSubRooms: number;
+  canCustomizeBanner: boolean;
+  canCustomizeBackground: boolean;
+  hasPriorityListing: boolean;
+  canUseBot: boolean;
+  storageLimitMB: number;
+  alwaysOnline: boolean;
+  monthlyPriceCents: number;
+  yearlyPriceCents: number;
+  isAvailable: boolean;
+  activeSubscriptions: number;
 }
 
 // Interface pour les durées d'abonnement
@@ -75,8 +88,10 @@ const RoomDetailPage: React.FC = () => {
   const fetchSubscriptionData = async () => {
     try {
       const tiers = await apiService.getRoomSubscriptionTiers();
-      // Filtrer pour exclure "Basic" (gratuit) des tiers assignables
-      const paidTiers = tiers.filter((t: RoomSubscriptionTier) => t.name !== 'Basic' && t.name !== 'Free');
+      // Filtrer pour exclure "Basic" (gratuit) des tiers assignables et ne garder que les disponibles
+      const paidTiers = tiers.filter((t: RoomSubscriptionTier) => 
+        t.name !== 'Basic' && t.name !== 'Free' && t.isAvailable !== false
+      );
       setSubscriptionTiers(paidTiers);
       if (paidTiers.length > 0) {
         setSubscriptionForm(prev => ({ ...prev, tierId: paidTiers[0].id }));
@@ -91,18 +106,7 @@ const RoomDetailPage: React.FC = () => {
       ]);
     } catch (error) {
       console.error('Failed to fetch subscription data:', error);
-      // Données par défaut basées sur la vraie liste
-      setSubscriptionTiers([
-        { id: 2, name: 'Deluxe', displayName: 'Deluxe', color: '#22C55E', maxMembers: 100, maxModerators: 1, canBroadcast: false, canUploadFiles: false, maxFileSize: 0, customEmojis: false, priorityListing: false, adFree: false },
-        { id: 3, name: 'Extreme', displayName: 'Extreme', color: '#EAB308', maxMembers: 250, maxModerators: 2, canBroadcast: true, canUploadFiles: false, maxFileSize: 0, customEmojis: false, priorityListing: false, adFree: false },
-        { id: 4, name: 'VIP', displayName: 'VIP', color: '#F97316', maxMembers: 500, maxModerators: 2, canBroadcast: true, canUploadFiles: true, maxFileSize: 10, customEmojis: false, priorityListing: false, adFree: true },
-        { id: 5, name: 'Bronze', displayName: 'Bronze', color: '#CD7F32', maxMembers: 500, maxModerators: 3, canBroadcast: true, canUploadFiles: true, maxFileSize: 12, customEmojis: false, priorityListing: false, adFree: true },
-        { id: 6, name: 'Silver', displayName: 'Silver', color: '#9CA3AF', maxMembers: 1000, maxModerators: 3, canBroadcast: true, canUploadFiles: true, maxFileSize: 14, customEmojis: false, priorityListing: true, adFree: true },
-        { id: 7, name: 'Gold', displayName: 'Gold', color: '#FFD700', maxMembers: 1500, maxModerators: 4, canBroadcast: true, canUploadFiles: true, maxFileSize: 20, customEmojis: true, priorityListing: true, adFree: true },
-        { id: 8, name: 'Platinum', displayName: 'Platinum', color: '#6B7280', maxMembers: 2000, maxModerators: 4, canBroadcast: true, canUploadFiles: true, maxFileSize: 30, customEmojis: true, priorityListing: true, adFree: true },
-        { id: 9, name: 'Ultimate', displayName: 'Ultimate', color: '#EF4444', maxMembers: 5000, maxModerators: 5, canBroadcast: true, canUploadFiles: true, maxFileSize: 50, customEmojis: true, priorityListing: true, adFree: true },
-        { id: 10, name: 'Legend', displayName: 'Legend', color: '#F97316', maxMembers: 10000, maxModerators: 5, canBroadcast: true, canUploadFiles: true, maxFileSize: 100, customEmojis: true, priorityListing: true, adFree: true },
-      ]);
+      toast.error('Impossible de charger les types d\'abonnement');
     }
   };
 
@@ -114,26 +118,8 @@ const RoomDetailPage: React.FC = () => {
       setRoom(data);
     } catch (error) {
       console.error('Failed to fetch room:', error);
-      // Mock data for demo
-      setRoom({
-        id: parseInt(id),
-        name: 'Salon Principal',
-        description: 'Le salon principal de discussion de la communauté PaL.Xtreme',
-        ownerId: 1,
-        ownerUsername: 'admin',
-        ownerDisplayName: 'Admin System',
-        createdAt: '2024-01-01T10:00:00Z',
-        isActive: true,
-        currentUsers: 45,
-        maxUsers: 100,
-        isPrivate: false,
-        hasPassword: false,
-        category: 'General',
-        bannedUsers: [],
-        tags: ['chat', 'communauté', 'général'],
-        subscriptionType: 'Premium',
-        subscriptionEndDate: '2025-06-15',
-      });
+      toast.error('Impossible de charger les données du salon');
+      setRoom(null);
     } finally {
       setLoading(false);
     }
@@ -552,36 +538,76 @@ const RoomDetailPage: React.FC = () => {
 
             {/* Modal Body */}
             <div className="p-5">
-              {/* Tier Selection - Grid 5 colonnes */}
+              {/* Tier Selection - Grille améliorée avec descriptions */}
               <div className="mb-4">
                 <label className="label mb-2">Type d'abonnement ({subscriptionTiers.length} disponibles)</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-80 overflow-y-auto pr-1">
                   {subscriptionTiers.map((tier) => (
                     <button
                       key={tier.id}
                       type="button"
                       onClick={() => setSubscriptionForm(prev => ({ ...prev, tierId: tier.id }))}
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
                         subscriptionForm.tierId === tier.id
-                          ? 'border-palx-500 bg-palx-500/10'
-                          : 'border-dark-600 bg-dark-700/30 hover:border-dark-500'
+                          ? 'border-palx-500 bg-palx-500/10 ring-2 ring-palx-500/30'
+                          : 'border-dark-600 bg-dark-700/30 hover:border-dark-500 hover:bg-dark-700/50'
                       }`}
                     >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span 
-                          className="w-2 h-2 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: tier.color || '#8B5CF6' }}
-                        />
-                        <span 
-                          className="font-semibold text-sm truncate"
-                          style={{ color: tier.color || '#8B5CF6' }}
-                        >
-                          {tier.displayName}
-                        </span>
+                      {/* Header avec nom et badge */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="w-3 h-3 rounded-full flex-shrink-0 shadow-lg"
+                            style={{ backgroundColor: tier.color || '#8B5CF6' }}
+                          />
+                          <span 
+                            className="font-bold text-base"
+                            style={{ color: tier.color || '#8B5CF6' }}
+                          >
+                            {tier.name}
+                          </span>
+                        </div>
+                        {subscriptionForm.tierId === tier.id && (
+                          <CheckIcon className="w-5 h-5 text-palx-400" />
+                        )}
                       </div>
-                      <p className="text-dark-400 text-xs">
-                        {tier.maxMembers.toLocaleString()} membres
-                      </p>
+                      
+                      {/* Description courte */}
+                      {tier.description && (
+                        <p className="text-dark-400 text-xs mb-2 line-clamp-2">
+                          {tier.description}
+                        </p>
+                      )}
+                      
+                      {/* Capacités principales */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-xs">
+                          <UsersIcon className="w-3.5 h-3.5 text-dark-400" />
+                          <span className="text-dark-300">
+                            <span className="text-white font-medium">{(tier.maxUsers || 0).toLocaleString()}</span> membres max
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs">
+                          <UserIcon className="w-3.5 h-3.5 text-dark-400" />
+                          <span className="text-dark-300">
+                            <span className="text-white font-medium">{tier.maxModerators || 0}</span> modérateurs
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {tier.canUseBot && (
+                            <span className="px-1.5 py-0.5 bg-success/20 text-success text-[10px] rounded">Bot</span>
+                          )}
+                          {tier.canHaveSubRooms && (
+                            <span className="px-1.5 py-0.5 bg-info/20 text-info text-[10px] rounded">Sous-salons</span>
+                          )}
+                          {tier.hasPriorityListing && (
+                            <span className="px-1.5 py-0.5 bg-warning/20 text-warning text-[10px] rounded">Priorité</span>
+                          )}
+                          {tier.alwaysOnline && (
+                            <span className="px-1.5 py-0.5 bg-palx-500/20 text-palx-400 text-[10px] rounded">24/7</span>
+                          )}
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>

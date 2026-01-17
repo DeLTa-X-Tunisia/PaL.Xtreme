@@ -37,8 +37,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Check stored token on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('auth_token');
-      const storedUser = localStorage.getItem('admin_user');
+      // SÉCURITÉ: Utilise sessionStorage au lieu de localStorage
+      // sessionStorage est vidé à la fermeture du navigateur (plus sécurisé)
+      const token = sessionStorage.getItem('auth_token');
+      const storedUser = sessionStorage.getItem('admin_user');
       
       if (token && storedUser) {
         try {
@@ -58,8 +60,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           });
         } catch {
           // Token invalid or expired
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('admin_user');
+          sessionStorage.removeItem('auth_token');
+          sessionStorage.removeItem('admin_user');
           setState({
             user: null,
             token: null,
@@ -89,9 +91,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return false;
       }
 
-      // Store credentials
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('admin_user', JSON.stringify(user));
+      // Store credentials in sessionStorage (SÉCURITÉ: vidé à la fermeture du navigateur)
+      sessionStorage.setItem('auth_token', token);
+      sessionStorage.setItem('admin_user', JSON.stringify(user));
 
       setState({
         user,
@@ -116,8 +118,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {
       // Ignore logout errors
     } finally {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('admin_user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('admin_user');
       setState({
         user: null,
         token: null,
@@ -129,7 +131,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const updateUser = useCallback((user: User) => {
-    localStorage.setItem('admin_user', JSON.stringify(user));
+    sessionStorage.setItem('admin_user', JSON.stringify(user));
     setState(prev => ({ ...prev, user }));
   }, []);
 

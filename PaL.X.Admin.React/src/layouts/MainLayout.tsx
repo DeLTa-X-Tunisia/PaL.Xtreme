@@ -198,9 +198,11 @@ const MainLayout: React.FC = () => {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-dark-700/50">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-palx-500 to-palx-700 flex items-center justify-center shadow-glow">
-              <span className="text-white font-bold text-lg">PX</span>
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="PaL.Xtreme" 
+              className="w-10 h-10 object-contain"
+            />
             <div>
               <h1 className="text-white font-semibold text-lg">PaL.Xtreme</h1>
               <p className="text-dark-400 text-xs">Admin Panel</p>
