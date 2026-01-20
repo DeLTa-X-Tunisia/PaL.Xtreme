@@ -73,6 +73,8 @@ namespace PaLX.Client
         private DateTime _speakingStartTime;
         private bool _isInvisibleMode = false;
         private bool _smileysLoaded = false;
+        private bool _isCurrentUserMuted = false; // v2.4.5: Si l'utilisateur courant a la parole coupée
+        private int _currentUserRoomRoleLevel = 6; // v2.4.5: Niveau de rôle de l'utilisateur dans la room (6=Member par défaut)
 
         public ObservableCollection<RoomMemberViewModel> Members { get; set; } = new ObservableCollection<RoomMemberViewModel>();
         public ObservableCollection<RoomMessageViewModel> Messages { get; set; } = new ObservableCollection<RoomMessageViewModel>();
@@ -164,6 +166,10 @@ namespace PaLX.Client
             // Subscribe to Kick & Ban events (v1.8.4)
             _apiService.OnUserKicked += OnUserKicked;
             _apiService.OnUserBanned += OnUserBanned;
+            
+            // Subscribe to Mute/Unmute events (v2.4.5)
+            _apiService.OnUserMuted += OnUserMuted;
+            _apiService.OnUserUnmuted += OnUserUnmuted;
             
             // Initialize Room Video Service
             InitializeRoomVideoService();
@@ -748,6 +754,10 @@ namespace PaLX.Client
             _apiService.OnUserKicked -= OnUserKicked;
             _apiService.OnUserBanned -= OnUserBanned;
             
+            // Unsubscribe from Mute/Unmute events (v2.4.5)
+            _apiService.OnUserMuted -= OnUserMuted;
+            _apiService.OnUserUnmuted -= OnUserUnmuted;
+            
             // Fermer toutes les fenêtres de visionnage peer
             foreach (var peerWindow in _peerVideoWindows.Values.ToList())
             {
@@ -793,6 +803,18 @@ namespace PaLX.Client
             try
             {
                 var members = await _apiService.GetRoomMembersAsync(_roomId);
+                
+                // v2.4.5: Déterminer le rôle de l'utilisateur courant dans cette room
+                var currentUserMember = members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                if (currentUserMember != null)
+                {
+                    _currentUserRoomRoleLevel = GetRoleLevelFromName(currentUserMember.RoleName);
+                    _isCurrentUserMuted = currentUserMember.IsMuted;
+                    
+                    // Mettre à jour l'état du bouton micro
+                    UpdateMicToggleState();
+                }
+                
                 Members.Clear();
                 foreach (var m in members)
                 {
@@ -808,6 +830,39 @@ namespace PaLX.Client
             {
                 MessageBox.Show($"Erreur chargement membres: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// v2.4.5: Met à jour l'état du bouton micro selon si l'utilisateur a la parole coupée
+        /// </summary>
+        private void UpdateMicToggleState()
+        {
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (_isCurrentUserMuted)
+                {
+                    MicToggle.IsEnabled = false;
+                    MicToggle.IsChecked = false;
+                    MicToggle.ToolTip = "Parole coupée par un modérateur";
+                    MicIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#DC2626")); // Rouge
+                    
+                    // Arrêter le timer de parole si actif
+                    _speakingTimer.Stop();
+                    if (SpeakingTimerPanel != null) SpeakingTimerPanel.Visibility = Visibility.Collapsed;
+                    
+                    // Muter le micro réellement
+                    if (_apiService.VoiceService != null)
+                    {
+                        _apiService.VoiceService.SetMute(true);
+                    }
+                }
+                else
+                {
+                    MicToggle.IsEnabled = true;
+                    MicToggle.ToolTip = "Microphone";
+                    MicIcon.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#6B7280")); // Gris normal
+                }
+            });
         }
 
         private async void LoadMessages()
@@ -855,8 +910,70 @@ namespace PaLX.Client
             return $"{ApiService.BaseUrl}/{avatarPath.TrimStart('/', '\\')}";
         }
 
+        /// <summary>
+        /// Convertit le nom du rôle en niveau numérique
+        /// </summary>
+        private int GetRoleLevelFromName(string roleName)
+        {
+            // v2.4.5: Mapper les noms de rôles (techniques ET affichés) vers leur niveau
+            // Plus le niveau est bas, plus le pouvoir est élevé
+            return roleName switch
+            {
+                // Noms techniques
+                "RoomOwner" or "Owner" => 1,
+                "RoomSuperAdmin" or "SuperAdmin" => 2,
+                "RoomAdmin" or "Admin" => 3,
+                "PowerUser" => 4,
+                "RoomModerator" or "Moderator" => 5,
+                "RoomMember" or "Member" => 6,
+                
+                // Noms affichés (français) - envoyés par l'API via RoleDisplayMapper
+                "Propriétaire du Salon" or "Propriétaire" => 1,
+                "Super Administrateur" or "Super Admin" or "Super-Admin" => 2,
+                "Administrateur" => 3,
+                "Utilisateur Avancé" => 4,
+                "Modérateur" => 5,
+                "Membre" => 6,
+                
+                // Rôles système (admins serveur) - peuvent aussi être affichés
+                "Maître du Serveur" or "ServerMaster" => 1,
+                "Éditeur" or "ServerEditor" => 2,
+                "ServerSuperAdmin" => 2,
+                "ServerAdmin" => 3,
+                "ServerModerator" => 5,
+                "ServerHelp" or "Assistant" => 6,
+                
+                _ => 6 // Member par défaut
+            };
+        }
+
         private RoomMemberViewModel MapMember(RoomMemberDto m)
         {
+            // Calculer le niveau de rôle du membre
+            int memberRoleLevel = GetRoleLevelFromName(m.RoleName);
+            
+            // Déterminer si l'utilisateur courant peut modérer ce membre
+            // SystemAdmin (niveau système 1-5) peut tout faire
+            // Sinon, on compare les niveaux de rôle dans la room (Owner=1, SuperAdmin=2, Admin=3, Moderator=5, Member=6)
+            // Un niveau plus bas = plus de pouvoir, donc un modérateur (5) peut modérer un membre (6)
+            bool canModerate = false;
+            
+            // Si c'est l'utilisateur courant lui-même, il ne peut pas se modérer
+            if (m.UserId != _apiService.CurrentUserId)
+            {
+                // Admin système (niveau 1-5) peut modérer tout le monde
+                if (_apiService.CurrentUserRoleLevel >= 1 && _apiService.CurrentUserRoleLevel <= 5)
+                {
+                    canModerate = true;
+                }
+                // Sinon, vérifier la hiérarchie dans la room
+                // L'utilisateur doit être au moins Modérateur (niveau <= 5) et avoir un niveau inférieur (plus de pouvoir) que la cible
+                else if (_currentUserRoomRoleLevel <= 5 && _currentUserRoomRoleLevel < memberRoleLevel)
+                {
+                    canModerate = true;
+                }
+            }
+            
             return new RoomMemberViewModel
             {
                 UserId = m.UserId,
@@ -865,11 +982,14 @@ namespace PaLX.Client
                 AvatarPath = BuildAvatarUrl(m.AvatarPath) ?? string.Empty,
                 RoleName = m.RoleName,
                 RoleColor = new BrushConverter().ConvertFrom(m.RoleColor ?? "#808080") as SolidColorBrush ?? Brushes.Gray,
+                RoleLevel = memberRoleLevel,
                 IsMicOn = m.IsMicOn,
+                IsMuted = m.IsMuted, // v2.4.5: Parole coupée
                 IsCamOn = m.IsCamOn,
                 HasHandRaised = m.HasHandRaised,
                 Gender = m.Gender,
-                IsInvisible = m.IsInvisible
+                IsInvisible = m.IsInvisible,
+                CanModerate = canModerate // v2.4.5: Basé sur la hiérarchie
             };
         }
 
@@ -968,7 +1088,12 @@ namespace PaLX.Client
                 if (member != null)
                 {
                     if (cam.HasValue) member.IsCamOn = cam.Value;
-                    if (mic.HasValue) member.IsMicOn = mic.Value;
+                    if (mic.HasValue)
+                    {
+                        // v2.4.5: Mise à jour de l'état du micro (IsMicOn = micro actif/inactif)
+                        // Note: La modération (IsMuted) est gérée séparément via OnUserMuted/OnUserUnmuted
+                        member.IsMicOn = mic.Value;
+                    }
                     if (hand.HasValue) 
                     {
                         // Note: Le message "a levé la main" a été supprimé car redondant
@@ -976,6 +1101,36 @@ namespace PaLX.Client
                         member.HasHandRaised = hand.Value;
                     }
                 }
+            });
+        }
+        
+        /// <summary>
+        /// v2.4.5: Handler pour quand l'utilisateur courant est muté par un modérateur
+        /// </summary>
+        private void OnUserMuted(int userId)
+        {
+            if (userId != _apiService.CurrentUserId) return;
+            
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                _isCurrentUserMuted = true;
+                UpdateMicToggleState();
+                ShowAlert("Un modérateur vous a coupé la parole.", "Parole coupée");
+            });
+        }
+        
+        /// <summary>
+        /// v2.4.5: Handler pour quand l'utilisateur courant est unmuté par un modérateur
+        /// </summary>
+        private void OnUserUnmuted(int userId)
+        {
+            if (userId != _apiService.CurrentUserId) return;
+            
+            Application.Current.Dispatcher.Invoke(() =>
+            {
+                _isCurrentUserMuted = false;
+                UpdateMicToggleState();
+                ShowAlert("Un modérateur vous a autorisé la parole.", "Parole autorisée");
             });
         }
 
@@ -1191,6 +1346,14 @@ namespace PaLX.Client
         // Toggle Actions
         private async void ToggleMic_Click(object sender, RoutedEventArgs e)
         {
+            // v2.4.5: Vérifier si l'utilisateur a la parole coupée
+            if (_isCurrentUserMuted)
+            {
+                MicToggle.IsChecked = false;
+                ShowAlert("Votre parole a été coupée par un modérateur. Vous ne pouvez pas activer votre micro.", "Parole coupée");
+                return;
+            }
+            
             bool newState = MicToggle.IsChecked == true;
             
             if (newState)
@@ -1198,11 +1361,27 @@ namespace PaLX.Client
                 _speakingStartTime = DateTime.Now;
                 if (SpeakingTimerPanel != null) SpeakingTimerPanel.Visibility = Visibility.Visible;
                 _speakingTimer.Start();
+                
+                // v2.4.5: Mettre à jour le membre courant pour afficher le compteur
+                var currentMember = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                if (currentMember != null)
+                {
+                    currentMember.IsMicOn = true;
+                    currentMember.LastMicOnTime = DateTime.Now;
+                }
             }
             else
             {
                 _speakingTimer.Stop();
                 if (SpeakingTimerPanel != null) SpeakingTimerPanel.Visibility = Visibility.Collapsed;
+                
+                // v2.4.5: Mettre à jour le membre courant
+                var currentMember = Members.FirstOrDefault(m => m.UserId == _apiService.CurrentUserId);
+                if (currentMember != null)
+                {
+                    currentMember.IsMicOn = false;
+                    currentMember.SpeakingTime = "";
+                }
             }
 
             if (_apiService.VoiceService != null)
@@ -1293,21 +1472,52 @@ namespace PaLX.Client
         }
 
         // Context Menu Actions
-        private void AllowSpeak_Click(object sender, RoutedEventArgs e) 
-        { 
-            // Placeholder: Logic to grant speaking rights if restricted
-        }
-
-        private async void MuteMic_Click(object sender, RoutedEventArgs e) 
-        { 
+        
+        /// <summary>
+        /// Toggle le micro d'un utilisateur (mute/unmute par modération)
+        /// v2.4.5: Utilise IsMuted pour la modération (pas IsMicOn qui est l'état actuel du micro)
+        /// </summary>
+        private async void ToggleUserMic_Click(object sender, RoutedEventArgs e)
+        {
             if (sender is MenuItem item && item.DataContext is RoomMemberViewModel member)
             {
-                try 
-                { 
-                    await _apiService.MuteUserAsync(_roomId, member.UserId, 10); // Mute 10 min
-                    MessageBox.Show($"{member.DisplayName} a été rendu muet pour 10 minutes.");
+                try
+                {
+                    bool success;
+                    if (!member.IsMuted)
+                    {
+                        // L'utilisateur n'est pas muté -> on lui coupe la parole
+                        success = await _apiService.MuteUserAsync(_roomId, member.UserId);
+                        if (success)
+                        {
+                            member.IsMuted = true;
+                            member.IsMicOn = false; // Forcer le micro OFF
+                            member.SpeakingTime = ""; // Réinitialiser le compteur
+                            ShowAlert($"La parole de {member.DisplayName} a été coupée.", "Modération");
+                        }
+                    }
+                    else
+                    {
+                        // L'utilisateur est muté -> on lui autorise la parole
+                        success = await _apiService.UnmuteUserAsync(_roomId, member.UserId);
+                        if (success)
+                        {
+                            member.IsMuted = false;
+                            // Note: IsMicOn reste false, l'utilisateur devra activer son micro lui-même
+                            ShowAlert($"{member.DisplayName} peut maintenant parler.", "Modération");
+                        }
+                    }
+                    
+                    if (!success)
+                    {
+                        ShowAlert("Impossible de modifier l'état de la parole.", "Erreur");
+                    }
                 }
-                catch (Exception ex) { MessageBox.Show($"Erreur: {ex.Message}"); }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[RoomWindow] ToggleUserMic error: {ex.Message}");
+                    ShowAlert($"Erreur: {ex.Message}", "Erreur");
+                }
             }
         }
 
@@ -1794,10 +2004,13 @@ namespace PaLX.Client
         private bool _isMicOn;
         private bool _isCamOn;
         private bool _hasHandRaised;
+        private bool _isMuted = false; // v2.4.5: Parole coupée par modération
+        private bool _canModerate = false; // v2.4.5: L'utilisateur courant peut-il modérer ce membre
         private string _speakingTime = "";
         private string _roleName = "Membre";
         private Brush _roleColor = Brushes.Gray;
         private bool _isInvisible = false;
+        private int _roleLevel = 6; // v2.4.5: Niveau de rôle (1=Owner, 2=SuperAdmin, 3=Admin, 5=Moderator, 6=Member)
 
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty;
@@ -1857,7 +2070,32 @@ namespace PaLX.Client
             set { _speakingTime = value; OnPropertyChanged(nameof(SpeakingTime)); }
         }
 
-        public bool CanModerate { get; set; } = true;
+        /// <summary>
+        /// v2.4.5: Parole coupée par un modérateur - l'utilisateur ne peut pas activer son micro
+        /// </summary>
+        public bool IsMuted
+        {
+            get => _isMuted;
+            set { _isMuted = value; OnPropertyChanged(nameof(IsMuted)); }
+        }
+
+        /// <summary>
+        /// v2.4.5: Niveau de rôle dans la room (1=Owner, 2=SuperAdmin, 3=Admin, 5=Moderator, 6=Member)
+        /// </summary>
+        public int RoleLevel
+        {
+            get => _roleLevel;
+            set { _roleLevel = value; OnPropertyChanged(nameof(RoleLevel)); }
+        }
+
+        /// <summary>
+        /// v2.4.5: L'utilisateur courant peut-il modérer ce membre (basé sur la hiérarchie des rôles)
+        /// </summary>
+        public bool CanModerate
+        {
+            get => _canModerate;
+            set { _canModerate = value; OnPropertyChanged(nameof(CanModerate)); }
+        }
 
         public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged(string name) => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));

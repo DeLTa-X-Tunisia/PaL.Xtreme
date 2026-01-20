@@ -66,6 +66,18 @@ namespace PaLX.Client.Services
         /// </summary>
         public event Action<int, string, string, string, DateTime?>? OnUserBanned;
         
+        /// <summary>
+        /// v2.4.5: Événement déclenché quand un utilisateur est muté dans un salon
+        /// Params: userId
+        /// </summary>
+        public event Action<int>? OnUserMuted;
+        
+        /// <summary>
+        /// v2.4.5: Événement déclenché quand un utilisateur est unmuté dans un salon
+        /// Params: userId
+        /// </summary>
+        public event Action<int>? OnUserUnmuted;
+        
         // Image Transfer Events
         public event Action<int, string, string, string>? OnImageRequestReceived; // id, sender, filename, url
         public event Action<int, string, string, string>? OnImageRequestSent; // id, receiver, filename, url
@@ -895,6 +907,24 @@ namespace PaLX.Client.Services
                 OnUserBanned?.Invoke(roomId, roomName, reason, banType, expiresAt);
             });
 
+            // ═══════════════════════════════════════════════════════════════════════════════════
+            // MUTE/UNMUTE HANDLERS - v2.4.5
+            // ═══════════════════════════════════════════════════════════════════════════════════
+            
+            // Handler pour quand un utilisateur est muté dans un salon
+            _roomHubConnection.On<int>("UserMuted", (userId) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UserMuted: userId={userId}");
+                OnUserMuted?.Invoke(userId);
+            });
+            
+            // Handler pour quand un utilisateur est unmuté dans un salon
+            _roomHubConnection.On<int>("UserUnmuted", (userId) =>
+            {
+                System.Diagnostics.Debug.WriteLine($"[ApiService] UserUnmuted: userId={userId}");
+                OnUserUnmuted?.Invoke(userId);
+            });
+
             // ... (Existing Transfer Handlers) ...
             
             try
@@ -1329,9 +1359,22 @@ namespace PaLX.Client.Services
             return false;
         }
 
-        public async Task MuteUserAsync(int roomId, int userId, int durationMinutes)
+        /// <summary>
+        /// Coupe le micro d'un utilisateur dans un salon (mute par modération)
+        /// </summary>
+        public async Task<bool> MuteUserAsync(int roomId, int userId)
         {
-             await _httpClient.PostAsync($"api/room/{roomId}/mute/{userId}?duration={durationMinutes}", null);
+            var response = await _httpClient.PostAsync($"api/room/{roomId}/mute/{userId}", null);
+            return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// Réactive le micro d'un utilisateur dans un salon (unmute par modération)
+        /// </summary>
+        public async Task<bool> UnmuteUserAsync(int roomId, int userId)
+        {
+            var response = await _httpClient.PostAsync($"api/room/{roomId}/unmute/{userId}", null);
+            return response.IsSuccessStatusCode;
         }
         
         public async Task DisconnectAsync()

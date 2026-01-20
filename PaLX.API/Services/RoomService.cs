@@ -331,8 +331,8 @@ namespace PaLX.API.Services
                         _logger.LogDebug("[RoomService] Synchronized RoleId for user {UserId} in room {RoomId}: {CurrentRole} → {TargetRoleId}", userId, roomId, currentRole.Value, targetRoleId);
                     }
                 }
-                // Update invisible status AND IsConnected = TRUE
-                var updateStatusSql = "UPDATE \"RoomMembers\" SET \"IsInvisible\" = @inv, \"IsConnected\" = TRUE WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
+                // v2.4.5: Update invisible status, reset IsMuted to FALSE (micro autorisé par défaut), AND IsConnected = TRUE
+                var updateStatusSql = "UPDATE \"RoomMembers\" SET \"IsInvisible\" = @inv, \"IsMuted\" = FALSE, \"IsConnected\" = TRUE WHERE \"RoomId\" = @rid AND \"UserId\" = @uid";
                 using (var cmd = new NpgsqlCommand(updateStatusSql, conn))
                 {
                     cmd.Parameters.AddWithValue("inv", isInvisible);
@@ -438,12 +438,14 @@ namespace PaLX.API.Services
         {
             // Utiliser ON CONFLICT pour éviter l'erreur de clé dupliquée
             // Mettre IsConnected = TRUE quand l'utilisateur rejoint
+            // v2.4.5: Réinitialiser IsMuted = FALSE pour que le micro soit autorisé par défaut
             var sql = @"
                 INSERT INTO ""RoomMembers"" (""RoomId"", ""UserId"", ""RoleId"", ""IsInvisible"", ""IsCamOn"", ""IsMicOn"", ""HasHandRaised"", ""IsMuted"", ""IsConnected"")
                 VALUES (@rid, @uid, @role, @inv, false, false, false, false, true)
                 ON CONFLICT (""RoomId"", ""UserId"") DO UPDATE SET 
                     ""RoleId"" = EXCLUDED.""RoleId"",
                     ""IsInvisible"" = EXCLUDED.""IsInvisible"",
+                    ""IsMuted"" = FALSE,
                     ""IsConnected"" = TRUE";
             using var cmd = new NpgsqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("rid", roomId);
@@ -2328,6 +2330,99 @@ namespace PaLX.API.Services
 
             var count = (long)(await cmd.ExecuteScalarAsync() ?? 0);
             return count > 0;
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // MUTE/UNMUTE MANAGEMENT - v2.4.5
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Force le micro d'un utilisateur OFF (mute par modération)
+        /// </summary>
+        public async Task<bool> MuteUserAsync(int actorId, int roomId, int targetUserId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Récupérer les rôles de l'acteur et de la cible
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            var targetRole = await GetUserRoleLevelAsync(conn, targetUserId, roomId);
+            
+            // Hiérarchie des rôles (plus petit = plus puissant) :
+            // 1=Owner, 2=SuperAdmin, 3=Admin, 5=Moderator, 6=Member, 99=SystemAdmin
+            
+            // Un membre (6) ne peut couper la parole à personne
+            if (actorRole == (int)RoomRoleLevel.Member)
+                throw new UnauthorizedAccessException("Les membres ne peuvent pas couper la parole.");
+            
+            // Seuls les admins système peuvent mute le owner
+            if (targetRole == (int)RoomRoleLevel.Owner && actorRole != 99)
+                throw new UnauthorizedAccessException("Seuls les administrateurs système peuvent couper la parole au propriétaire du salon.");
+            
+            // L'acteur doit avoir un rôle supérieur ou égal à la cible (nombre plus petit ou égal)
+            // SystemAdmin (99) peut tout faire
+            if (actorRole != 99 && actorRole > targetRole)
+                throw new UnauthorizedAccessException("Vous ne pouvez pas couper la parole à un utilisateur de rang supérieur.");
+
+            // Mettre à jour IsMicOn à false
+            var sql = @"UPDATE ""RoomMembers"" SET ""IsMicOn"" = FALSE WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("roomId", roomId);
+            cmd.Parameters.AddWithValue("userId", targetUserId);
+            
+            var rows = await cmd.ExecuteNonQueryAsync();
+            if (rows > 0)
+            {
+                // Notifier via SignalR
+                await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("MemberStatusUpdated", targetUserId, null, false, null);
+                await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("UserMuted", targetUserId);
+                
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Réactive le micro d'un utilisateur (unmute par modération)
+        /// Seul un rôle supérieur peut redonner la parole à quelqu'un
+        /// </summary>
+        public async Task<bool> UnmuteUserAsync(int actorId, int roomId, int targetUserId)
+        {
+            using var conn = new NpgsqlConnection(_connectionString);
+            await conn.OpenAsync();
+
+            // Récupérer les rôles de l'acteur et de la cible
+            var actorRole = await GetUserRoleLevelAsync(conn, actorId, roomId);
+            var targetRole = await GetUserRoleLevelAsync(conn, targetUserId, roomId);
+            
+            // Hiérarchie des rôles (plus petit = plus puissant) :
+            // 1=Owner, 2=SuperAdmin, 3=Admin, 5=Moderator, 6=Member, 99=SystemAdmin
+            
+            // Un membre (6) ne peut autoriser la parole à personne
+            if (actorRole == (int)RoomRoleLevel.Member)
+                throw new UnauthorizedAccessException("Les membres ne peuvent pas autoriser la parole.");
+            
+            // L'acteur doit avoir un rôle strictement supérieur à la cible (nombre plus petit)
+            // SystemAdmin (99) peut tout faire
+            if (actorRole != 99 && actorRole >= targetRole)
+                throw new UnauthorizedAccessException("Vous devez avoir un rôle supérieur pour autoriser la parole à cet utilisateur.");
+
+            // Mettre à jour IsMicOn à true
+            var sql = @"UPDATE ""RoomMembers"" SET ""IsMicOn"" = TRUE WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";
+            using var cmd = new NpgsqlCommand(sql, conn);
+            cmd.Parameters.AddWithValue("roomId", roomId);
+            cmd.Parameters.AddWithValue("userId", targetUserId);
+            
+            var rows = await cmd.ExecuteNonQueryAsync();
+            if (rows > 0)
+            {
+                // Notifier via SignalR
+                await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("MemberStatusUpdated", targetUserId, null, true, null);
+                await _roomHubContext.Clients.Group($"Room_{roomId}").SendAsync("UserUnmuted", targetUserId);
+                
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

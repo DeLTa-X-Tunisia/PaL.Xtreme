@@ -7,6 +7,54 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.5] - 2026-01-20
+
+### 🎙️ Gestion Avancée du Micro dans les Salons
+
+Nouveau système de gestion des droits de parole avec hiérarchie de rôles.
+
+#### Fonctionnalités
+
+**Micro autorisé par défaut :**
+- ✅ Les utilisateurs entrent dans une room avec le micro disponible (non muté)
+- ✅ Réinitialisation automatique du statut `IsMuted` lors du join/rejoin
+- ✅ Script SQL de migration pour les données existantes
+
+**Menu "Couper/Autoriser la parole" :**
+- ✅ Visible uniquement pour les rôles modérateurs+ (Owner, SuperAdmin, Admin, Moderator, SystemAdmin)
+- ✅ Texte dynamique selon l'état : "Couper la parole" / "Autoriser la parole"
+- ✅ Icônes distinctes : micro barré (jaune) / micro actif (vert)
+
+**Hiérarchie des permissions :**
+- ✅ Un modérateur ne peut pas couper la parole à quelqu'un de rang supérieur ou égal
+- ✅ Niveaux : Owner (1) > SuperAdmin (2) > Admin (3) > Moderator (5) > Member (6)
+- ✅ SystemAdmin peut modérer tout le monde
+
+**Indicateurs visuels :**
+- ✅ Bouton "Parler" désactivé si la parole est coupée
+- ✅ Icône micro rouge barré quand muté
+- ✅ Tooltip informatif : "Parole coupée par un modérateur"
+
+**Notifications temps réel :**
+- ✅ Toast "Parole coupée" uniquement quand un modérateur coupe réellement la parole
+- ✅ Toast "Parole autorisée" quand la parole est rétablie
+- ✅ Pas de faux positifs lors du raccrochage normal
+
+**Timer de parole :**
+- ✅ Le compteur se déclenche uniquement quand l'utilisateur active son micro
+- ✅ Pas de démarrage automatique à l'entrée dans la room
+
+#### Fichiers modifiés
+- `PaLX.API/Services/RoomService.cs` - Endpoints Mute/Unmute avec permissions hiérarchiques
+- `PaLX.API/Services/IRoomService.cs` - Interface
+- `PaLX.API/Controllers/RoomController.cs` - Routes POST /mute et /unmute
+- `PaLX.Client/Services/ApiService.cs` - Méthodes client + événements SignalR
+- `PaLX.Client/RoomWindow.xaml` - Menu dynamique avec bindings IsMuted/CanModerate
+- `PaLX.Client/RoomWindow.xaml.cs` - Logique ViewModel, handlers OnUserMuted/OnUserUnmuted
+- `PaLX.API/Scripts/v2.4.5_reset_muted.sql` - Script de migration
+
+---
+
 ## [2.4.4] - 2026-01-20
 
 ### 🔄 Synchronisation Temps Réel des Salons

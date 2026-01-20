@@ -440,6 +440,62 @@ namespace PaLX.API.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // MUTE/UNMUTE MANAGEMENT - v2.4.5
+        // ═══════════════════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Force le micro d'un utilisateur OFF (mute par modération)
+        /// Permissions: Moderator+
+        /// </summary>
+        [HttpPost("{roomId}/mute/{targetUserId}")]
+        public async Task<IActionResult> MuteUser(int roomId, int targetUserId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var success = await _roomService.MuteUserAsync(userId, roomId, targetUserId);
+                if (success)
+                    return Ok(new { message = "User muted successfully" });
+                else
+                    return NotFound(new { message = "User not found in room" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Réactive le micro d'un utilisateur (unmute par modération)
+        /// Permissions: Moderator+
+        /// </summary>
+        [HttpPost("{roomId}/unmute/{targetUserId}")]
+        public async Task<IActionResult> UnmuteUser(int roomId, int targetUserId)
+        {
+            try
+            {
+                var userId = GetUserId();
+                var success = await _roomService.UnmuteUserAsync(userId, roomId, targetUserId);
+                if (success)
+                    return Ok(new { message = "User unmuted successfully" });
+                else
+                    return NotFound(new { message = "User not found in room" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 
     public class JoinRoomDto

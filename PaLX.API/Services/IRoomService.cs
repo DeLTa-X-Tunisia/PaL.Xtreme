@@ -79,5 +79,21 @@ namespace PaLX.API.Services
         /// Utilisé pour la configuration du bot et autres fonctionnalités d'administration
         /// </summary>
         Task<bool> CanManageRoomAsync(int roomId, int userId);
+        
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        // MUTE/UNMUTE MANAGEMENT - v2.4.5
+        // ═══════════════════════════════════════════════════════════════════════════════════
+        
+        /// <summary>
+        /// Force le micro d'un utilisateur OFF (mute par modération)
+        /// Permissions: Moderator+
+        /// </summary>
+        Task<bool> MuteUserAsync(int actorId, int roomId, int targetUserId);
+        
+        /// <summary>
+        /// Réactive le micro d'un utilisateur (unmute par modération)
+        /// Permissions: Moderator+
+        /// </summary>
+        Task<bool> UnmuteUserAsync(int actorId, int roomId, int targetUserId);
     }
 }

@@ -8,9 +8,9 @@
     <UseWPF>true</UseWPF>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>1.9.0</Version>
-    <AssemblyVersion>1.9.0.0</AssemblyVersion>
-    <FileVersion>1.9.0.0</FileVersion>
+    <Version>2.4.5</Version>
+    <AssemblyVersion>2.4.5.0</AssemblyVersion>
+    <FileVersion>2.4.5.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

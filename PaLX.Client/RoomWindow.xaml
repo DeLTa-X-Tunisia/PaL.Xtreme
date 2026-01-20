@@ -14,6 +14,7 @@
     
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <converters:BoolToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <converters:UrlToImageSourceConverter x:Key="UrlToImageSourceConverter"/>
         
         <!-- Color Palette -->
@@ -907,7 +908,7 @@
                                             <TextBlock Text="✋" FontSize="11"/>
                                         </Border>
                                         
-                                        <!-- Mic Icon -->
+                                        <!-- Mic ON Icon (green, pulsing) -->
                                         <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="14" Margin="4,0"
                                                    Visibility="{Binding IsMicOn, Converter={StaticResource BooleanToVisibilityConverter}}">
                                             <TextBlock.Style>
@@ -930,6 +931,16 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
+                                        
+                                        <!-- Mic OFF Icon (red, muted indicator) -->
+                                        <Border CornerRadius="4" Padding="2" Margin="4,0" ToolTip="Micro coupé par un modérateur"
+                                                Visibility="{Binding IsMicOn, Converter={StaticResource InverseBooleanToVisibilityConverter}, ConverterParameter=invert}">
+                                            <Viewbox Width="16" Height="16">
+                                                <Canvas Width="24" Height="24">
+                                                    <Path Fill="#DC2626" Data="M19,11 C19,12.19 18.66,13.3 18.1,14.28 L16.87,13.05 C17.14,12.43 17.31,11.74 17.31,11 L19,11 M15,11.16 L9,5.18 L9,5 C9,3.34 10.34,2 12,2 C13.66,2 15,3.34 15,5 L15,11 L15,11.16 M4.27,3 L21,19.73 L19.73,21 L15.54,16.81 C14.77,17.27 13.91,17.58 13,17.72 L13,21 L11,21 L11,17.72 C7.72,17.23 5,14.41 5,11 L6.69,11 C6.69,13.93 9.17,16.31 12.13,16.31 C13.16,16.31 14.12,16.03 14.94,15.55 L13.41,14.02 C12.99,14.17 12.53,14.26 12.04,14.26 C10.21,14.26 8.71,12.78 8.71,11 L8.71,10.52 L3,4.27 L4.27,3 Z"/>
+                                                </Canvas>
+                                            </Viewbox>
+                                        </Border>
 
                                         <!-- Cam Icon - Bouton cliquable pour voir la vidéo -->
                                         <Button Click="ViewPeerCamera_Click" 
@@ -981,25 +992,57 @@
                                             
                                             <Separator Margin="8,4" Visibility="{Binding CanModerate, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             
-                                            <!-- Autoriser la parole -->
-                                            <MenuItem Style="{StaticResource ModernMenuItemStyle}" Header="Autoriser la parole" Click="AllowSpeak_Click" Visibility="{Binding CanModerate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <!-- Toggle Parole - Dynamic text based on IsMuted state (v2.4.5) -->
+                                            <MenuItem x:Name="ToggleMicMenuItem" Style="{StaticResource ModernMenuItemStyle}" Click="ToggleUserMic_Click" Visibility="{Binding CanModerate, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <MenuItem.Header>
+                                                    <TextBlock>
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="Couper la parole"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                                                        <Setter Property="Text" Value="Autoriser la parole"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </MenuItem.Header>
                                                 <MenuItem.Icon>
-                                                    <Viewbox Width="18" Height="18">
-                                                        <Canvas Width="24" Height="24">
-                                                            <Path Fill="#10B981" Data="M12,2 C13.66,2 15,3.34 15,5 L15,11 C15,12.66 13.66,14 12,14 C10.34,14 9,12.66 9,11 L9,5 C9,3.34 10.34,2 12,2 M19,11 C19,14.53 16.39,17.44 13,17.93 L13,21 L11,21 L11,17.93 C7.61,17.44 5,14.53 5,11 L7,11 C7,13.76 9.24,16 12,16 C14.76,16 17,13.76 17,11 L19,11 Z"/>
-                                                        </Canvas>
-                                                    </Viewbox>
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            
-                                            <!-- Couper le micro -->
-                                            <MenuItem Style="{StaticResource ModernMenuItemStyle}" Header="Couper le micro" Click="MuteMic_Click" Visibility="{Binding CanModerate, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <MenuItem.Icon>
-                                                    <Viewbox Width="18" Height="18">
-                                                        <Canvas Width="24" Height="24">
-                                                            <Path Fill="#F59E0B" Data="M19,11 C19,12.19 18.66,13.3 18.1,14.28 L16.87,13.05 C17.14,12.43 17.31,11.74 17.31,11 L19,11 M15,11.16 L9,5.18 L9,5 C9,3.34 10.34,2 12,2 C13.66,2 15,3.34 15,5 L15,11 L15,11.16 M4.27,3 L21,19.73 L19.73,21 L15.54,16.81 C14.77,17.27 13.91,17.58 13,17.72 L13,21 L11,21 L11,17.72 C7.72,17.23 5,14.41 5,11 L6.69,11 C6.69,13.93 9.17,16.31 12.13,16.31 C13.16,16.31 14.12,16.03 14.94,15.55 L13.41,14.02 C12.99,14.17 12.53,14.26 12.04,14.26 C10.21,14.26 8.71,12.78 8.71,11 L8.71,10.52 L3,4.27 L4.27,3 Z"/>
-                                                        </Canvas>
-                                                    </Viewbox>
+                                                    <Grid>
+                                                        <!-- Mic mute icon (shown when user can speak - we'll mute them) -->
+                                                        <Viewbox Width="18" Height="18">
+                                                            <Viewbox.Style>
+                                                                <Style TargetType="Viewbox">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Viewbox.Style>
+                                                            <Canvas Width="24" Height="24">
+                                                                <Path Fill="#F59E0B" Data="M19,11 C19,12.19 18.66,13.3 18.1,14.28 L16.87,13.05 C17.14,12.43 17.31,11.74 17.31,11 L19,11 M15,11.16 L9,5.18 L9,5 C9,3.34 10.34,2 12,2 C13.66,2 15,3.34 15,5 L15,11 L15,11.16 M4.27,3 L21,19.73 L19.73,21 L15.54,16.81 C14.77,17.27 13.91,17.58 13,17.72 L13,21 L11,21 L11,17.72 C7.72,17.23 5,14.41 5,11 L6.69,11 C6.69,13.93 9.17,16.31 12.13,16.31 C13.16,16.31 14.12,16.03 14.94,15.55 L13.41,14.02 C12.99,14.17 12.53,14.26 12.04,14.26 C10.21,14.26 8.71,12.78 8.71,11 L8.71,10.52 L3,4.27 L4.27,3 Z"/>
+                                                            </Canvas>
+                                                        </Viewbox>
+                                                        <!-- Mic allow icon (shown when user is muted - we'll unmute them) -->
+                                                        <Viewbox Width="18" Height="18">
+                                                            <Viewbox.Style>
+                                                                <Style TargetType="Viewbox">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Viewbox.Style>
+                                                            <Canvas Width="24" Height="24">
+                                                                <Path Fill="#10B981" Data="M12,2 C13.66,2 15,3.34 15,5 L15,11 C15,12.66 13.66,14 12,14 C10.34,14 9,12.66 9,11 L9,5 C9,3.34 10.34,2 12,2 M19,11 C19,14.53 16.39,17.44 13,17.93 L13,21 L11,21 L11,17.93 C7.61,17.44 5,14.53 5,11 L7,11 C7,13.76 9.24,16 12,16 C14.76,16 17,13.76 17,11 L19,11 Z"/>
+                                                            </Canvas>
+                                                        </Viewbox>
+                                                    </Grid>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             
