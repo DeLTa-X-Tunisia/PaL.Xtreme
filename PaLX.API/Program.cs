@@ -40,7 +40,7 @@ Log.Logger = new LoggerConfiguration()
 
 try
 {
-    Log.Information("🚀 Démarrage de PaLX.API v2.3.0...");
+    Log.Information("🚀 Démarrage de PaLX.API v2.4.4...");
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(); // Utiliser Serilog pour tout le logging ASP.NET Core
@@ -374,7 +374,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     Predicate = check => check.Tags.Contains("critical")
 });
 
-    Log.Information("✅ PaLX.API v2.3.0 démarré avec succès");
+    Log.Information("✅ PaLX.API v2.4.4 démarré avec succès");
     app.Run();
 }
 catch (Exception ex)

@@ -109,6 +109,10 @@ namespace PaLX.Client.Services
         // Room Visibility Changed Event (real-time update)
         public event Action<int, bool, bool>? OnRoomVisibilityChanged; // roomId, isActive, isSystemHidden
 
+        // Room Created/Deleted Events (real-time sync for all users)
+        public event Action<RoomDto>? OnRoomCreated; // New room created by any user
+        public event Action<int, int>? OnRoomDeleted; // roomId, categoryId - Room deleted
+
         // Global Announcement Event (admin broadcast)
         public event Action<GlobalAnnouncementDto>? OnGlobalAnnouncementReceived;
 
@@ -734,6 +738,38 @@ namespace PaLX.Client.Services
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[SignalR CLIENT] ERROR in RoomVisibilityChanged handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Handler pour la création d'un nouveau salon (temps réel)
+            _hubConnection.On<RoomDto>("RoomCreated", (room) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoomCreated EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] roomId={room.Id}, name={room.Name}, categoryId={room.CategoryId}");
+                try
+                {
+                    OnRoomCreated?.Invoke(room);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoomCreated event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoomCreated handler: {ex.Message}\n{ex.StackTrace}");
+                }
+            });
+
+            // Handler pour la suppression d'un salon (temps réel)
+            _hubConnection.On<int, int>("RoomDeleted", (roomId, categoryId) =>
+            {
+                Console.WriteLine($"[SignalR CLIENT] *** RoomDeleted EVENT FIRED ***");
+                Console.WriteLine($"[SignalR CLIENT] roomId={roomId}, categoryId={categoryId}");
+                try
+                {
+                    OnRoomDeleted?.Invoke(roomId, categoryId);
+                    Console.WriteLine($"[SignalR CLIENT] OnRoomDeleted event invoked successfully");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[SignalR CLIENT] ERROR in RoomDeleted handler: {ex.Message}\n{ex.StackTrace}");
                 }
             });
 

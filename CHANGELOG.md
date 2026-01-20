@@ -7,6 +7,65 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.4] - 2026-01-20
+
+### 🔄 Synchronisation Temps Réel des Salons
+
+Les salons créés ou supprimés sont maintenant **instantanément visibles** par tous les utilisateurs connectés, sans besoin de se reconnecter.
+
+#### Fonctionnalités
+
+**Création de salon :**
+- ✅ Broadcast SignalR `RoomCreated` à tous les clients
+- ✅ Liste des salons rafraîchie automatiquement
+- ✅ Nouveau salon visible immédiatement
+
+**Suppression de salon :**
+- ✅ Broadcast SignalR `RoomDeleted` à tous les clients
+- ✅ Salon retiré de la liste en temps réel
+- ✅ Fenêtre d'édition fermée automatiquement si ouverte
+
+#### Fichiers modifiés
+- `PaLX.API/Services/RoomService.cs` - Ajout des broadcasts SignalR
+- `PaLX.Client/Services/ApiService.cs` - Nouveaux événements `OnRoomCreated` / `OnRoomDeleted`
+- `PaLX.Client/Controls/RoomListControl.xaml.cs` - Abonnement aux événements
+
+---
+
+### 🛡️ Permissions Admins Système Étendues
+
+Les **administrateurs système** (RoleLevel 1-5) peuvent désormais gérer les rôles dans **tous les salons**, même s'ils n'en sont pas propriétaires.
+
+#### Fonctionnalités
+
+- ✅ Attribution de rôles (SuperAdmin, Admin, Moderator) dans n'importe quel salon
+- ✅ Retrait de rôles sans restriction
+- ✅ Pas besoin d'être ami avec l'utilisateur cible (bypass pour admins)
+- ✅ Messages d'erreur mis à jour : "Not owner or system admin"
+
+#### Fichiers modifiés
+- `PaLX.API/Services/RoomService.cs` - `AssignRoleAsync()` et `RemoveRoomRoleAsync()`
+- `PaLX.API/Controllers/RoomController.cs` - Messages d'erreur
+
+---
+
+### 📞 Amélioration des Appels Vocaux
+
+Restauration de l'affichage personnalisé lors des appels vocaux.
+
+#### Fonctionnalités
+
+- ✅ **DisplayName** affiché : "Appel vers Admin A..." au lieu de "Appel vers user1..."
+- ✅ **Photo de profil** restaurée pendant l'appel
+- ✅ StatusText mis à jour dynamiquement après chargement du profil
+- ✅ Gestion d'erreur améliorée avec fallback sur le username
+
+#### Fichiers modifiés
+- `PaLX.Client/VoiceCallWindow.xaml.cs` - Logique de chargement profil
+- `PaLX.Client/VoiceCallWindow.xaml` - Correction du binding avatar
+
+---
+
 ## [2.4.3] - 2026-01-17
 
 ### 🔄 Synchronisation MySQL pour Scripts PHP (Laragon)

@@ -180,3 +180,5 @@ _Scaffolding.xml
 # User Uploads
 PaLX.API/wwwroot/uploads/*
 !PaLX.API/wwwroot/uploads/.gitkeep
+
+.fake

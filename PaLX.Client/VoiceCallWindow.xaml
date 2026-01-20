@@ -24,7 +24,14 @@
                         <StackPanel Margin="10">
                             <Ellipse Width="80" Height="80" Margin="0,0,0,10">
                                 <Ellipse.Fill>
-                                    <ImageBrush ImageSource="{Binding AvatarPath, TargetNullValue='/Assets/default_avatar.png'}" Stretch="UniformToFill"/>
+                                    <ImageBrush ImageSource="{Binding AvatarPath, TargetNullValue={x:Null}}" Stretch="UniformToFill">
+                                        <ImageBrush.RelativeTransform>
+                                            <TransformGroup>
+                                                <ScaleTransform CenterX="0.5" CenterY="0.5"/>
+                                                <TranslateTransform/>
+                                            </TransformGroup>
+                                        </ImageBrush.RelativeTransform>
+                                    </ImageBrush>
                                 </Ellipse.Fill>
                             </Ellipse>
                             <TextBlock Text="{Binding DisplayName}" Foreground="White" FontSize="14" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" MaxWidth="100"/>

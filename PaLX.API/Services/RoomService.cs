@@ -148,7 +148,7 @@ namespace PaLX.API.Services
                 // 6. Create Basic subscription entry for this room
                 await CreateRoomSubscriptionInternal(conn, roomId, userId, BASIC_SUBSCRIPTION_LEVEL);
 
-                return new RoomDto
+                var newRoom = new RoomDto
                 {
                     Id = roomId,
                     Name = dto.Name,
@@ -161,6 +161,12 @@ namespace PaLX.API.Services
                     SubscriptionLevel = BASIC_SUBSCRIPTION_LEVEL,
                     UserCount = 0 // Personne n'est encore dans le salon
                 };
+
+                // 7. Notifier tous les clients connectés qu'un nouveau salon a été créé
+                _logger.LogInformation("[RoomService] Broadcasting RoomCreated event for room {RoomId} ({RoomName})", roomId, dto.Name);
+                await _chatHubContext.Clients.All.SendAsync("RoomCreated", newRoom);
+
+                return newRoom;
             }
             throw new Exception("Failed to create room");
         }
@@ -1135,12 +1141,27 @@ namespace PaLX.API.Services
                 throw new UnauthorizedAccessException("Not owner or system admin");
             }
 
+            // Récupérer le categoryId avant suppression (pour le broadcast)
+            int categoryId = 0;
+            var getCatSql = "SELECT \"CategoryId\" FROM \"Rooms\" WHERE \"Id\" = @rid";
+            using (var getCatCmd = new NpgsqlCommand(getCatSql, conn))
+            {
+                getCatCmd.Parameters.AddWithValue("rid", roomId);
+                var catResult = await getCatCmd.ExecuteScalarAsync();
+                if (catResult != null && catResult != DBNull.Value)
+                    categoryId = (int)catResult;
+            }
+
             var sql = "DELETE FROM \"Rooms\" WHERE \"Id\" = @rid";
             using (var cmd = new NpgsqlCommand(sql, conn))
             {
                 cmd.Parameters.AddWithValue("rid", roomId);
                 await cmd.ExecuteNonQueryAsync();
             }
+
+            // Notifier tous les clients connectés que le salon a été supprimé
+            _logger.LogInformation("[RoomService] Broadcasting RoomDeleted event for room {RoomId}", roomId);
+            await _chatHubContext.Clients.All.SendAsync("RoomDeleted", roomId, categoryId);
         }
 
         public async Task<RoomDto> UpdateRoomAsync(int userId, int roomId, CreateRoomDto dto)
@@ -1472,12 +1493,12 @@ namespace PaLX.API.Services
         /// <summary>
         /// Attribue directement un rôle à un utilisateur (SuperAdmin, Admin, Moderator)
         /// </summary>
-        public async Task AssignRoleAsync(int ownerId, int roomId, int targetUserId, string role)
+        public async Task AssignRoleAsync(int actorId, int roomId, int targetUserId, string role)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            // Vérifier que le demandeur est le propriétaire du salon
+            // Vérifier que le demandeur est le propriétaire du salon OU un admin système
             var checkSql = @"SELECT ""OwnerId"", ""Name"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
             using var checkCmd = new NpgsqlCommand(checkSql, conn);
             checkCmd.Parameters.AddWithValue("roomId", roomId);
@@ -1489,26 +1510,33 @@ namespace PaLX.API.Services
             var roomOwnerId = checkReader.GetInt32(0);
             await checkReader.CloseAsync();
             
-            if (roomOwnerId != ownerId)
-                throw new UnauthorizedAccessException("Only room owner can assign roles");
+            // Vérifier si l'acteur est owner OU admin système (RoleLevel 1-5)
+            bool isOwner = (roomOwnerId == actorId);
+            bool isSystemAdmin = await IsSystemAdminAsync(conn, actorId);
+            
+            if (!isOwner && !isSystemAdmin)
+                throw new UnauthorizedAccessException("Only room owner or system admin can assign roles");
 
             // Vérifier que le role est valide
             if (!new[] { "SuperAdmin", "Admin", "Moderator" }.Contains(role))
                 throw new Exception("Invalid role");
 
-            // Vérifier que l'utilisateur cible existe et est ami
-            var friendSql = @"
-                SELECT 1 FROM ""Friendships"" 
-                WHERE ((""RequesterId"" = @ownerId AND ""ReceiverId"" = @targetId)
-                   OR (""RequesterId"" = @targetId AND ""ReceiverId"" = @ownerId))
-                   AND ""Status"" = 1";
-            using var friendCmd = new NpgsqlCommand(friendSql, conn);
-            friendCmd.Parameters.AddWithValue("ownerId", ownerId);
-            friendCmd.Parameters.AddWithValue("targetId", targetUserId);
-            var isFriend = await friendCmd.ExecuteScalarAsync();
-            
-            if (isFriend == null)
-                throw new Exception("Target user is not a friend");
+            // Vérifier que l'utilisateur cible existe et est ami (sauf si admin système)
+            if (!isSystemAdmin)
+            {
+                var friendSql = @"
+                    SELECT 1 FROM ""Friendships"" 
+                    WHERE ((""RequesterId"" = @ownerId AND ""ReceiverId"" = @targetId)
+                       OR (""RequesterId"" = @targetId AND ""ReceiverId"" = @ownerId))
+                       AND ""Status"" = 1";
+                using var friendCmd = new NpgsqlCommand(friendSql, conn);
+                friendCmd.Parameters.AddWithValue("ownerId", actorId);
+                friendCmd.Parameters.AddWithValue("targetId", targetUserId);
+                var isFriend = await friendCmd.ExecuteScalarAsync();
+                
+                if (isFriend == null)
+                    throw new Exception("Target user is not a friend");
+            }
 
             // Mapper le nom de rôle vers l'ID dans RoomRoles
             int roleId = role switch
@@ -1530,7 +1558,7 @@ namespace PaLX.API.Services
             insertCmd.Parameters.AddWithValue("roomId", roomId);
             insertCmd.Parameters.AddWithValue("userId", targetUserId);
             insertCmd.Parameters.AddWithValue("role", role);
-            insertCmd.Parameters.AddWithValue("assignedBy", ownerId);
+            insertCmd.Parameters.AddWithValue("assignedBy", actorId);
             insertCmd.Parameters.AddWithValue("now", DateTime.UtcNow);
             await insertCmd.ExecuteNonQueryAsync();
 
@@ -1590,12 +1618,12 @@ namespace PaLX.API.Services
         /// <summary>
         /// Retire le rôle d'un utilisateur dans un salon
         /// </summary>
-        public async Task RemoveRoomRoleAsync(int ownerId, int roomId, int targetUserId)
+        public async Task RemoveRoomRoleAsync(int actorId, int roomId, int targetUserId)
         {
             using var conn = new NpgsqlConnection(_connectionString);
             await conn.OpenAsync();
 
-            // Vérifier que le demandeur est le propriétaire du salon
+            // Vérifier que le demandeur est le propriétaire du salon OU un admin système
             var checkSql = @"SELECT ""OwnerId"", ""Name"" FROM ""Rooms"" WHERE ""Id"" = @roomId";
             using var checkCmd = new NpgsqlCommand(checkSql, conn);
             checkCmd.Parameters.AddWithValue("roomId", roomId);
@@ -1611,8 +1639,12 @@ namespace PaLX.API.Services
             }
             await reader.CloseAsync();
             
-            if (actualOwnerId != ownerId)
-                throw new UnauthorizedAccessException("Only room owner can remove roles");
+            // Vérifier si l'acteur est owner OU admin système (RoleLevel 1-5)
+            bool isOwner = (actualOwnerId == actorId);
+            bool isSystemAdmin = await IsSystemAdminAsync(conn, actorId);
+            
+            if (!isOwner && !isSystemAdmin)
+                throw new UnauthorizedAccessException("Only room owner or system admin can remove roles");
 
             // Supprimer le rôle de RoomAdmins
             var deleteSql = @"DELETE FROM ""RoomAdmins"" WHERE ""RoomId"" = @roomId AND ""UserId"" = @userId";

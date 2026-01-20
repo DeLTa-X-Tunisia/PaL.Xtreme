@@ -34,7 +34,72 @@ namespace PaLX.Client.Controls
             // S'abonner aux changements de visibilité des salons (temps réel)
             _apiService.OnRoomVisibilityChanged += OnRoomVisibilityChanged;
             
-            Console.WriteLine($"[RoomListControl] *** INITIALIZED - Subscribed to role and visibility events ***");
+            // S'abonner aux événements de création/suppression de salons (temps réel)
+            _apiService.OnRoomCreated += OnRoomCreated;
+            _apiService.OnRoomDeleted += OnRoomDeleted;
+            
+            Console.WriteLine($"[RoomListControl] *** INITIALIZED - Subscribed to role, visibility, and room create/delete events ***");
+        }
+
+        /// <summary>
+        /// Appelé quand un nouveau salon est créé (temps réel via SignalR)
+        /// </summary>
+        private void OnRoomCreated(RoomDto room)
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    Console.WriteLine($"[RoomListControl] OnRoomCreated received for room {room.Id} ({room.Name})");
+                    
+                    // Rafraîchir la liste des salons pour afficher le nouveau salon
+                    await RefreshRooms();
+                    
+                    Console.WriteLine($"[RoomListControl] Room list refreshed after room creation");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RoomListControl] Error handling room creation: {ex.Message}");
+                }
+            });
+        }
+
+        /// <summary>
+        /// Appelé quand un salon est supprimé (temps réel via SignalR)
+        /// </summary>
+        private void OnRoomDeleted(int roomId, int categoryId)
+        {
+            Dispatcher.Invoke(async () =>
+            {
+                try
+                {
+                    Console.WriteLine($"[RoomListControl] OnRoomDeleted received for room {roomId}");
+                    
+                    // Fermer la fenêtre d'édition si elle est ouverte pour ce salon
+                    if (_openEditWindows.TryGetValue(roomId, out var editWindow))
+                    {
+                        try
+                        {
+                            editWindow.Close();
+                            _openEditWindows.Remove(roomId);
+                            Console.WriteLine($"[RoomListControl] Closed edit window for deleted room {roomId}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[RoomListControl] Error closing edit window: {ex.Message}");
+                        }
+                    }
+                    
+                    // Rafraîchir la liste des salons pour retirer le salon supprimé
+                    await RefreshRooms();
+                    
+                    Console.WriteLine($"[RoomListControl] Room list refreshed after room deletion");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[RoomListControl] Error handling room deletion: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>

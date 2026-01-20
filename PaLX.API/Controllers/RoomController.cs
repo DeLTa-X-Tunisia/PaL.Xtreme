@@ -269,7 +269,7 @@ namespace PaLX.API.Controllers
             }
             catch (UnauthorizedAccessException)
             {
-                return Unauthorized(new { message = "Not owner" });
+                return Unauthorized(new { message = "Not owner or system admin" });
             }
             catch (Exception ex)
             {
@@ -291,7 +291,7 @@ namespace PaLX.API.Controllers
             }
             catch (UnauthorizedAccessException)
             {
-                return Unauthorized(new { message = "Not owner" });
+                return Unauthorized(new { message = "Not owner or system admin" });
             }
             catch (Exception ex)
             {

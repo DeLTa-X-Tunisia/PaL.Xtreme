@@ -24,6 +24,7 @@ namespace PaLX.Client
         private DateTime _startTime;
         private bool _isMuted = false;
         private string _remoteUser;
+        private bool _isIncoming;
         private System.Windows.Media.MediaPlayer _ringtonePlayer = new System.Windows.Media.MediaPlayer();
         public ObservableCollection<CallParticipant> Participants { get; set; } = new ObservableCollection<CallParticipant>();
 
@@ -32,10 +33,11 @@ namespace PaLX.Client
             InitializeComponent();
             _voiceService = voiceService;
             _remoteUser = remoteUser;
+            _isIncoming = isIncoming;
             
             ParticipantsList.ItemsSource = Participants;
             
-            StatusText.Text = isIncoming ? "Appel entrant..." : "Appel sortant...";
+            StatusText.Text = isIncoming ? "Appel entrant..." : "Appel vers...";
             
             _voiceService.OnCallEnded += VoiceService_OnCallEnded;
             _voiceService.OnStatusChanged += VoiceService_OnStatusChanged;
@@ -96,6 +98,9 @@ namespace PaLX.Client
             try
             {
                 var profile = await ApiService.Instance.GetUserProfileAsync(_remoteUser);
+                string displayName;
+                string avatarPath;
+                
                 if (profile != null)
                 {
                     // Format: LastName FirstName (to match Invite Window / SQL logic)
@@ -110,29 +115,54 @@ namespace PaLX.Client
                     }
 
                     // Capitalize
-                    fullName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
-
-                    Participants.Add(new CallParticipant 
-                    { 
-                        Username = _remoteUser,
-                        DisplayName = fullName,
-                        AvatarPath = BuildAvatarUrl(profile.AvatarPath)
-                    });
+                    displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(fullName.ToLower());
+                    avatarPath = BuildAvatarUrl(profile.AvatarPath);
                 }
                 else
                 {
                     // Fallback to username with capitalization
-                    string displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(_remoteUser.ToLower());
-                    
-                    Participants.Add(new CallParticipant 
-                    { 
-                        Username = _remoteUser,
-                        DisplayName = displayName,
-                        AvatarPath = BuildAvatarUrl(null)
-                    });
+                    displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(_remoteUser.ToLower());
+                    avatarPath = BuildAvatarUrl(null);
                 }
+
+                // Add participant to the list
+                Participants.Add(new CallParticipant 
+                { 
+                    Username = _remoteUser,
+                    DisplayName = displayName,
+                    AvatarPath = avatarPath
+                });
+
+                // Update StatusText with the display name
+                Dispatcher.Invoke(() =>
+                {
+                    if (_isIncoming)
+                    {
+                        StatusText.Text = $"Appel entrant de {displayName}...";
+                    }
+                    else
+                    {
+                        StatusText.Text = $"Appel vers {displayName}...";
+                    }
+                });
             }
-            catch { }
+            catch 
+            {
+                // En cas d'erreur, utiliser le username comme fallback
+                string displayName = System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(_remoteUser.ToLower());
+                
+                Participants.Add(new CallParticipant 
+                { 
+                    Username = _remoteUser,
+                    DisplayName = displayName,
+                    AvatarPath = BuildAvatarUrl(null)
+                });
+                
+                Dispatcher.Invoke(() =>
+                {
+                    StatusText.Text = _isIncoming ? $"Appel entrant de {displayName}..." : $"Appel vers {displayName}...";
+                });
+            }
         }
 
         private string BuildAvatarUrl(string? avatarPath)
