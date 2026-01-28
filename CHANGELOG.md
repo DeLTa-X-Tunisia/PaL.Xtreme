@@ -7,6 +7,52 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
 ---
 
+## [2.4.6] - 2026-01-28
+
+### 🎨 Refonte UI & Personnalisation
+
+Nouveau design élégant et moderne pour les interfaces de connexion et le launcher.
+
+#### Fonctionnalités
+
+**Refonte Login/Register :**
+- ✅ Design épuré avec champs blancs et bordures subtiles
+- ✅ Icônes circulaires avec fond rose pâle (#FEF2F2)
+- ✅ Formulaires centrés avec largeur optimisée (340px)
+- ✅ Typography moderne et aérée
+- ✅ Placeholders stylisés et états focus améliorés
+
+**Refonte Launcher :**
+- ✅ Interface modernisée avec nouveau système de couleurs
+- ✅ Cohérence visuelle avec le Client
+
+**Bouton "+" Navigation :**
+- ✅ Correction du bouton tronqué dans la navigation inférieure
+- ✅ Template personnalisé avec dimensions correctes (64x64)
+- ✅ Cercle intérieur 56x56 avec effet d'ombre
+- ✅ Hover effect avec scale transform
+
+**Icône Application :**
+- ✅ Nouvelle icône `mounir.ico` pour Client et Launcher
+- ✅ Icône visible dans l'Explorateur Windows (.exe)
+- ✅ Icône dans la barre des tâches
+- ✅ Icône dans le coin des fenêtres
+
+**Configuration API :**
+- ✅ Migration vers le VPS : `https://api.mounir.vip`
+
+#### Fichiers modifiés
+- `PaLX.Client/Views/LoginView.xaml` - Refonte design élégant
+- `PaLX.Client/Views/RegisterView.xaml` - Refonte design élégant
+- `PaLX.Client/MainWindow.xaml` - Header + icône
+- `PaLX.Client/MainView.xaml` - Bouton "+" fix + icône
+- `PaLX.Client/PaLX.Client.csproj` - ApplicationIcon
+- `PaLX.Client/Services/ApiService.cs` - BaseUrl VPS
+- `PaLX.Launcher/MainWindow.xaml` - Refonte UI + icône
+- `PaLX.Launcher/PaLX.Launcher.csproj` - ApplicationIcon
+
+---
+
 ## [2.4.5] - 2026-01-20
 
 ### 🎙️ Gestion Avancée du Micro dans les Salons

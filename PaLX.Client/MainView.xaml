@@ -6,6 +6,7 @@
         xmlns:controls="clr-namespace:PaLX.Client.Controls"
         mc:Ignorable="d"
         Title="PaL.Xtreme" Height="850" Width="480"
+        Icon="Assets/mounir.ico"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" AllowsTransparency="True"
         Background="Transparent"
@@ -593,15 +594,35 @@
                         </Button>
 
                         <!-- Central Add Friend Button (Highlighted) -->
-                        <Button Grid.Column="2" Style="{StaticResource NavButtonStyle}" ToolTip="Ajouter un ami" Click="AddFriend_Click" 
-                                Width="60" Height="60" Margin="8,0">
-                            <Border Background="{StaticResource PrimaryBrush}" CornerRadius="18" Width="52" Height="52">
-                                <Border.Effect>
-                                    <DropShadowEffect Color="{StaticResource PrimaryColor}" BlurRadius="16" ShadowDepth="2" Opacity="0.4"/>
-                                </Border.Effect>
-                                <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="22" 
-                                           Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            </Border>
+                        <Button Grid.Column="2" ToolTip="Ajouter un ami" Click="AddFriend_Click" 
+                                Width="64" Height="64" Margin="6,0" Background="Transparent" BorderThickness="0" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="OuterBorder" Background="Transparent">
+                                        <Border x:Name="InnerBorder" Background="{StaticResource PrimaryBrush}" CornerRadius="20" Width="56" Height="56">
+                                            <Border.Effect>
+                                                <DropShadowEffect Color="#E03E2F" BlurRadius="18" ShadowDepth="3" Direction="270" Opacity="0.45"/>
+                                            </Border.Effect>
+                                            <TextBlock Text="+" FontSize="28" FontWeight="Light"
+                                                       Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0"/>
+                                        </Border>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="InnerBorder" Property="Background" Value="#C93528"/>
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="InnerBorder" Property="Background" Value="#A12B22"/>
+                                            <Setter TargetName="InnerBorder" Property="RenderTransform">
+                                                <Setter.Value>
+                                                    <ScaleTransform ScaleX="0.95" ScaleY="0.95"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Setter TargetName="InnerBorder" Property="RenderTransformOrigin" Value="0.5,0.5"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
                         </Button>
 
                         <!-- Rooms -->

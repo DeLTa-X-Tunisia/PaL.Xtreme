@@ -4,30 +4,137 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              mc:Ignorable="d" 
-             d:DesignHeight="500" d:DesignWidth="500">
+             d:DesignHeight="480" d:DesignWidth="460">
     
     <UserControl.Resources>
-        <!-- Input Field Style with Icon -->
-        <Style x:Key="InputFieldStyle" TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource BackgroundBrush}"/>
+        <!-- Elegant Input Field Container -->
+        <Style x:Key="ElegantInputStyle" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
             <Setter Property="CornerRadius" Value="14"/>
-            <Setter Property="Padding" Value="16,4"/>
             <Setter Property="Height" Value="56"/>
+            <Setter Property="BorderBrush" Value="#E5E7EB"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="0" Opacity="0.04"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Clean TextBox Style -->
+        <Style x:Key="CleanTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        
+        <!-- Clean PasswordBox Style -->
+        <Style x:Key="CleanPasswordBoxStyle" TargetType="PasswordBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#1F2937"/>
+            <Setter Property="CaretBrush" Value="{StaticResource PrimaryBrush}"/>
+            <Setter Property="Padding" Value="0"/>
+        </Style>
+        
+        <!-- Icon Circle Style -->
+        <Style x:Key="IconCircleStyle" TargetType="Border">
+            <Setter Property="Width" Value="38"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="CornerRadius" Value="19"/>
+            <Setter Property="Background" Value="#FEF2F2"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="10,0,14,0"/>
+        </Style>
+        
+        <!-- Elegant Primary Button -->
+        <Style x:Key="ElegantPrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="52"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="14" Background="#E03E2F">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#E03E2F" BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.3"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#C93528"/>
+                                <Setter TargetName="border" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect Color="#C93528" BlurRadius="20" ShadowDepth="6" Direction="270" Opacity="0.4"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#A12B22"/>
+                                <Setter TargetName="border" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform Y="1"/>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#D1D5DB"/>
+                                <Setter TargetName="border" Property="Effect" Value="{x:Null}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Label Style -->
+        <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="Margin" Value="4,0,0,8"/>
+        </Style>
+        
+        <!-- Placeholder Style -->
+        <Style x:Key="PlaceholderStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="Foreground" Value="#9CA3AF"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="IsHitTestVisible" Value="False"/>
         </Style>
     </UserControl.Resources>
     
-    <!-- Fade-in Animation -->
+    <!-- Smooth Fade-in Animation -->
     <UserControl.RenderTransform>
-        <TranslateTransform Y="30"/>
+        <TranslateTransform Y="15"/>
     </UserControl.RenderTransform>
     <UserControl.Triggers>
         <EventTrigger RoutedEvent="UserControl.Loaded">
             <BeginStoryboard>
                 <Storyboard>
-                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.6"/>
-                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="30" To="0" Duration="0:0:0.5">
+                    <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0" To="1" Duration="0:0:0.4">
                         <DoubleAnimation.EasingFunction>
-                            <CubicEase EasingMode="EaseOut"/>
+                            <QuadraticEase EasingMode="EaseOut"/>
+                        </DoubleAnimation.EasingFunction>
+                    </DoubleAnimation>
+                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="15" To="0" Duration="0:0:0.35">
+                        <DoubleAnimation.EasingFunction>
+                            <QuadraticEase EasingMode="EaseOut"/>
                         </DoubleAnimation.EasingFunction>
                     </DoubleAnimation>
                 </Storyboard>
@@ -36,26 +143,27 @@
     </UserControl.Triggers>
     
     <Grid Background="{StaticResource CardBackgroundBrush}">
-        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,50,0,40">
+        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Center" Margin="0,50,0,35" Width="340">
             
             <!-- Username Field -->
-            <TextBlock Text="Nom d'utilisateur" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="4,0,0,8"/>
-            <Border Style="{StaticResource InputFieldStyle}" Width="380" Margin="0,0,0,20">
+            <TextBlock Text="Nom d'utilisateur" Style="{StaticResource FieldLabelStyle}"/>
+            <Border Style="{StaticResource ElegantInputStyle}" Margin="0,0,0,22" x:Name="UsernameFieldBorder">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Width="40" Height="40" CornerRadius="10" Background="#10E03E2F" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
-                                   Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    
+                    <Border Style="{StaticResource IconCircleStyle}">
+                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="15" 
+                                   Foreground="#E03E2F" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <TextBox x:Name="UsernameBox" Grid.Column="1" 
-                             Background="Transparent" BorderThickness="0" 
-                             FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
-                             Foreground="{StaticResource TextBrush}"/>
-                    <TextBlock Grid.Column="1" Text="Entrez votre username" IsHitTestVisible="False" 
-                               Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="15">
+                    
+                    <TextBox x:Name="UsernameBox" Grid.Column="1" Style="{StaticResource CleanTextBoxStyle}" 
+                             Margin="0,0,16,0"/>
+                    <TextBlock Grid.Column="1" Text="Entrez votre nom d'utilisateur" 
+                               FontSize="14" FontFamily="Segoe UI" Foreground="#9CA3AF" 
+                               VerticalAlignment="Center" IsHitTestVisible="False">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Collapsed"/>
@@ -71,48 +179,69 @@
             </Border>
 
             <!-- Password Field -->
-            <TextBlock Text="Mot de passe" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Margin="4,0,0,8"/>
-            <Border Style="{StaticResource InputFieldStyle}" Width="380" Margin="0,0,0,32">
+            <TextBlock Text="Mot de passe" Style="{StaticResource FieldLabelStyle}"/>
+            <Border Style="{StaticResource ElegantInputStyle}" Margin="0,0,0,30" x:Name="PasswordFieldBorder">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
-                    <Border Width="40" Height="40" CornerRadius="10" Background="#10E03E2F" VerticalAlignment="Center">
-                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="18" 
-                                   Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    
+                    <Border Style="{StaticResource IconCircleStyle}">
+                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="15" 
+                                   Foreground="#E03E2F" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
-                    <PasswordBox x:Name="PasswordBox" Grid.Column="1" 
-                                 Background="Transparent" BorderThickness="0" 
-                                 FontSize="15" VerticalAlignment="Center" Margin="12,0,0,0"
-                                 Foreground="{StaticResource TextBrush}" PasswordChanged="PasswordBox_PasswordChanged"/>
-                    <TextBlock x:Name="PasswordPlaceholder" Grid.Column="1" Text="Entrez votre mot de passe" IsHitTestVisible="False" 
-                               Foreground="{StaticResource LightTextBrush}" VerticalAlignment="Center" Margin="12,0,0,0" FontSize="15"/>
+                    
+                    <PasswordBox x:Name="PasswordBox" Grid.Column="1" Style="{StaticResource CleanPasswordBoxStyle}" 
+                                 Margin="0,0,16,0" PasswordChanged="PasswordBox_PasswordChanged"/>
+                    <TextBlock x:Name="PasswordPlaceholder" Grid.Column="1" Text="Entrez votre mot de passe" 
+                               Style="{StaticResource PlaceholderStyle}"/>
                 </Grid>
             </Border>
 
             <!-- Login Button -->
-            <Button x:Name="LoginButton" Style="{StaticResource PrimaryButtonStyle}" 
-                    Content="Se connecter" Click="LoginButton_Click" 
-                    Width="380" Height="56" FontSize="16"/>
+            <Button x:Name="LoginButton" Style="{StaticResource ElegantPrimaryButtonStyle}" 
+                    Content="Se connecter" Click="LoginButton_Click"/>
             
             <!-- Loading Indicator -->
-            <StackPanel x:Name="LoadingPanel" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0" Visibility="Collapsed">
-                <TextBlock x:Name="LoadingText" Text="Connexion en cours..." FontSize="13" Foreground="{StaticResource TextSecondaryBrush}"/>
+            <StackPanel x:Name="LoadingPanel" Orientation="Horizontal" HorizontalAlignment="Center" 
+                        Margin="0,16,0,0" Visibility="Collapsed">
+                <Border Width="18" Height="18" CornerRadius="9" BorderThickness="2" 
+                        BorderBrush="{StaticResource PrimaryBrush}" Margin="0,0,10,0">
+                    <Border.RenderTransform>
+                        <RotateTransform x:Name="LoadingRotation"/>
+                    </Border.RenderTransform>
+                    <Border.RenderTransformOrigin>0.5,0.5</Border.RenderTransformOrigin>
+                    <Border.Triggers>
+                        <EventTrigger RoutedEvent="Border.Loaded">
+                            <BeginStoryboard>
+                                <Storyboard RepeatBehavior="Forever">
+                                    <DoubleAnimation Storyboard.TargetName="LoadingRotation" 
+                                                     Storyboard.TargetProperty="Angle" 
+                                                     From="0" To="360" Duration="0:0:0.8"/>
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </EventTrigger>
+                    </Border.Triggers>
+                </Border>
+                <TextBlock x:Name="LoadingText" Text="Connexion en cours..." FontSize="13" 
+                           FontFamily="Segoe UI" Foreground="#6B7280" VerticalAlignment="Center"/>
             </StackPanel>
 
             <!-- Divider -->
-            <Grid Width="380" Margin="0,32,0,24">
-                <Rectangle Height="1" Fill="{StaticResource DividerBrush}"/>
+            <Grid Margin="0,35,0,30">
+                <Rectangle Height="1" Fill="#E5E7EB"/>
                 <Border Background="{StaticResource CardBackgroundBrush}" HorizontalAlignment="Center" Padding="16,0">
-                    <TextBlock Text="ou" FontSize="13" Foreground="{StaticResource LightTextBrush}"/>
+                    <TextBlock Text="ou" FontSize="12" Foreground="#9CA3AF" FontFamily="Segoe UI"/>
                 </Border>
             </Grid>
 
             <!-- Register Link -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Text="Pas encore de compte ? " FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                <Button Style="{StaticResource LinkButtonStyle}" Content="Créer un compte" Click="SwitchToRegister_Click" FontSize="14" FontWeight="SemiBold"/>
+                <TextBlock Text="Pas encore de compte ? " FontSize="13" FontFamily="Segoe UI" 
+                           Foreground="#6B7280" VerticalAlignment="Center"/>
+                <Button Style="{StaticResource LinkButtonStyle}" Content="Créer un compte" Click="SwitchToRegister_Click" 
+                        FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource PrimaryBrush}"/>
             </StackPanel>
             
         </StackPanel>

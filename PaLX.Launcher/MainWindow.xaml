@@ -4,44 +4,98 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="PaL.X Launcher" Height="620" Width="900"
+        Title="PaL.Xtreme Launcher" Height="680" Width="920"
+        Icon="Resources/mounir.ico"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="CanMinimize"
-        Background="#f5f6fa"
-        FontFamily="Segoe UI">
+        WindowStyle="None" AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="CanMinimize">
 
     <Window.Resources>
         <SolidColorBrush x:Key="PrimaryBrush" Color="#E03E2F"/>
-        <SolidColorBrush x:Key="SuccessBrush" Color="#2ecc71"/>
-        <SolidColorBrush x:Key="DarkTextBrush" Color="#2c3e50"/>
-        <SolidColorBrush x:Key="DangerBrush" Color="#e74c3c"/>
-        <SolidColorBrush x:Key="InfoBrush" Color="#3498db"/>
+        <SolidColorBrush x:Key="PrimaryDarkBrush" Color="#C93528"/>
+        <SolidColorBrush x:Key="SuccessBrush" Color="#27AE60"/>
+        <SolidColorBrush x:Key="DarkTextBrush" Color="#212529"/>
+        <SolidColorBrush x:Key="DangerBrush" Color="#E74C3C"/>
+        <SolidColorBrush x:Key="InfoBrush" Color="#3498DB"/>
+        <SolidColorBrush x:Key="CardBrush" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="BackgroundBrush" Color="#F8F9FA"/>
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#6C757D"/>
+        
+        <!-- Window Button Style -->
+        <Style x:Key="WindowButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="40"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="20">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#20FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource WindowButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="20">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
         
         <Style x:Key="CardButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Margin" Value="15"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="15" Padding="20">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="20" Padding="25">
                             <Border.Effect>
-                                <DropShadowEffect Color="#bdc3c7" BlurRadius="15" ShadowDepth="3" Opacity="0.2"/>
+                                <DropShadowEffect Color="#000000" BlurRadius="20" ShadowDepth="0" Opacity="0.08"/>
                             </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#fdfdfd"/>
                                 <Setter TargetName="border" Property="Effect">
                                     <Setter.Value>
-                                        <DropShadowEffect Color="#bdc3c7" BlurRadius="20" ShadowDepth="5" Opacity="0.3"/>
+                                        <DropShadowEffect Color="#E03E2F" BlurRadius="30" ShadowDepth="0" Opacity="0.15"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="border" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform Y="-3"/>
                                     </Setter.Value>
                                 </Setter>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#f0f0f0"/>
+                                <Setter TargetName="border" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <TranslateTransform Y="0"/>
+                                    </Setter.Value>
+                                </Setter>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.5"/>
@@ -55,35 +109,43 @@
 
         <Style x:Key="StatCardStyle" TargetType="Border">
             <Setter Property="Background" Value="White"/>
-            <Setter Property="CornerRadius" Value="10"/>
-            <Setter Property="Padding" Value="15,10"/>
-            <Setter Property="Margin" Value="5"/>
+            <Setter Property="CornerRadius" Value="14"/>
+            <Setter Property="Padding" Value="18,12"/>
+            <Setter Property="Margin" Value="6"/>
             <Setter Property="Effect">
                 <Setter.Value>
-                    <DropShadowEffect Color="#bdc3c7" BlurRadius="8" ShadowDepth="2" Opacity="0.15"/>
+                    <DropShadowEffect Color="#000000" BlurRadius="10" ShadowDepth="0" Opacity="0.05"/>
                 </Setter.Value>
             </Setter>
         </Style>
 
-        <Style x:Key="DangerButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#e74c3c"/>
+        <Style x:Key="ModernButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Padding" Value="20,10"/>
+            <Setter Property="Padding" Value="20,12"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="12" Padding="{TemplateBinding Padding}">
+                            <Border.Effect>
+                                <DropShadowEffect Color="{Binding Background.Color, RelativeSource={RelativeSource TemplatedParent}}" BlurRadius="15" ShadowDepth="0" Opacity="0.3"/>
+                            </Border.Effect>
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#c0392b"/>
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#a93226"/>
+                                <Setter TargetName="border" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <ScaleTransform ScaleX="0.98" ScaleY="0.98"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="border" Property="RenderTransformOrigin" Value="0.5,0.5"/>
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.5"/>
@@ -94,204 +156,261 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        
+        <Style x:Key="DangerButtonStyle" TargetType="Button" BasedOn="{StaticResource ModernButtonStyle}">
+            <Setter Property="Background" Value="#E74C3C"/>
+        </Style>
     </Window.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <!-- Main Container with Shadow -->
+    <Border CornerRadius="24" Background="{StaticResource BackgroundBrush}" Margin="10" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+        <Border.Effect>
+            <DropShadowEffect Color="#000000" BlurRadius="40" ShadowDepth="0" Opacity="0.2"/>
+        </Border.Effect>
+        
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,30,0,15" HorizontalAlignment="Center">
-            <TextBlock Text="PaL.X Launcher" FontSize="32" FontWeight="Bold" Foreground="{StaticResource PrimaryBrush}" HorizontalAlignment="Center"/>
-            <TextBlock Text="Lancez et gérez vos instances clients" FontSize="16" Foreground="#7f8c8d" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-        </StackPanel>
+            <!-- Header with Gradient -->
+            <Border Grid.Row="0" CornerRadius="24,24,0,0" Padding="0,0,0,30">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#E03E2F" Offset="0"/>
+                        <GradientStop Color="#C93528" Offset="0.5"/>
+                        <GradientStop Color="#A12B22" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                
+                <Grid>
+                    <!-- Decorative Background Elements -->
+                    <Canvas ClipToBounds="True">
+                        <Ellipse Width="250" Height="250" Fill="#10FFFFFF" Canvas.Left="-80" Canvas.Top="-120"/>
+                        <Ellipse Width="180" Height="180" Fill="#08FFFFFF" Canvas.Right="-40" Canvas.Top="-60"/>
+                        <Ellipse Width="100" Height="100" Fill="#12FFFFFF" Canvas.Left="600" Canvas.Top="20"/>
+                    </Canvas>
+                    
+                    <!-- Window Control Buttons -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,15,15,0">
+                        <Button Style="{StaticResource WindowButtonStyle}" Click="MinimizeButton_Click" ToolTip="Réduire">
+                            <TextBlock Text="─" FontSize="14" FontWeight="Bold"/>
+                        </Button>
+                        <Button Style="{StaticResource CloseButtonStyle}" Click="CloseButton_Click" ToolTip="Fermer">
+                            <TextBlock Text="✕" FontSize="12" FontWeight="Bold"/>
+                        </Button>
+                    </StackPanel>
+                    
+                    <!-- Logo and Title -->
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,35,0,25">
+                        <!-- App Icon -->
+                        <Border Width="70" Height="70" CornerRadius="35" Margin="0,0,0,15">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#40FFFFFF" Offset="0"/>
+                                    <GradientStop Color="#20FFFFFF" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <Border.Effect>
+                                <DropShadowEffect Color="#000000" BlurRadius="15" ShadowDepth="0" Opacity="0.15"/>
+                            </Border.Effect>
+                            <TextBlock Text="🚀" FontSize="32" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="PaL.Xtreme Launcher" FontSize="28" FontWeight="ExtraBold" Foreground="White" HorizontalAlignment="Center">
+                            <TextBlock.Effect>
+                                <DropShadowEffect Color="#000000" BlurRadius="8" ShadowDepth="0" Opacity="0.15"/>
+                            </TextBlock.Effect>
+                        </TextBlock>
+                        <TextBlock Text="Lancez et gérez vos instances" FontSize="14" Foreground="#C0FFFFFF" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-        <!-- Statistics Bar -->
-        <Border Grid.Row="1" Background="#ecf0f1" Margin="40,10" CornerRadius="10" Padding="10">
-            <Grid>
+            <!-- Statistics Bar -->
+            <Border Grid.Row="1" Background="White" Margin="35,-20,35,0" CornerRadius="16" Padding="12">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="20" ShadowDepth="0" Opacity="0.08"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- API Uptime -->
+                    <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border Width="42" Height="42" CornerRadius="12" Margin="0,0,12,0">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#15E03E2F" Offset="0"/>
+                                        <GradientStop Color="#08E03E2F" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <TextBlock Text="⏱️" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Temps API" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock x:Name="ApiUptimeText" Text="--:--:--" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Active Clients -->
+                    <Border Grid.Column="1" Style="{StaticResource StatCardStyle}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border Width="42" Height="42" CornerRadius="12" Background="#103498DB" Margin="0,0,12,0">
+                                <TextBlock Text="👥" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Clients actifs" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock x:Name="ActiveClientsText" Text="0" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Total Launched -->
+                    <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border Width="42" Height="42" CornerRadius="12" Background="#109B59B6" Margin="0,0,12,0">
+                                <TextBlock Text="📊" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Total lancés" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock x:Name="TotalLaunchedText" Text="0" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Memory Usage -->
+                    <Border Grid.Column="3" Style="{StaticResource StatCardStyle}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Border Width="42" Height="42" CornerRadius="12" Background="#10E67E22" Margin="0,0,12,0">
+                                <TextBlock Text="💾" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Mémoire" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock x:Name="MemoryUsageText" Text="0 MB" FontSize="16" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Cards -->
+            <Grid Grid.Row="2" Margin="30,25,30,10">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <!-- API Uptime -->
-                <Border Grid.Column="0" Style="{StaticResource StatCardStyle}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="&#xE916;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="{StaticResource PrimaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <StackPanel>
-                            <TextBlock Text="Temps API" FontSize="11" Foreground="#7f8c8d"/>
-                            <TextBlock x:Name="ApiUptimeText" Text="--:--:--" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
-                        </StackPanel>
+                <!-- API Card -->
+                <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Click="Api_Click">
+                    <StackPanel>
+                        <Border Width="90" Height="90" CornerRadius="45" Margin="0,0,0,18">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                    <GradientStop Color="#15E03E2F" Offset="0"/>
+                                    <GradientStop Color="#08E03E2F" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <TextBlock Text="⚡" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="API Server" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="ApiStatusText" Text="Arrêté" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        <Border x:Name="ApiIndicator" Width="12" Height="12" CornerRadius="6" Background="#ADB5BD" Margin="0,12,0,0">
+                            <Border.Effect>
+                                <DropShadowEffect Color="#ADB5BD" BlurRadius="8" ShadowDepth="0" Opacity="0.5"/>
+                            </Border.Effect>
+                        </Border>
                     </StackPanel>
-                </Border>
+                </Button>
 
-                <!-- Active Clients -->
-                <Border Grid.Column="1" Style="{StaticResource StatCardStyle}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#3498db" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <StackPanel>
-                            <TextBlock Text="Clients actifs" FontSize="11" Foreground="#7f8c8d"/>
-                            <TextBlock x:Name="ActiveClientsText" Text="0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
-                        </StackPanel>
+                <!-- Client Card -->
+                <Button Grid.Column="1" x:Name="ClientButton" Style="{StaticResource CardButtonStyle}" Click="Client_Click" IsEnabled="False" ToolTip="En attente du démarrage de l'API…">
+                    <StackPanel>
+                        <Border Width="90" Height="90" CornerRadius="45" Background="#103498DB" Margin="0,0,0,18">
+                            <TextBlock Text="💻" FontSize="40" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Client App" FontSize="22" FontWeight="Bold" Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="ClientStatusText" Text="En attente API..." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        <TextBlock Text="➕" FontSize="18" Foreground="{StaticResource InfoBrush}" HorizontalAlignment="Center" Margin="0,12,0,0"/>
                     </StackPanel>
-                </Border>
-
-                <!-- Total Launched -->
-                <Border Grid.Column="2" Style="{StaticResource StatCardStyle}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="&#xE8B7;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#9b59b6" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <StackPanel>
-                            <TextBlock Text="Total lancés" FontSize="11" Foreground="#7f8c8d"/>
-                            <TextBlock x:Name="TotalLaunchedText" Text="0" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- Memory Usage -->
-                <Border Grid.Column="3" Style="{StaticResource StatCardStyle}">
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="&#xE950;" FontFamily="Segoe MDL2 Assets" FontSize="20" Foreground="#e67e22" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                        <StackPanel>
-                            <TextBlock Text="Mémoire clients" FontSize="11" Foreground="#7f8c8d"/>
-                            <TextBlock x:Name="MemoryUsageText" Text="0 MB" FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
+                </Button>
             </Grid>
-        </Border>
 
-        <!-- Cards -->
-        <Grid Grid.Row="2" Margin="40,20">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-
-            <!-- API Card -->
-            <Button Grid.Column="0" Style="{StaticResource CardButtonStyle}" Click="Api_Click">
-                <StackPanel>
-                    <Border Width="80" Height="80" CornerRadius="40" Background="#fff5f5" Margin="0,0,0,15">
-                        <TextBlock Text="&#xE82D;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="{StaticResource PrimaryBrush}" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <!-- Action Buttons -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,15">
+                <Button x:Name="StopAllButton" Style="{StaticResource DangerButtonStyle}" Click="StopAllClients_Click" IsEnabled="False" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏹️" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock Text="Arrêter tous les clients" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+                
+                <!-- Toggle Client Debug Mode Button -->
+                <Button x:Name="ToggleDebugButton" Style="{StaticResource ModernButtonStyle}" Click="ToggleClientDebug_Click" 
+                        Background="#9B59B6" Margin="0,0,12,0">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="DebugIcon" Text="🐛" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                        <TextBlock x:Name="DebugButtonText" Text="Debug OFF" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+                
+                <!-- Toggle Console Button -->
+                <Button x:Name="ToggleConsoleButton" Style="{StaticResource ModernButtonStyle}" Click="ToggleConsole_Click" 
+                        Background="{StaticResource InfoBrush}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="ConsoleIcon" Text="📟" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                        <TextBlock x:Name="ConsoleButtonText" Text="Afficher Console" FontSize="13"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            
+            <!-- Console Panel (Hidden by default) -->
+            <Border x:Name="ConsolePanel" Grid.Row="4" Visibility="Collapsed" 
+                    Background="#1A1A2E" Margin="35,0,35,15" CornerRadius="16" Padding="18">
+                <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="15" ShadowDepth="0" Opacity="0.2"/>
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Console Header -->
+                    <Border Grid.Row="0" Background="#252540" CornerRadius="10" Padding="12,8" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📟" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBlock Text="Console de supervision" FontSize="14" FontWeight="SemiBold" Foreground="#ECEFF4" VerticalAlignment="Center"/>
+                            <Button Content="🗑️ Effacer" Click="ClearConsole_Click" Margin="20,0,0,0"
+                                    Background="Transparent" Foreground="#88C0D0" BorderThickness="0" 
+                                    Cursor="Hand" FontSize="12" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Border>
-                    <TextBlock Text="API Server" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="ApiStatusText" Text="Arrêté" FontSize="14" Foreground="#95a5a6" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    <Border x:Name="ApiIndicator" Width="10" Height="10" CornerRadius="5" Background="#95a5a6" Margin="0,10,0,0"/>
-                </StackPanel>
-            </Button>
+                    
+                    <!-- Console Output -->
+                    <ScrollViewer Grid.Row="1" x:Name="ConsoleScroller" VerticalScrollBarVisibility="Auto" MaxHeight="160">
+                        <TextBlock x:Name="ConsoleOutput" TextWrapping="Wrap" Foreground="#A3BE8C" 
+                                   FontFamily="Cascadia Code, Consolas" FontSize="12" Text="[Console prête]&#x0a;"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
 
-            <!-- Client Card -->
-            <Button Grid.Column="1" x:Name="ClientButton" Style="{StaticResource CardButtonStyle}" Click="Client_Click" IsEnabled="False" ToolTip="En attente du démarrage de l'API…">
-                <StackPanel>
-                    <Border Width="80" Height="80" CornerRadius="40" Background="#eaf2f8" Margin="0,0,0,15">
-                        <TextBlock Text="&#xE716;" FontFamily="Segoe MDL2 Assets" FontSize="32" Foreground="#3498db" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                    </Border>
-                    <TextBlock Text="Client App" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource DarkTextBrush}" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="ClientStatusText" Text="En attente API..." FontSize="14" Foreground="#95a5a6" HorizontalAlignment="Center" Margin="0,5,0,0"/>
-                    <TextBlock Text="&#xE710;" FontFamily="Segoe MDL2 Assets" FontSize="14" Foreground="#3498db" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+            <!-- Footer -->
+            <Border Grid.Row="5" Background="Transparent" Padding="0,0,0,18">
+                <StackPanel HorizontalAlignment="Center">
+                    <TextBlock Text="PaL.Xtreme v2.4.5 © 2026" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"/>
                 </StackPanel>
-            </Button>
+            </Border>
         </Grid>
-
-        <!-- Stop All Clients Button -->
-        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,15">
-            <Button x:Name="StopAllButton" Style="{StaticResource DangerButtonStyle}" Click="StopAllClients_Click" IsEnabled="False" Margin="0,0,10,0">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xE71A;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="Arrêter tous les clients" FontSize="14"/>
-                </StackPanel>
-            </Button>
-            
-            <!-- Toggle Client Debug Mode Button -->
-            <Button x:Name="ToggleDebugButton" Click="ToggleClientDebug_Click" 
-                    Background="#9b59b6" Foreground="White"
-                    BorderThickness="0" Cursor="Hand" Padding="15,10" Margin="0,0,10,0">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#8e44ad"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#7d3c98"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="DebugIcon" Text="🐛" FontSize="14" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBlock x:Name="DebugButtonText" Text="Debug OFF" FontSize="13" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Button>
-            
-            <!-- Toggle Console Button -->
-            <Button x:Name="ToggleConsoleButton" Click="ToggleConsole_Click" 
-                    Background="{StaticResource InfoBrush}" Foreground="White"
-                    BorderThickness="0" Cursor="Hand" Padding="15,10">
-                <Button.Template>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#2980b9"/>
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1f6391"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Button.Template>
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock x:Name="ConsoleIcon" Text="&#xE756;" FontFamily="Segoe MDL2 Assets" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock x:Name="ConsoleButtonText" Text="Afficher Console" FontSize="14" FontWeight="SemiBold"/>
-                </StackPanel>
-            </Button>
-        </StackPanel>
-        
-        <!-- Console Panel (Hidden by default) -->
-        <Border x:Name="ConsolePanel" Grid.Row="4" Visibility="Collapsed" 
-                Background="#1e1e1e" Margin="40,0,40,15" CornerRadius="10" Padding="15">
-            <Border.Effect>
-                <DropShadowEffect Color="#000000" BlurRadius="10" ShadowDepth="2" Opacity="0.3"/>
-            </Border.Effect>
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                
-                <!-- Console Header -->
-                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                    <TextBlock Text="📟" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                    <TextBlock Text="Console de supervision" FontSize="14" FontWeight="SemiBold" Foreground="#ecf0f1" VerticalAlignment="Center"/>
-                    <Button Content="🗑️ Effacer" Click="ClearConsole_Click" Margin="20,0,0,0"
-                            Background="Transparent" Foreground="#95a5a6" BorderThickness="0" 
-                            Cursor="Hand" FontSize="11" VerticalAlignment="Center"/>
-                </StackPanel>
-                
-                <!-- Console Output -->
-                <ScrollViewer Grid.Row="1" x:Name="ConsoleScroller" VerticalScrollBarVisibility="Auto" MaxHeight="180">
-                    <TextBlock x:Name="ConsoleOutput" TextWrapping="Wrap" Foreground="#00ff00" 
-                               FontFamily="Consolas" FontSize="12" Text="[Console prête]&#x0a;"/>
-                </ScrollViewer>
-            </Grid>
-        </Border>
-
-        <!-- Footer -->
-        <TextBlock Grid.Row="5" Text="PaL.Xtreme © 2026" FontSize="12" Foreground="#bdc3c7" HorizontalAlignment="Center" Margin="0,0,0,15"/>
-    </Grid>
+    </Border>
 </Window>

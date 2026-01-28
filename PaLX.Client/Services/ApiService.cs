@@ -18,7 +18,7 @@ namespace PaLX.Client.Services
         private HubConnection? _roomHubConnection;
         private string _authToken = string.Empty;
         private int _currentRoomId = 0; // Pour la reconnexion au groupe SignalR
-        public const string BaseUrl = "http://localhost:5145"; // Adjust if needed
+        public const string BaseUrl = "https://api.mounir.vip"; // VPS Production
         
         public string CurrentUsername { get; private set; } = string.Empty;
         public int CurrentUserId { get; private set; }
