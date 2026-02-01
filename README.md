@@ -133,7 +133,26 @@ Voici un résumé des fonctionnalités et optimisations intégrées au projet, c
 
 ---
 
-### 🛡️ v2.4.2 - Prévention Doublons de Salons *(Version Actuelle)*
+### � v2.4.7 - Amélioration Upload & Configuration API *(Version Actuelle)*
+
+*   **Upload Controller robuste** : Logging Serilog, gestion d'erreur complète, fallback WebRootPath
+*   **Kestrel optimisé** : Limite de requête à 100 MB pour les gros fichiers
+*   **JSON normalisé** : Réponses API en camelCase globalement
+*   **Debug amélioré** : Logs détaillés côté client pour les uploads
+
+---
+
+### 🎨 v2.4.6 - Refonte UI Login/Register/Launcher
+
+*   **Design moderne** : Champs de saisie blancs, icônes circulaires harmonisées
+*   **Launcher repensé** : Interface cohérente avec le reste de l'application
+*   **Nouvelle icône** : mounir.ico pour Client et Launcher
+*   **Correction bouton +** : Template 64x64 pour éviter la troncature
+*   **API Production** : Migration vers https://api.mounir.vip
+
+---
+
+### 🛡️ v2.4.2 - Prévention Doublons de Salons
 
 *   **Anti-doublon intelligent** : Impossible d'ouvrir plusieurs fenêtres du même salon
 *   **Toast élégant** : "Vous êtes déjà dans le salon « Nom »"

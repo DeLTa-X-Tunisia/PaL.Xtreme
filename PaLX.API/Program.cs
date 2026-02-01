@@ -46,6 +46,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseSerilog(); // Utiliser Serilog pour tout le logging ASP.NET Core
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONFIGURATION KESTREL (Taille max des requêtes pour uploads)
+// ═══════════════════════════════════════════════════════════════════════════
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CONFIGURATION DES SECRETS (Variables d'environnement OBLIGATOIRES)
 // ═══════════════════════════════════════════════════════════════════════════
 var dbPassword = Environment.GetEnvironmentVariable("PALX_DB_PASSWORD") 
@@ -75,7 +83,11 @@ var jwtKey = builder.Configuration["Jwt:Key"]?.Replace("${JWT_SECRET_KEY}", jwtS
 builder.Configuration["Jwt:Key"] = jwtKey;
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    });
 builder.Services.AddOpenApi();
 
 // ═══════════════════════════════════════════════════════════════════════════

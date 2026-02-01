@@ -1,7 +1,7 @@
 {
   "name": "palx-admin",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.4.7",
   "description": "Panel d'Administration PaL.Xtreme - Interface moderne et professionnelle",
   "type": "module",
   "scripts": {

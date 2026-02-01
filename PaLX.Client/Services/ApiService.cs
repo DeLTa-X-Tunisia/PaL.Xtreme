@@ -450,18 +450,22 @@ namespace PaLX.Client.Services
                 content.Add(streamContent, "file", Path.GetFileName(filePath));
 
                 var response = await _httpClient.PostAsync("api/upload/image", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+                System.Diagnostics.Debug.WriteLine($"[UPLOAD] Status: {response.StatusCode}, Response: {responseContent}");
+                
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-                    if (result.TryGetProperty("url", out var urlProperty))
+                    using var doc = System.Text.Json.JsonDocument.Parse(responseContent);
+                    if (doc.RootElement.TryGetProperty("url", out var urlProperty))
                     {
                         return urlProperty.GetString();
                     }
                 }
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[UPLOAD ERROR] {ex.Message}");
                 return null;
             }
         }

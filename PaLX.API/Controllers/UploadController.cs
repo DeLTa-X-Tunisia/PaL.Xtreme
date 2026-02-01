@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 
 namespace PaLX.API.Controllers
 {
@@ -27,36 +28,54 @@ namespace PaLX.API.Controllers
         [RequestSizeLimit(10 * 1024 * 1024)] // 10 MB
         public async Task<IActionResult> UploadImage(IFormFile file)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("Aucun fichier fourni.");
-            
-            // Validation taille maximale
-            if (file.Length > MaxImageSizeBytes)
-                return BadRequest($"Fichier trop volumineux. Taille max: {MaxImageSizeBytes / (1024 * 1024)} MB.");
-
-            // Validate extension
-            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (!allowedExtensions.Contains(extension))
-                return BadRequest("Format de fichier non supporté.");
-
-            // Ensure directory exists
-            var uploadsPath = Path.Combine(_environment.WebRootPath, "uploads");
-            if (!Directory.Exists(uploadsPath))
-                Directory.CreateDirectory(uploadsPath);
-
-            // Generate unique filename
-            var fileName = $"{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(uploadsPath, fileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
+            try
             {
-                await file.CopyToAsync(stream);
-            }
+                Log.Information("[UPLOAD] UploadImage appelé - file: {FileName}, size: {Size}", file?.FileName, file?.Length);
+                
+                if (file == null || file.Length == 0)
+                {
+                    Log.Warning("[UPLOAD] Aucun fichier fourni");
+                    return BadRequest("Aucun fichier fourni.");
+                }
+                
+                // Validation taille maximale
+                if (file.Length > MaxImageSizeBytes)
+                    return BadRequest($"Fichier trop volumineux. Taille max: {MaxImageSizeBytes / (1024 * 1024)} MB.");
 
-            // Return URL
-            var url = $"/uploads/{fileName}";
-            return Ok(new { Url = url });
+                // Validate extension
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp" };
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(extension))
+                    return BadRequest("Format de fichier non supporté.");
+
+                // Ensure directory exists - use fallback if WebRootPath is null
+                var webRootPath = _environment.WebRootPath ?? Path.Combine(_environment.ContentRootPath, "wwwroot");
+                var uploadsPath = Path.Combine(webRootPath, "uploads");
+                Log.Information("[UPLOAD] WebRootPath: {WebRootPath}, UploadsPath: {UploadsPath}", webRootPath, uploadsPath);
+                
+                if (!Directory.Exists(uploadsPath))
+                    Directory.CreateDirectory(uploadsPath);
+
+                // Generate unique filename
+                var fileName = $"{Guid.NewGuid()}{extension}";
+                var filePath = Path.Combine(uploadsPath, fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                Log.Information("[UPLOAD] Fichier sauvegardé: {FilePath}", filePath);
+                
+                // Return URL
+                var url = $"/uploads/{fileName}";
+                return Ok(new { url = url });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[UPLOAD] Erreur lors de l'upload de l'image");
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         [HttpPost("video")]
@@ -92,7 +111,7 @@ namespace PaLX.API.Controllers
 
             // Return URL
             var url = $"/uploads/{fileName}";
-            return Ok(new { Url = url });
+            return Ok(new { url = url });
         }
 
         [HttpPost("audio")]
@@ -128,7 +147,7 @@ namespace PaLX.API.Controllers
 
             // Return URL
             var url = $"/uploads/{fileName}";
-            return Ok(new { Url = url });
+            return Ok(new { url = url });
         }
 
         [HttpPost("file")]
@@ -167,7 +186,7 @@ namespace PaLX.API.Controllers
 
             // Return URL
             var url = $"/uploads/{fileName}";
-            return Ok(new { Url = url });
+            return Ok(new { url = url });
         }
     }
 }
