@@ -1,5 +1,5 @@
 
-# PaL.Xtreme
+# PaL.Xtreme v2.4.7
 
 <p align="center">
   <strong>🚀 Modern Chat Application inspired by Paltalk Messenger</strong>
